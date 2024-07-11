@@ -14,7 +14,7 @@ The first step consists of analyzing what part of the C-grammar that is needed
 for compiling TCC. For this I wrote a minimal C preprocessor: `min_tcc_preprocessor.cpp`
 and `CParser.c` that is heavily based on [RawParser](https://github.com/FransFaase/RawParser).
 
-WIP 11 July 2024
+## WIP 11 July 2024
 
 The [commit 058272](https://github.com/FransFaase/MES-replacemen/commit/4e31a615bcc408b6351247f035f348935121d26f)
 adds the files `tcc_cc.c` and `gcc_tcc_cc.c`. The second includes the first. The first is
