@@ -18,7 +18,7 @@ void tcc_grammar(non_terminal_dict_p *all_nt)
 	NT_DEF("primary_expr")
 		RULE IDENT PASS
 		RULE NTP("int") WS
-		RULE NTP("double") WS
+		//RULE NTP("double") WS
 		RULE NTP("char") WS
 		RULE NTP("string") WS
 		RULE CHAR_WS('(') NTP("expr") CHAR_WS(')')
@@ -46,17 +46,17 @@ void tcc_grammar(non_terminal_dict_p *all_nt)
 		RULE NTP("postfix_expr")
 
 	NT_DEF("sizeof_type")
-		RULE KEYWORD("char") TREE("char")
-		RULE KEYWORD("short") TREE("short")
+		//RULE KEYWORD("char") TREE("char")
+		//RULE KEYWORD("short") TREE("short")
 		RULE KEYWORD("int") TREE("int")
-		RULE KEYWORD("long") TREE("long")
+		//RULE KEYWORD("long") TREE("long")
 		//RULE KEYWORD("signed") NT("sizeof_type") TREE("signed_type")
 		RULE KEYWORD("unsigned") NT("sizeof_type") TREE("unsigned_type")
-		RULE KEYWORD("float") TREE("float")
+		//RULE KEYWORD("float") TREE("float")
 		RULE KEYWORD("double") NT("sizeof_type") OPTN TREE("double_type")
 		//RULE KEYWORD("const") NT("sizeof_type") TREE("const_type")
 		//RULE KEYWORD("volatile") NT("sizeof_type") TREE("volatile_type")
-		RULE KEYWORD("void") TREE("void")
+		RULE KEYWORD("void") CHAR_WS('*') TREE("void_ptr")
 		RULE KEYWORD("struct") IDENT TREE("structdecl")
 		RULE IDENT PASS
 		REC_RULEC WS CHAR_WS('*') TREE("pointdecl")
@@ -190,7 +190,7 @@ void tcc_grammar(non_terminal_dict_p *all_nt)
 		RULE KEYWORD("long") KEYWORD("double") TREE("long_double")
 		RULE KEYWORD("long") KEYWORD("long") TREE("long_long_int")
 		RULE KEYWORD("long") TREE("long")
-		RULE KEYWORD("float") TREE("float")
+		//RULE KEYWORD("float") TREE("float")
 		RULE KEYWORD("double") TREE("double")
 		RULE KEYWORD("const") KEYWORD("void") TREE("const_void")
 		RULE KEYWORD("void") TREE("void")
@@ -346,8 +346,8 @@ void tcc_grammar(non_terminal_dict_p *all_nt)
 				RULE WS NTP("expr")
 			} OPTN ADD_CHILD CHAR_WS(')') NT("statement") TREE("for")
 			RULE KEYWORD("goto") IDENT CHAR_WS(';') TREE("goto")
-			RULE KEYWORD("continue") CHAR_WS(';') TREE("cont")
-			RULE KEYWORD("break") CHAR_WS(';') TREE("break")
+			//RULE KEYWORD("continue") CHAR_WS(';') TREE("cont")
+			//RULE KEYWORD("break") CHAR_WS(';') TREE("break")
 			RULE KEYWORD("return") NT("expr") OPTN CHAR_WS(';') TREE("ret")
 		}
 
@@ -400,6 +400,8 @@ void print_char(char ch, char del)
 		printf("%c", ch);
 }
 
+int longest_string = 0;
+
 #define print(T) print_line(T, __LINE__)
 void print_line(tree_node_p tree_node, int line)
 {
@@ -438,6 +440,8 @@ void print_line(tree_node_p tree_node, int line)
 		for (size_t i = 0; i < string_node->length - 1; i++)
 			print_char(string_node->str[i], '"');
 		printf("\"");
+		if (string_node->length > longest_string)
+			longest_string = string_node->length;
 		return;
 	}
 	if (tree_node->type_name == tree_node_type)
@@ -543,7 +547,7 @@ void print_line(tree_node_p tree_node, int line)
 				}
 			}
 			printf("}");
-		}			
+		}
 		else if (strcmp(tree->tree_name, "structdecl") == 0)
 		{
 			NR_CHILDREN(1)
@@ -1128,6 +1132,8 @@ int main(int argc, char *argv[])
 	solutions_free(&solutions);
 
 	EXIT_RESULT_CONTEXT
+	
+	printf("%d\n", longest_string);
 
 	return 0;
 }
