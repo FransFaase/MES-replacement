@@ -1,0 +1,17 @@
+#!/bin/bash
+echo compile stack_c.cpp
+g++ -g stack_c.cpp -o stack_c
+echo stack_c
+./stack_c hello.sl >hello.M1
+echo blood-elf
+blood-elf --file hello.M1 --little-endian --output hello.blood_elf
+echo M1
+M1 --file hello.M1 --little-endian --architecture x86 --file hello.blood_elf --output hello.macro
+echo hex2
+hex2 --file ./M2libc/x86/ELF-x86-debug.hex2 --file hello.macro --output hellosl --architecture x86 --base-address 0x8048000 --little-endian 
+echo objdump
+objdump -d hellosl >hellosl.txt
+echo run
+./hellosl
+echo
+echo Done
