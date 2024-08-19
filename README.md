@@ -30,3 +30,12 @@ M2-Mesoplanet -f tcc_cc.c --architecture x86 --max-string 6000 -o tcc_cc
 it returns a segmentation fault after some time in a place where before it did not give it.
 It looks like the return address on the stack is overwritten at some point. The error
 also occurs when using [`Emulator`](https://github.com/FransFaase/Emulator/).
+
+## WIP 19 August 2024
+
+The [commit 590e5315](https://github.com/FransFaase/MES-replacement/commit/590e5315e847ebab648d6aede870bff70cdfd65d)
+contains the first version of `stack_c.cpp`, a compiler for a small stack base
+programming language, which can compile the `hello.sl` program with the help of
+some live-bootstrap executables (see the script `build_stack_hello`) to an
+executable `hellosl` that does print out the text 'hello world!'.
+
