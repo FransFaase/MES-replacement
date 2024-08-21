@@ -7,7 +7,8 @@
 FILE *fin;
 FILE *fout;
 FILE *ferr = stderr;
-char cur_char;
+char cur_char = '\0';
+int cur_line = 1;
 
 void read_char()
 {
@@ -15,6 +16,8 @@ void read_char()
 		cur_char = '\0';
 	else
 	{
+		if (cur_char == '\n')
+			cur_line++;
 		cur_char = fgetc(fin);
 		if (feof(fin))
 			cur_char = '\0';
@@ -31,7 +34,7 @@ struct Keyword
 	const char *name;
 	char sym;
 };
-#define NR_KEYWORDS 12
+#define NR_KEYWORDS 14
 Keyword keywords[NR_KEYWORDS] = {
 	{ "func",		'F' },
 	{ "const",		'C' },
@@ -45,6 +48,8 @@ Keyword keywords[NR_KEYWORDS] = {
 	{ "or",			'O' },
 	{ "ret",		'R' },
 	{ "pop",		'P' },
+	{ "dup",		'Q' },
+	{ "goto",		'G' },
 };
 
 void get_token()
@@ -108,8 +113,12 @@ void get_token()
 				if (cur_char == '\\')
 				{
 					read_char();
-					if (cur_char == 'n')
+					if (cur_char == '0')
+						cur_char = '\0';
+					else if (cur_char == 'n')
 						cur_char = '\n';
+					else if (cur_char == 'r')
+						cur_char = '\r';
 					else if (cur_char == 't')
 						cur_char = '\t';
 					token[i++] = cur_char;
@@ -172,6 +181,13 @@ void get_token()
 				int_value = sign * int_value;
 				sprintf(token, "%d", int_value);
 				return; 
+			}
+			else if (cur_char == '>')
+			{
+				sym = 's';
+				token[i++] = cur_char;
+				read_char();
+				break;
 			}
 			else
 			{
@@ -294,7 +310,7 @@ int main(int argc, char *argv[])
 		fin = fopen(argv[1], "r");
 		if (fin == 0)
 		{
-			fprintf(ferr, "ERROR: Cannot open file '%s'\n", argv[1]);
+			fprintf(ferr, "ERROR %d: Cannot open file '%s'\n", cur_line, argv[1]);
 			return 0;
 		}
 	}
@@ -316,7 +332,7 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != 'i')
 			{
-				fprintf(ferr, "ERROR: Expecting name after 'func'\n");
+				fprintf(ferr, "ERROR %d: Expecting name after 'func'\n", cur_line);
 				return 0;
 			}
 			strcpy(function_name, token);
@@ -343,7 +359,7 @@ int main(int argc, char *argv[])
 			}
 			else
 			{
-				fprintf(ferr, "ERROR: Expect ; or { after function name\n");
+				fprintf(ferr, "ERROR %d: Expect ; or { after function name\n", cur_line);
 				return 0;
 			}
 		}
@@ -352,7 +368,7 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != 'i')
 			{
-				fprintf(ferr, "ERROR: Expecting name after 'const'\n");
+				fprintf(ferr, "ERROR %d: Expecting name after 'const'\n", cur_line);
 				return 0;
 			}
 			vars[nr_vars].type = 'C';
@@ -360,7 +376,7 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != '0')
 			{
-				fprintf(ferr, "ERROR: Expecting number after 'const' <name>\n");
+				fprintf(ferr, "ERROR %d: Expecting number after 'const' <name>\n", cur_line);
 				return 0;
 			}
 			vars[nr_vars].value = int_value;
@@ -371,7 +387,7 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != 'i')
 			{
-				fprintf(ferr, "ERROR: Expecting name after 'const'\n");
+				fprintf(ferr, "ERROR %d: Expecting name after 'const'\n", cur_line);
 				return 0;
 			}
 			vars[nr_vars].type = nesting_depth == 0 ? 'G' : 'L';
@@ -387,7 +403,7 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != '{')
 			{
-				fprintf(ferr, "ERROR: expecting '{' after 'loop'\n");
+				fprintf(ferr, "ERROR %d: expecting '{' after 'loop'\n", cur_line);
 				return 0;
 			}
 			fprintf(fout, ":_%s_loop%d\n", function_name, id);
@@ -403,7 +419,7 @@ int main(int argc, char *argv[])
 					break;
 			if (i < 0)
 			{
-				fprintf(ferr, "ERROR: 'break' outside 'loop'\n");
+				fprintf(ferr, "ERROR %d: 'break' outside 'loop'\n", cur_line);
 				return 0;
 			}
 			if (sym == 'B')
@@ -416,7 +432,7 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != '{')
 			{
-				fprintf(ferr, "ERROR: expecting '{' after 'then'\n");
+				fprintf(ferr, "ERROR %d: expecting '{' after 'then'\n", cur_line);
 				return 0;
 			}
 			fprintf(fout, "\ttest_eax,eax           # then\n\tpop_eax\n\tje %%_%s_else%d\n", function_name, id);
@@ -426,7 +442,7 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == 'E')
 		{
-			fprintf(ferr, "ERROR: unexpected 'else'\n");
+			fprintf(ferr, "ERROR %d: unexpected 'else'\n", cur_line);
 			return 0;
 		}
 		else if (sym == 'A')
@@ -434,10 +450,10 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != '{')
 			{
-				fprintf(ferr, "ERROR: expecting '{' after 'and'\n");
+				fprintf(ferr, "ERROR %d: expecting '{' after 'and'\n", cur_line);
 				return 0;
 			}
-			fprintf(fout, "\ttest_eax              # and\n\tjne %%_%s_and_end%d\tpop_eax\n\n", function_name, id);
+			fprintf(fout, "\ttest_eax,eax          # and\n\tje %%_%s_and_end%d\n\tpop_eax\n", function_name, id);
 			nesting_type[nesting_depth] = 'A';
 			nesting_id[nesting_depth] = id++;
 			nesting[nesting_depth++] = nr_vars;
@@ -447,10 +463,10 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != '{')
 			{
-				fprintf(ferr, "ERROR: expecting '{' after 'or'\n");
+				fprintf(ferr, "ERROR %d: expecting '{' after 'or'\n", cur_line);
 				return 0;
 			}
-			fprintf(fout, "\ttest_eax              # or\n\tje %%_%s_or_end%d\tpop_eax\n\n", function_name, id);
+			fprintf(fout, "\ttest_eax,eax          # or\n\tjne %%_%s_or_end%d\n\tpop_eax\n", function_name, id);
 			nesting_type[nesting_depth] = 'O';
 			nesting_id[nesting_depth] = id++;
 			nesting[nesting_depth++] = nr_vars;
@@ -464,7 +480,7 @@ int main(int argc, char *argv[])
 		{
 			if (nesting_depth == 0)
 			{
-				fprintf(ferr, "ERROR: To many }\n");
+				fprintf(ferr, "ERROR %d: To many }\n", cur_line);
 				return 0;
 			}
 			nr_vars = nesting[--nesting_depth];
@@ -478,7 +494,7 @@ int main(int argc, char *argv[])
 					get_token();
 					if (sym != '{')
 					{
-						fprintf(ferr, "ERROR: expecting '{' after 'else'\n");
+						fprintf(ferr, "ERROR %d: expecting '{' after 'else'\n", cur_line);
 						return 0;
 					}
 					fprintf(fout, "\tjmp %%_%s_else_end%d\n", function_name, nesting_id[nesting_depth]);
@@ -507,35 +523,48 @@ int main(int argc, char *argv[])
 		{
 			fprintf(fout, "\tpop_eax               # pop\n");
 		}	
+		else if (sym == 'Q')
+		{
+			fprintf(fout, "\tpush_eax              # dup\n");
+		}
+		else if (sym == 'G')
+		{
+			get_token();
+			if (sym != 'i')
+			{
+				fprintf(ferr, "Expecting label after 'goto'\n");
+				return 0;
+			}
+			fprintf(fout, "\tjmp %%%s_%s\n", token, function_name);
+		}
 		else if (sym == 'i')
 		{
-			bool found = false;
-			for (int i = nr_vars - 1; i >= 0; i--)
+			int i = nr_vars - 1;
+			for (; i >= 0; i--)
 				if (strcmp(token, vars[i].name) == 0)
-				{
-					found = true;
-					//fprintf(fout, "# Ident %s type %c", token, vars[i].type);
-					//if (vars[i].type == 'L')
-					//	fprintf(fout, "\tpos %d", vars[i].pos);
-					//else if (vars[i].type == 'C')
-					//	fprintf(fout, "\tvalue %d", vars[i].value);
-					//fprintf(fout, "\n");
-					if (vars[i].type == 'G')
-						fprintf(fout, "\tpush_eax              # global\n\tmov_eax, &%s\n", token);
-					else if (vars[i].type == 'F')
-						fprintf(fout, "\tpush_eax              # function\n\tmov_eax, &%s\n", token);
-					else if (vars[i].type == 'C')
-						fprintf(fout, "\tpush_eax              # const\n\tmov_eax, %%%d\n", vars[i].value);
-					else if (vars[i].type == 'L')
-					{
-						fprintf(fout, "\tpush_eax              # local %s\n\tlea_eax,[ebp+DWORD] %%%d\n", token, 4 * vars[i].pos);
-					}
 					break;
-				}
-			if (!found)
+			if (i >= 0)
 			{
-				fprintf(ferr, "ERROR: Ident %s is not defined\n", token);
-
+				//fprintf(fout, "# Ident %s type %c", token, vars[i].type);
+				//if (vars[i].type == 'L')
+				//	fprintf(fout, "\tpos %d", vars[i].pos);
+				//else if (vars[i].type == 'C')
+				//	fprintf(fout, "\tvalue %d", vars[i].value);
+				//fprintf(fout, "\n");
+				if (vars[i].type == 'G')
+					fprintf(fout, "\tpush_eax              # global\n\tmov_eax, &%s\n", token);
+				else if (vars[i].type == 'F')
+					fprintf(fout, "\tpush_eax              # function\n\tmov_eax, &%s\n", token);
+				else if (vars[i].type == 'C')
+					fprintf(fout, "\tpush_eax              # const\n\tmov_eax, %%%d\n", vars[i].value);
+				else if (vars[i].type == 'L')
+				{
+					fprintf(fout, "\tpush_eax              # local %s\n\tlea_eax,[ebp+DWORD] %%%d\n", token, 4 * vars[i].pos);
+				}
+			}
+			else
+			{
+				fprintf(ferr, "ERROR %d: Ident %s is not defined\n", cur_line, token);
 			}
 		}
 		else if (sym == '0')
@@ -591,6 +620,10 @@ int main(int argc, char *argv[])
 			{
 				fprintf(fout, "%s_%s\n", token, function_name);
 			}
+			else if (strcmp(token, "=:") == 0)
+			{
+				fprintf(fout, "\tpop_ebx               # =\n\tmov_[ebx],eax\n\tpop_eax\n");
+			}
 			else if (strcmp(token, "?1") == 0)
 			{
 				fprintf(fout, "\tmov_al,[eax]          # ?1\n\tmovzx_eax,al\n");
@@ -637,14 +670,35 @@ int main(int argc, char *argv[])
 			{
 				fprintf(fout, "\tpop_ebx               # >=sfv\n\tcmp_eax_ebx\n\tsetge_al\n\tmovzx_eax,al\n");
 			}
+			else if (strcmp(token, "->") == 0)
+			{
+				get_token();
+				if (sym != 'i')
+				{
+					fprintf(ferr, "ERROR %d: Expecting const ident after '->'. Found %s\n", cur_line, token);
+					return 0; 
+				}
+				int i = nr_vars - 1;
+				for (; i >= 0; i--)
+					if (strcmp(token, vars[i].name) == 0)
+						break;
+				if (i >= 0 && vars[i].type == 'C')
+				{
+					fprintf(fout, "\tmov_eax,[eax]         # ->\n\tadd_eax, %%%d\n", vars[i].value);
+				}
+				else
+				{
+					fprintf(ferr, "ERROR %d: Ident %s is not defined\n", cur_line, token);
+				}
+			}
 			else
 			{
-				fprintf(ferr, "ERROR: Sym %c token |%s| not supported\n", sym, token);
+				fprintf(ferr, "ERROR %d: Sym %c token |%s| not supported\n", cur_line, sym, token);
 			}	
 		}
 		else
 		{
-			fprintf(ferr, "ERROR: Sym %c token |%s| not supported\n", sym, token);
+			fprintf(ferr, "ERROR %d: Sym %c token |%s| not supported\n", cur_line, sym, token);
 		}
 		
 		get_token();

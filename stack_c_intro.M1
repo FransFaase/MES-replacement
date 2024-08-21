@@ -25,8 +25,10 @@ DEFINE mov_[DWORD],eax A3
 DEFINE mov_[DWORD],ebx 891D
 DEFINE mov_[ecx],eax 8901
 DEFINE mov_[eax],ebx 8918
+DEFINE mov_[ebx],eax 8903
 DEFINE mov_[ebp],eax 894500
 DEFINE mov_[eax],bl 8818
+DEFINE add_eax, 81C0
 DEFINE add_eax,ebx 01D8
 DEFINE add_ebx,eax 01C3
 DEFINE sub_ebx,eax 29C3
