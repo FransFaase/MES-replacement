@@ -2,14 +2,17 @@ DEFINE pop_eax 58
 DEFINE pop_ebx 5B
 DEFINE pop_ecx 59
 DEFINE pop_edx 5A
+DEFINE pop_edi 5F
 DEFINE push_eax 50
 DEFINE push_ebx 53
+DEFINE push_edi 57
 DEFINE mov_eax, B8
 DEFINE mov_ebx, BB
 DEFINE mov_edx, BA
 DEFINE mov_eax,[DWORD] 8B05
 DEFINE mov_ebx,[DWORD] 8B1D
 DEFINE mov_eax,ebx 89D8
+DEFINE mov_eax,edx 89D0
 DEFINE mov_ebx,eax 89C3
 DEFINE mov_ebp,eax 89C5
 DEFINE mov_al,[eax] 8A00
@@ -27,6 +30,8 @@ DEFINE mov_[eax],bl 8818
 DEFINE add_eax,ebx 01D8
 DEFINE add_ebx,eax 01C3
 DEFINE sub_ebx,eax 29C3
+DEFINE cdq 99
+DEFINE idiv_ebx F7FB
 DEFINE and_eax, 25
 DEFINE add_ebp, 81C5
 DEFINE sub_ebp, 81ED
@@ -62,6 +67,7 @@ DEFINE NULL 00000000
 	mov_[DWORD],eax &SYS_MALLOC                 # Set our malloc pointer
 
 	mov_eax, %10000
+	push_eax									# (sys_malloc assums address)
 	call %sys_malloc
 	mov_ebp,eax
 	
@@ -73,30 +79,47 @@ DEFINE NULL 00000000
 	mov_eax, %1                                 # put the exit syscall number in eax
 	int_80                                      # Call it a good day
 
+# These sys_ function follow the same calling conventions
+# as all the other functions. To access the arguments on the stack
+# the return address is stored in the edi address (which is only possible
+# because these functions do not call other function) and the function
+# address (which is stored in the eax register, the top of the stack)
+# needs to be pop as well.
+
 :sys_malloc
+	pop_edi
+	pop_eax
 	mov_ebx,[DWORD] &SYS_MALLOC                 # Using the current pointer
 	add_ebx,eax                                 # Request the number of desired bytes
 	mov_eax, %45                                # the Syscall # for SYS_BRK
 	int_80                                      # call the Kernel
 	mov_eax,[DWORD] &SYS_MALLOC                 # Return pointer
 	mov_[DWORD],ebx &SYS_MALLOC                 # Update pointer
+	push_edi
 	ret
 
 :sys_open
+	pop_edi
 	pop_edx
 	pop_ecx
-	mov_ebx,eax
+	pop_ebx
 	mov_eax, %5
 	int_80
+	push_edi
 	ret
 
 :sys_close
+	pop_edi
+	pop_eax
 	mov_ebx,eax
 	int_80
 	pop_eax
+	push_edi
 	ret
 
 :sys_fgetc
+	pop_edi
+	pop_eax
 	mov_ebx,eax                                 # Where are we reading from
 	lea_ecx,[ebp+DWORD] %4
 	mov_eax, %3                                 # the syscall number for read
@@ -110,11 +133,11 @@ DEFINE NULL 00000000
 :sys_fgetc_else1
 	mov_eax, %0
 :sys_fgetc_done
+	push_edi
 	ret
 
 :sys_fputc
-	pop_eax
-	mov_[ebp],eax
+	pop_edi
 	pop_eax
 	mov_ebx,eax
 	pop_eax
@@ -123,7 +146,6 @@ DEFINE NULL 00000000
 	mov_eax, %4                                 # the syscall number for write
 	mov_edx, %1                                 # set the size of chars we want
 	int_80                                      # call the Kernel
-	mov_ebx,[ebp]         # ret
-	push_ebx
+	push_edi
 	ret
 	

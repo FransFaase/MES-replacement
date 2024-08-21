@@ -6,6 +6,7 @@
 
 FILE *fin;
 FILE *fout;
+FILE *ferr = stderr;
 char cur_char;
 
 void read_char()
@@ -104,12 +105,17 @@ void get_token()
 					read_char();
 					break;
 				}
-				token[i++] = cur_char;
 				if (cur_char == '\\')
 				{
 					read_char();
+					if (cur_char == 'n')
+						cur_char = '\n';
+					else if (cur_char == 't')
+						cur_char = '\t';
 					token[i++] = cur_char;
 				}
+				else
+					token[i++] = cur_char;
 			}
 			token[i] = '\0';
 			return;
@@ -214,9 +220,22 @@ struct String
 };
 String *strings = 0;
 
+void save_print_string(FILE *fout, const char *s)
+{
+	for (; *s != '\0'; s++)
+		if (*s == '\n')
+			fprintf(fout, "\\n");
+		else if (*s == '\t')
+			fprintf(fout, "\\t");
+		else if (*s < ' ')
+			fprintf(fout, "?");
+		else
+			fprintf(fout, "%c", *s);
+}
+
 int nr_for_string(const char *s)
 {
-	printf("# nr_for_string %s\n", s);
+	//printf("# nr_for_string %s\n", s);
 	int nr = 0;
 	String **ref_string = &strings;
 	for (; (*ref_string) != 0; ref_string = &(*ref_string)->next, nr++)
@@ -275,7 +294,7 @@ int main(int argc, char *argv[])
 		fin = fopen(argv[1], "r");
 		if (fin == 0)
 		{
-			printf("Cannot open file '%s'\n", argv[1]);
+			fprintf(ferr, "ERROR: Cannot open file '%s'\n", argv[1]);
 			return 0;
 		}
 	}
@@ -297,7 +316,7 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != 'i')
 			{
-				printf("Expecting name after 'func'\n");
+				fprintf(ferr, "ERROR: Expecting name after 'func'\n");
 				return 0;
 			}
 			strcpy(function_name, token);
@@ -324,7 +343,7 @@ int main(int argc, char *argv[])
 			}
 			else
 			{
-				printf("Expect ; or { after function name\n");
+				fprintf(ferr, "ERROR: Expect ; or { after function name\n");
 				return 0;
 			}
 		}
@@ -333,7 +352,7 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != 'i')
 			{
-				printf("Expecting name after 'const'\n");
+				fprintf(ferr, "ERROR: Expecting name after 'const'\n");
 				return 0;
 			}
 			vars[nr_vars].type = 'C';
@@ -341,7 +360,7 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != '0')
 			{
-				printf("Expecting number after 'const' <name>\n");
+				fprintf(ferr, "ERROR: Expecting number after 'const' <name>\n");
 				return 0;
 			}
 			vars[nr_vars].value = int_value;
@@ -352,14 +371,14 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != 'i')
 			{
-				printf("Expecting name after 'const'\n");
+				fprintf(ferr, "ERROR: Expecting name after 'const'\n");
 				return 0;
 			}
 			vars[nr_vars].type = nesting_depth == 0 ? 'G' : 'L';
 			strcpy(vars[nr_vars].name, token);
 			if (nesting_depth > 0)
 			{
-				vars[nr_vars].pos = nr_vars - nesting[nesting_depth - 1] + 1;
+				vars[nr_vars].pos = nr_vars - nesting[0] + 1;
 			} 
 			nr_vars++;
 		}
@@ -368,7 +387,8 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != '{')
 			{
-				printf("expecting '{' after 'loop'\n");
+				fprintf(ferr, "ERROR: expecting '{' after 'loop'\n");
+				return 0;
 			}
 			fprintf(fout, ":_%s_loop%d\n", function_name, id);
 			nesting_type[nesting_depth] = 'L';
@@ -383,7 +403,7 @@ int main(int argc, char *argv[])
 					break;
 			if (i < 0)
 			{
-				printf("'break' outside 'loop'\n");
+				fprintf(ferr, "ERROR: 'break' outside 'loop'\n");
 				return 0;
 			}
 			if (sym == 'B')
@@ -396,7 +416,8 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != '{')
 			{
-				printf("expecting '{' after 'then'\n");
+				fprintf(ferr, "ERROR: expecting '{' after 'then'\n");
+				return 0;
 			}
 			fprintf(fout, "\ttest_eax,eax           # then\n\tpop_eax\n\tje %%_%s_else%d\n", function_name, id);
 			nesting_type[nesting_depth] = 'T';
@@ -405,7 +426,7 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == 'E')
 		{
-			printf("unexpected 'else'\n");
+			fprintf(ferr, "ERROR: unexpected 'else'\n");
 			return 0;
 		}
 		else if (sym == 'A')
@@ -413,7 +434,8 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != '{')
 			{
-				printf("expecting '{' after 'and'\n");
+				fprintf(ferr, "ERROR: expecting '{' after 'and'\n");
+				return 0;
 			}
 			fprintf(fout, "\ttest_eax              # and\n\tjne %%_%s_and_end%d\tpop_eax\n\n", function_name, id);
 			nesting_type[nesting_depth] = 'A';
@@ -425,7 +447,8 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != '{')
 			{
-				printf("expecting '{' after 'or'\n");
+				fprintf(ferr, "ERROR: expecting '{' after 'or'\n");
+				return 0;
 			}
 			fprintf(fout, "\ttest_eax              # or\n\tje %%_%s_or_end%d\tpop_eax\n\n", function_name, id);
 			nesting_type[nesting_depth] = 'O';
@@ -441,7 +464,7 @@ int main(int argc, char *argv[])
 		{
 			if (nesting_depth == 0)
 			{
-				printf("To many }\n");
+				fprintf(ferr, "ERROR: To many }\n");
 				return 0;
 			}
 			nr_vars = nesting[--nesting_depth];
@@ -455,7 +478,7 @@ int main(int argc, char *argv[])
 					get_token();
 					if (sym != '{')
 					{
-						printf("expecting '{' after 'else'\n");
+						fprintf(ferr, "ERROR: expecting '{' after 'else'\n");
 						return 0;
 					}
 					fprintf(fout, "\tjmp %%_%s_else_end%d\n", function_name, nesting_id[nesting_depth]);
@@ -511,7 +534,7 @@ int main(int argc, char *argv[])
 				}
 			if (!found)
 			{
-				fprintf(fout, "## Ident %s is not defined\n", token);
+				fprintf(ferr, "ERROR: Ident %s is not defined\n", token);
 
 			}
 		}
@@ -522,7 +545,13 @@ int main(int argc, char *argv[])
 		else if (sym == '"')
 		{
 			int nr = nr_for_string(token);
-			fprintf(fout, "\tpush_eax              # push string %s\n\tmov_eax, &string_%d\n", token, nr);
+			fprintf(fout, "\tpush_eax              # push string '");
+			save_print_string(fout, token);
+			fprintf(fout, "'\n\tmov_eax, &string_%d\n", nr);
+		}
+		else if (sym == '\'')
+		{
+			fprintf(fout, "\tpush_eax              # push char\n\tmov_eax, %%%d\n", token[0]);
 		}
 		else if (sym == '?')
 		{
@@ -539,6 +568,22 @@ int main(int argc, char *argv[])
 		else if (sym == '-')
 		{
 			fprintf(fout, "\tpop_ebx               # -\n\tsub_ebx,eax\n\tmov_eax,ebx\n");
+		}
+		else if (sym == '/')
+		{
+			fprintf(fout, "\tmov_ebx,eax           # /\n\tpop_eax\n\tcdq\n\tidiv_ebx\n");
+		}
+		else if (sym == '%')
+		{
+			fprintf(fout, "\tmov_ebx,eax           # %%\n\tpop_eax\n\tcdq\n\tidiv_ebx\n\tmov_eax,edx");
+		}
+		else if (strcmp(token, "<") == 0)
+		{
+			fprintf(fout, "\tpop_ebx               # <\n\tcmp_eax_ebx\n\tsetb_al\n\tmovzx_eax,al\n");
+		}
+		else if (strcmp(token, ">") == 0)
+		{
+			fprintf(fout, "\tpop_ebx               # >\n\tcmp_eax_ebx\n\tseta_al\n\tmovzx_eax,al\n");
 		}
 		else if (sym == 's')
 		{
@@ -568,17 +613,9 @@ int main(int argc, char *argv[])
 			{
 				fprintf(fout, "\tpop_ebx               # !=\n\tcmp_eax_ebx\n\tsetne_al\n\tmovzx_eax,al\n");
 			}
-			else if (strcmp(token, "<") == 0)
-			{
-				fprintf(fout, "\tpop_ebx               # <\n\tcmp_eax_ebx\n\tsetb_al\n\tmovzx_eax,al\n");
-			}
 			else if (strcmp(token, "<=") == 0)
 			{
 				fprintf(fout, "\tpop_ebx               # <=\n\tcmp_eax_ebx\n\tsetbe_al\n\tmovzx_eax,al\n");
-			}
-			else if (strcmp(token, ">") == 0)
-			{
-				fprintf(fout, "\tpop_ebx               # >\n\tcmp_eax_ebx\n\tseta_al\n\tmovzx_eax,al\n");
 			}
 			else if (strcmp(token, ">=") == 0)
 			{
@@ -602,12 +639,12 @@ int main(int argc, char *argv[])
 			}
 			else
 			{
-				fprintf(fout, "# %c |%s|\n", sym, token);
+				fprintf(ferr, "ERROR: Sym %c token |%s| not supported\n", sym, token);
 			}	
 		}
 		else
 		{
-			fprintf(fout, "# %c |%s|\n", sym, token);
+			fprintf(ferr, "ERROR: Sym %c token |%s| not supported\n", sym, token);
 		}
 		
 		get_token();
