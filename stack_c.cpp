@@ -598,6 +598,10 @@ int main(int argc, char *argv[])
 		{
 			fprintf(fout, "\tpop_ebx               # -\n\tsub_ebx,eax\n\tmov_eax,ebx\n");
 		}
+		else if (sym == '*')
+		{
+			fprintf(fout, "\tpop_ebx               # *\n\timul_eax,ebx\n");
+		}
 		else if (sym == '/')
 		{
 			fprintf(fout, "\tmov_ebx,eax           # /\n\tpop_eax\n\tcdq\n\tidiv_ebx\n");
