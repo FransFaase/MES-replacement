@@ -4,7 +4,47 @@
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
 
-#ifndef __GNUC__
+#ifdef __GNUC__
+
+#include <stdio.h>
+#include <malloc.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+
+char fhgetc(int f)
+{
+	char ch[1];
+	int i = read(f, ch, 1);
+	/*
+	if (i == 0)
+		printf("<EOF>\n");
+	else if (' ' <= ch[0] && ch[0] < 127)
+		printf("%c", ch[0]);
+	else if (ch[0] == '\n')
+		printf("\\n\n");
+	else
+		printf("\\%o", ch[0]);
+	*/
+	if (i == 0)
+		return 0;
+	return ch[0];
+}
+
+void fhputc(char s, int f)
+{
+	char buffer[2];
+	buffer[0] = s;
+	write(f, buffer, 1);
+}
+
+//void fhputs(char* s, int f)
+//{
+//	size_t len = strlen(s);
+//	write(f, s, len);
+//}
+
+#else
 
 int open(char* name, int flag, int mode)
 {
@@ -95,9 +135,21 @@ void fhput_hex(int i, int fh)
 
 // ----- Malloc ----
 
-#define NULL 0
+#ifdef __GNUC__
 
-#ifndef __GNUC__
+void *_malloc(size_t size)
+{
+	//printf("malloc %ld ", size);
+	//fflush(stdout);
+	void* r = malloc(size);
+	//printf("%p\n", r);
+	return r;
+}
+
+
+#else
+
+#define NULL 0
 
 int brk(void *addr)
 {
@@ -160,16 +212,14 @@ bool eqstr(char* s, char* t)
 
 void _strcpy(char* trg, char* src)
 {
-	while (TRUE)
+	int i = 0;
+	while (*src != 0)
 	{
-		*trg = *src;
-		if (*src == 0)
-		{
-			break;
-		}
-		trg = trg + 1;
+		trg[i] = *src;
+		i = i + 1;
 		src = src + 1;
 	}
+	trg[i] = 0;
 }
 
 void _strcat(char* trg, char* src)
@@ -203,16 +253,17 @@ char* copystr(char* str)
 
 // Preprocessor
 
+typedef struct char_iterator_s char_iterator_t;
+typedef struct char_iterator_s* char_iterator_p;
+typedef void (*char_next_p)(char_iterator_p);
 struct char_iterator_s
 {
 	char ch;
 	long line;
 	long column;
 	char* filename;
-	FUNCTION next;
+	char_next_p next;
 };
-typedef struct char_iterator_s char_iterator_t;
-typedef struct char_iterator_s* char_iterator_p;
 
 
 struct file_iterator_s
@@ -223,8 +274,9 @@ struct file_iterator_s
 typedef struct file_iterator_s file_iterator_t;
 typedef struct file_iterator_s* file_iterator_p;
 
-void file_iterator_next(file_iterator_p it)
+void file_iterator_next(char_iterator_p char_it)
 {
+	file_iterator_p it = (file_iterator_p)char_it;
 	//fhputs("file_iterator_next: '", STDOUT_FILENO);
 	if (it->base.ch == 0)
 	{
@@ -247,7 +299,7 @@ void file_iterator_next(file_iterator_p it)
 	}
 	else if (it->base.ch == '\r')
 	{
-		file_iterator_next(it);
+		file_iterator_next(char_it);
 	}
 	//fhputc(it->base.ch, STDOUT_FILENO);
 	//fhputs("'\n", STDOUT_FILENO);
@@ -266,7 +318,7 @@ file_iterator_p new_file_iterator(char* fn)
 	it->base.line = 0;
 	it->base.column = 0;
 	it->base.next = file_iterator_next;
-	file_iterator_next(it);
+	file_iterator_next(&it->base);
 	return it;
 }
 
@@ -279,9 +331,10 @@ struct line_splice_iterator_s
 };
 typedef struct line_splice_iterator_s* line_splice_iterator_p;
 
-void line_splice_iterator_next(line_splice_iterator_p it)
+void line_splice_iterator_next(char_iterator_p char_it)
 {
-	FUNCTION _source_it_next = it->_source_it->next;
+	line_splice_iterator_p it = (line_splice_iterator_p)char_it;
+	char_next_p _source_it_next; _source_it_next = it->_source_it->next;
 	//fhputs("line_splice_iterator_next(\n", STDOUT_FILENO);
 	if (it->_a == 0)
 	{
@@ -327,7 +380,7 @@ line_splice_iterator_p new_line_splice_iterator(char_iterator_p source_it)
 	it->base.filename = source_it->filename;
 	it->base.next = line_splice_iterator_next;
 	it->_a = source_it->ch;
-	line_splice_iterator_next(it);
+	line_splice_iterator_next(&it->base);
 	return it;
 }
 
@@ -342,9 +395,10 @@ struct comment_strip_iterator_s
 };
 typedef struct comment_strip_iterator_s* comment_strip_iterator_p;
 
-void comment_strip_iterator_next(comment_strip_iterator_p it)
+void comment_strip_iterator_next(char_iterator_p char_it)
 {
-	FUNCTION _source_it_next = it->_source_it->next;
+	comment_strip_iterator_p it = (comment_strip_iterator_p)char_it;
+	char_next_p _source_it_next; _source_it_next = it->_source_it->next;
 	//fhputs("comment_strip_iterator_next(\n", STDOUT_FILENO);
 	//fhput_int(it->_state, STDOUT_FILENO);
 	//fhputs("'\n", STDOUT_FILENO);
@@ -488,7 +542,7 @@ comment_strip_iterator_p new_comment_strip_iterator(char_iterator_p source_it)
 	it->base.next = comment_strip_iterator_next;
 	it->_a = source_it->ch;
 	it->_state = 0;	
-	comment_strip_iterator_next(it);
+	comment_strip_iterator_next(&it->base);
 	//fhputs("new_comment_strip_iterator)\n", STDOUT_FILENO);
 	return it;
 }
@@ -503,11 +557,12 @@ struct include_iterator_s
 };
 typedef struct include_iterator_s* include_iterator_p;
 
-void include_iterator_next(include_iterator_p it)
+void include_iterator_next(char_iterator_p char_it)
 {
-	fhputs("include_iterator_next(\n", STDOUT_FILENO);
+	include_iterator_p it = (include_iterator_p)char_it;
+	//fhputs("include_iterator_next(\n", STDOUT_FILENO);
 	//printf("include_iterator_next %d\n", it->_source_it->ch);
-	FUNCTION _source_it_next = it->_source_it->next;
+	char_next_p _source_it_next; _source_it_next = it->_source_it->next;
 	_source_it_next(it->_source_it);
 	it->base.ch = it->_source_it->ch;
 	if (it->base.ch == 0)
@@ -528,9 +583,9 @@ void include_iterator_next(include_iterator_p it)
 	it->base.line = it->_source_it->line;
 	it->base.column = it->_source_it->column;
 	//printf(it->base.ch < ' ' ? "= %d\n" : "= '%c'\n", it->base.ch);
-	fhputs("include_iterator_next: '", STDOUT_FILENO);
-	fhputc(it->base.ch, STDOUT_FILENO);
-	fhputs("'\n", STDOUT_FILENO);
+	//fhputs("include_iterator_next: '", STDOUT_FILENO);
+	//fhputc(it->base.ch, STDOUT_FILENO);
+	//fhputs("'\n", STDOUT_FILENO);
 }			
 
 void include_iterator_add(include_iterator_p it, char_iterator_p include_it)
@@ -548,7 +603,7 @@ void include_iterator_add(include_iterator_p it, char_iterator_p include_it)
 
 include_iterator_p new_include_iterator(char_iterator_p include_it)
 {
-	fhputs("new_include_iterator(\n", STDOUT_FILENO);
+	//fhputs("new_include_iterator(\n", STDOUT_FILENO);
 	include_iterator_p it = _malloc(sizeof(struct include_iterator_s));
 	it->base.filename = include_it->filename;
 	it->base.line = include_it->line;
@@ -557,7 +612,7 @@ include_iterator_p new_include_iterator(char_iterator_p include_it)
 	it->base.next = include_iterator_next;
 	it->_source_it = include_it;
 	it->_nr_parents = 0;
-	fhputs("new_include_iterator)\n", STDOUT_FILENO);
+	//fhputs("new_include_iterator)\n", STDOUT_FILENO);
 	return it;
 }
 
@@ -623,63 +678,11 @@ include_iterator_p new_include_iterator(char_iterator_p include_it)
 #define TK_H_IFNDEF		1033
 #define TK_H_INCLUDE	1034
 #define TK_H_UNDEF		1035
+#define TK_H_ERROR		1036
 
-/*
-#define NR_KEYWORDS 36
-int* keywords[NR_KEYWORDS];
-
-void init_keywords()
-{
-	int i;
-	
-	keywords[ 0] = "case";
-	keywords[ 1] = "char";
-	keywords[ 2] = "const";
-	keywords[ 3] = "default";
-	keywords[ 4] = "do";
-	keywords[ 5] = "double";
-	keywords[ 6] = "else";
-	keywords[ 7] = "enum";
-	keywords[ 8] = "extern";
-	keywords[ 9] = "for";
-	keywords[10] = "goto";
-	keywords[11] = "if";
-	keywords[12] = "inline";
-	keywords[13] = "int";
-	keywords[14] = "long";
-	keywords[15] = "short";
-	keywords[16] = "sizeof";
-	keywords[17] = "static";
-	keywords[18] = "struct";
-	keywords[19] = "switch";
-	keywords[20] = "then";
-	keywords[21] = "typedef";
-	keywords[22] = "union";
-	keywords[23] = "unsigned";
-	keywords[24] = "void";
-	keywords[25] = "while";
-	keywords[26] = "#else";
-	keywords[27] = "#elif";
-	keywords[28] = "#endif";
-	keywords[29] = "#define";
-	keywords[30] = "defined";
-	keywords[31] = "#if";
-	keywords[32] = "#ifdef";
-	keywords[33] = "#ifndef";
-	keywords[34] = "#include";
-	keywords[35] = "#undef";
-
-	for (i = 0; i < 36; i = i + 1)
-	{
-		fhputs("keyword ", STDOUT_FILENO);
-		fhput_int(i, STDOUT_FILENO);
-		fhputs(": ", STDOUT_FILENO);
-		fhput_hex(keywords[i], STDOUT_FILENO);
-		fhputs("\n", STDOUT_FILENO);
-	}
-}
-*/
-
+typedef struct token_iterator_s token_iterator_t;
+typedef struct token_iterator_s* token_iterator_p;
+typedef void (*token_next_p)(token_iterator_p, bool);
 struct token_iterator_s
 {
 	int kind;
@@ -688,10 +691,8 @@ struct token_iterator_s
 	char *filename;
 	int line;
 	int column;
-	FUNCTION next;
+	token_next_p next;
 };
-typedef struct token_iterator_s token_iterator_t;
-typedef struct token_iterator_s* token_iterator_p;
 
 struct tokenizer_s
 {
@@ -701,11 +702,11 @@ struct tokenizer_s
 };
 typedef struct tokenizer_s *tokenizer_p;
 
-char tokenizer_skip_white_space(tokenizer_p tokenizer, bool skip_nl)
+void tokenizer_skip_white_space(tokenizer_p tokenizer, bool skip_nl)
 {
 	//printf("tokenizer_skip_white_space %p %d\n", tokenizer, skip_nl);
-	char_iterator_p it = tokenizer->_char_iterator;
-	FUNCTION it_next = it->next;
+	char_iterator_p it; it = tokenizer->_char_iterator;
+	char_next_p it_next = it->next;
 	char ch = it->ch;
 
 	while (ch != 0 && ch <= ' ' && (skip_nl || ch != '\n'))
@@ -721,7 +722,7 @@ char tokenizer_skip_white_space(tokenizer_p tokenizer, bool skip_nl)
 char tokenizer_parse_char_literal(tokenizer_p tokenizer)
 {
 	char_iterator_p it = tokenizer->_char_iterator;
-	FUNCTION it_next = it->next;
+	char_next_p it_next; it_next = it->next;
 	char ch = it->ch;
 	it_next(it);
 	if (ch != '\\')
@@ -766,16 +767,17 @@ char tokenizer_parse_char_literal(tokenizer_p tokenizer)
 	return ch;
 }
 
-void tokenizer_next(tokenizer_p tokenizer, bool skip_nl)
+void tokenizer_next(token_iterator_p token_it, bool skip_nl)
 {
-	fhputs("tokenizer_next(\n", STDOUT_FILENO);
+	tokenizer_p tokenizer = (tokenizer_p)token_it;
+	//fhputs("tokenizer_next(\n", STDOUT_FILENO);
 	tokenizer_skip_white_space(tokenizer, skip_nl);
 	char_iterator_p it = tokenizer->_char_iterator;
-	FUNCTION it_next = it->next;
+	char_next_p it_next; it_next = it->next;
 	int i = 0;
+	int sign = 1;
 	char ch = it->ch;
 	tokenizer->base.kind = 0;
-	token_iterator_p token_it = tokenizer;
 	if (ch == 0)
 	{
 		goto done;
@@ -806,6 +808,7 @@ void tokenizer_next(tokenizer_p tokenizer, bool skip_nl)
 		else if (eqstr("#ifndef",  token_it->token)) token_it->kind = TK_H_IFNDEF;
 		else if (eqstr("#include", token_it->token)) token_it->kind = TK_H_INCLUDE;
 		else if (eqstr("#undef",   token_it->token)) token_it->kind = TK_H_UNDEF;
+		else if (eqstr("#error",   token_it->token)) token_it->kind = TK_H_ERROR;
 	}
 	else if (('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z') || ch == '_')
 	{
@@ -815,11 +818,7 @@ void tokenizer_next(tokenizer_p tokenizer, bool skip_nl)
 		{
 			token_it->token[i] = ch; i = i + 1; it_next(it); ch = it->ch;
 		}
-		check_keywords:
 		token_it->token[i] = '\0';
-		fhputs("----Keywords---: '", STDOUT_FILENO);
-		fhputs(token_it->token, STDOUT_FILENO);
-		fhputs("'\n", STDOUT_FILENO);
 		     if (eqstr("case",     token_it->token)) token_it->kind = TK_CASE;
 		else if (eqstr("char",     token_it->token)) token_it->kind = TK_CHAR;
 		else if (eqstr("const",    token_it->token)) token_it->kind = TK_CONST;
@@ -847,33 +846,9 @@ void tokenizer_next(tokenizer_p tokenizer, bool skip_nl)
 		else if (eqstr("unsigned", token_it->token)) token_it->kind = TK_UNSIGNED;
 		else if (eqstr("void",     token_it->token)) token_it->kind = TK_VOID;
 		else if (eqstr("while",    token_it->token)) token_it->kind = TK_WHILE;
-		
-		fhputs("Foud kind ", STDOUT_FILENO);
-		fhput_int(token_it->kind, STDOUT_FILENO);
-		fhputs("\n", STDOUT_FILENO);
-		
-/*		
-		fhputs("Find keyword\n", STDOUT_FILENO);
-		fhput_int(i, STDOUT_FILENO);
-		token_it->token[i] = 0;
-		fhputs("\nFind keyword\n", STDOUT_FILENO);
-		for (i = 0; i < NR_KEYWORDS; i = i + 1)
-		{
-			fhputs("keyword ", STDOUT_FILENO);
-			fhput_int(i, STDOUT_FILENO);
-			fhputs("\n", STDOUT_FILENO);
-			fhput_hex(keywords[i], STDOUT_FILENO);
-			fhputs("\n", STDOUT_FILENO);
-			if (eqstr(keywords[i], token_it->token))
-			{
-				token_it->kind = TK_KEYWORD + i;
-			}
-		}
-*/
 	}
 	else if (('0' <= ch && ch <= '9') || ch == '-')
 	{
-		int sign = 1;
 		if (ch == '-')
 		{
 			token_it->token[i] = ch; i = i + 1; it_next(it); ch = it->ch;
@@ -1084,23 +1059,23 @@ void tokenizer_next(tokenizer_p tokenizer, bool skip_nl)
 		}
 	}
 	done: token_it->token[i] = 0;
-	fhputs("tokenizer_next) ", STDOUT_FILENO);
-	fhput_int(token_it->kind, STDOUT_FILENO);
-	fhputs(" '", STDOUT_FILENO);
-	fhputs(token_it->token, STDOUT_FILENO);
-	fhputs("'\n", STDOUT_FILENO);
+	//fhputs("tokenizer_next) ", STDOUT_FILENO);
+	//fhput_int(token_it->kind, STDOUT_FILENO);
+	//fhputs(" '", STDOUT_FILENO);
+	//fhputs(token_it->token, STDOUT_FILENO);
+	//fhputs("'\n", STDOUT_FILENO);
 	//printf("tokenizer result %d '%s' %d\n", token_it->kind, token_it->token, token_it->int_value); 
 }
 
 tokenizer_p new_tokenizer(char_iterator_p char_iterator)
 {
-	fhputs("new_tokenizer(\n", STDOUT_FILENO);
+	//fhputs("new_tokenizer(\n", STDOUT_FILENO);
 	tokenizer_p tokenizer = _malloc(sizeof(struct tokenizer_s));
 	tokenizer->_at_start_of_line = TRUE;
 	tokenizer->_char_iterator = char_iterator;
 	tokenizer->base.token = _malloc(6000);
 	tokenizer->base.next = tokenizer_next;
-	fhputs("new_tokenizer)\n", STDOUT_FILENO);
+	//fhputs("new_tokenizer)\n", STDOUT_FILENO);
 	return tokenizer;
 }
 
@@ -1171,6 +1146,7 @@ env_p new_env(char* name, char* value)
 	env->nr_args = 0;
 	env->tokens = NULL;
 	env->next = NULL;
+	return env;
 }
 
 env_p get_env(char* name, bool create)
@@ -1181,6 +1157,7 @@ env_p get_env(char* name, bool create)
 	{
 		if (eqstr(env->name, name))
 		{
+			//printf("get_env(%s): found\n", name);
 			return env;
 		}
 		prev_env = env;
@@ -1188,8 +1165,10 @@ env_p get_env(char* name, bool create)
 	}
 	if (!create)
 	{
+		//printf("get_env(%s): not found\n", name);
 		return NULL;
 	}
+	//printf("get_env(%s): create\n", name);
 	env = _malloc(sizeof(struct env_s));
 	env->name = copystr(name);
 	env->nr_args = 0;
@@ -1231,9 +1210,9 @@ void del_env(char* name)
 
 #ifdef __GNUC__
 typedef struct expand_iterator_s* expand_iterator_p;
-typedef int (*PARSE_EXPR_FUNCTION)(expand_iterator_p it);
+typedef int (*parse_expr_function_p)(expand_iterator_p it);
 #else
-#define PARSE_EXPR_FUNCTION FUNCTION
+#define parse_expr_function_p FUNCTION
 #endif
 
 struct expand_iterator_s
@@ -1241,7 +1220,7 @@ struct expand_iterator_s
 	token_iterator_t base;
 	include_iterator_p _source_it;
 	token_iterator_p _token_it;
-	PARSE_EXPR_FUNCTION _parse_or_expr;
+	parse_expr_function_p _parse_or_expr;
 	
 	bool _skip_level;
 	bool _if_done[40];
@@ -1251,16 +1230,16 @@ struct expand_iterator_s
 typedef struct expand_iterator_s* expand_iterator_p;
 #endif
 
-FUNCTION expand_iterator_rec_parse_or_expr;
+//FUNCTION expand_iterator_rec_parse_or_expr;
 
 int expand_iterator_parse_primary(expand_iterator_p it)
 {
-	FUNCTION token_it_next = it->_token_it->next;
+	token_next_p token_it_next = it->_token_it->next;
 	int result = 0;
 	if (it->_token_it->kind == '(')
 	{
 		token_it_next(it->_token_it, FALSE);
-		PARSE_EXPR_FUNCTION parse_or_expr = it->_parse_or_expr;
+		parse_expr_function_p parse_or_expr = it->_parse_or_expr;
 		result = parse_or_expr(it);
 		if (it->_token_it->kind == ')')
 		{
@@ -1312,20 +1291,20 @@ int expand_iterator_parse_primary(expand_iterator_p it)
 
 int expand_iterator_parse_unary_expr(expand_iterator_p it)
 {
-	FUNCTION token_it_next = it->_token_it->next;
+	token_next_p token_it_next = it->_token_it->next;
 	if (it->_token_it->kind == '!')
 	{
 		token_it_next(it->_token_it, FALSE);
-		//int result = expand_iterator_parse_primary(it);
-		//printf("! %d = %d\n", result, !result);
-		return !expand_iterator_parse_primary(it);
+		int result = expand_iterator_parse_primary(it);
+		//printf("xx ! %d = %d\n", result, !result);
+		return !result; //!expand_iterator_parse_primary(it);
 	}
 	return expand_iterator_parse_primary(it);
 }
 
 int expand_iterator_parse_compare_expr(expand_iterator_p it)
 {
-	FUNCTION token_it_next = it->_token_it->next;
+	token_next_p token_it_next = it->_token_it->next;
 	int value = expand_iterator_parse_unary_expr(it);
 	if (it->_token_it->kind == TK_EQ)
 	{
@@ -1342,14 +1321,14 @@ int expand_iterator_parse_compare_expr(expand_iterator_p it)
 
 int expand_iterator_parse_and_expr(expand_iterator_p it)
 {
-	FUNCTION token_it_next = it->_token_it->next;
+	token_next_p token_it_next = it->_token_it->next;
 	int value = expand_iterator_parse_compare_expr(it);
 	while (it->_token_it->kind == TK_AND)
 	{
 		token_it_next(it->_token_it, FALSE);
-		//int value2 = expand_iterator_parse_compare_expr(it);
-		//printf("%d && %d = ", value, value2);
-		value = value && expand_iterator_parse_primary(it);
+		int value2 = expand_iterator_parse_compare_expr(it);
+		//printf("xx %d && %d = ", value, value2);
+		value = value && value2; //expand_iterator_parse_primary(it);
 		//printf("%d\n", value);
 	}
 	return value;
@@ -1357,7 +1336,7 @@ int expand_iterator_parse_and_expr(expand_iterator_p it)
 
 int expand_iterator_parse_or_expr(expand_iterator_p it)
 {
-	FUNCTION token_it_next = it->_token_it->next;
+	token_next_p token_it_next = it->_token_it->next;
 	int value = expand_iterator_parse_and_expr(it);
 	while (it->_token_it->kind == TK_AND)
 	{
@@ -1369,10 +1348,11 @@ int expand_iterator_parse_or_expr(expand_iterator_p it)
 
 char *include_path = 0;
 
-void expand_iterator_next(expand_iterator_p it)
+void expand_iterator_next(token_iterator_p token_it, bool dummy)
 {
+	expand_iterator_p it = (expand_iterator_p)token_it;
 	//printf("expand_iterator_next\n");
-	FUNCTION token_it_next = it->_token_it->next;
+	token_next_p token_it_next = it->_token_it->next;
 	int kind;
 	int value = 0;
 	tokens_p prev_token;
@@ -1555,9 +1535,9 @@ void expand_iterator_next(expand_iterator_p it)
 				input_it = new_file_iterator(include_path);
 				if (input_it->base.ch != 0)
 				{
-					splice_it = new_line_splice_iterator(input_it);
-					comment_it = new_comment_strip_iterator(splice_it);
-					include_iterator_add(it->_source_it, comment_it);
+					splice_it = new_line_splice_iterator(&input_it->base);
+					comment_it = new_comment_strip_iterator(&splice_it->base);
+					include_iterator_add(it->_source_it, &comment_it->base);
 					token_it_next(it->_token_it, FALSE);
 				}
 				else
@@ -1574,6 +1554,16 @@ void expand_iterator_next(expand_iterator_p it)
 				token_it_next(it->_token_it, TRUE);
 			}
 		}
+		else if (kind == TK_H_ERROR)
+		{
+			it->base.kind = it->_token_it->kind;
+			it->base.token = it->_token_it->token;
+			it->base.int_value = it->_token_it->int_value;
+			it->base.filename = it->_token_it->filename;
+			it->base.line  = it->_token_it->line;
+			it->base.column = it->_token_it->column;
+			return;
+		}
 		else
 		{
 			it->base.kind = it->_token_it->kind;
@@ -1589,9 +1579,9 @@ void expand_iterator_next(expand_iterator_p it)
 
 expand_iterator_p new_expand_iterator(include_iterator_p source_it, token_iterator_p token_it)
 {
-	fhputs("new_expand_iterator(\n", STDOUT_FILENO);
+	//fhputs("new_expand_iterator(\n", STDOUT_FILENO);
 	//printf("new_expand_iterator\n");
-	FUNCTION token_it_next = token_it->next;
+	//token_next_p token_it_next = token_it->next;
 	expand_iterator_p it = _malloc(sizeof(struct expand_iterator_s));
 	it->_source_it = source_it;
 	it->_token_it = token_it;
@@ -1603,7 +1593,7 @@ expand_iterator_p new_expand_iterator(include_iterator_p source_it, token_iterat
 	{
 		include_path = _malloc(100);
 	}
-	fhputs("new_expand_iterator)\n", STDOUT_FILENO);
+	//fhputs("new_expand_iterator)\n", STDOUT_FILENO);
 	return it;
 }
 
@@ -1656,6 +1646,7 @@ int main()
 {
 	env_p one_source_env;
 	env_p tcc_version_env;
+	env_p ldouble_size_env;
 	file_iterator_p input_it;
 	line_splice_iterator_p splice_it;
 	comment_strip_iterator_p comment_it;
@@ -1663,75 +1654,43 @@ int main()
 	tokenizer_p tokenizer_it;
 	expand_iterator_p expand_it;
 	token_iterator_p token_it;
-	char* cur_filename;
-	int cur_line;
-	FUNCTION token_it_next;
+	token_next_p token_it_next;
 	int i;
 	char ch;
-	
-	//init_keywords();
 	
 	one_source_env = get_env("ONE_SOURCE", TRUE);
 	one_source_env->tokens = new_int_token(1);
 	tcc_version_env = get_env("TCC_VERSION", TRUE);
 	tcc_version_env->tokens = new_str_token("\"1.0\"");
+	ldouble_size_env = get_env("LDOUBLE_SIZE", TRUE);
+	ldouble_size_env->tokens = new_int_token(8);
 	input_it = new_file_iterator("tcc_sources/tcc.c");
-	splice_it = new_line_splice_iterator(input_it);
-	comment_it = new_comment_strip_iterator(splice_it);
-	include_it = new_include_iterator(comment_it);
-
-/*	
-	token_it_next = include_it->base.next;
-	while (include_it->base.ch != 0)
-	{
-		fhputs("= ", STDOUT_FILENO);
-		fhput_int(include_it->base.line, STDOUT_FILENO);
-		fhputs(":", STDOUT_FILENO);
-		fhput_int(include_it->base.column, STDOUT_FILENO);
-		fhputc(include_it->base.ch, STDOUT_FILENO);
-		fhputs("\n", STDOUT_FILENO);
-		token_it_next(include_it);
-	}
-	return;
-*/		
+	splice_it = new_line_splice_iterator(&input_it->base);
+	comment_it = new_comment_strip_iterator(&splice_it->base);
+	include_it = new_include_iterator(&comment_it->base);
+	tokenizer_it = new_tokenizer(&include_it->base);
+	expand_it = new_expand_iterator(include_it, &tokenizer_it->base);
 	
-	fhputs("**HIER**\n", STDOUT_FILENO);
-	//string_iterator_p input_it = new_string_iterator("\"xx\"  \"yy\")");
-	fhputs("-----A-----\n", STDOUT_FILENO);
-	tokenizer_it = new_tokenizer(include_it);
-	fhputs("-----A-----\n", STDOUT_FILENO);
-	//expand_it = new_expand_iterator(include_it, tokenizer_it);
-	
-	token_it = tokenizer_it;
+	token_it = (token_iterator_p)expand_it;
 	
 	token_it_next = token_it->next;
-	fhputs("-----A-----\n", STDOUT_FILENO);
 	token_it_next(token_it, TRUE);
-	fhputs("-----A1-----\n", STDOUT_FILENO);
-	cur_filename = 0;
-	cur_line = 0;
-	fhputs("-----A2-----\n", STDOUT_FILENO);
+	char *prev_file = 0;
+	int prev_line = 0;
 	while (token_it->kind != 0)
 	{
-		fhputs("------B-----\n", STDOUT_FILENO);
-		fhput_int(token_it->column, STDOUT_FILENO);
-		if (token_it->line != cur_line || token_it->filename != cur_filename)
+		if (token_it->filename != prev_file || token_it->line != prev_line)
 		{
 			fhputs("\n", STDOUT_FILENO);
-			fhputs("= ", STDOUT_FILENO);
 			fhputs(token_it->filename, STDOUT_FILENO);
-			fhputs(":", STDOUT_FILENO);
+			fhputs(": ", STDOUT_FILENO);
 			fhput_int(token_it->line, STDOUT_FILENO);
-			fhputs(":", STDOUT_FILENO);
-			fhput_int(token_it->column, STDOUT_FILENO);
-			fhputs("\n", STDOUT_FILENO);
-			//for (i = 1; i < token_it->column; i = i + 1)
-			//	fhputs(" ", STDOUT_FILENO);
-			cur_line = token_it->line;
-			cur_filename = token_it->filename;
+			for (int i = 0; i < token_it->column; i++)
+				fhputc(' ', STDOUT_FILENO);
+			prev_file = token_it->filename;
+			prev_line = token_it->line;
 		}
 		fhputc(' ', STDOUT_FILENO);
-		fhputs("------B2-----\n", STDOUT_FILENO);
 		if (token_it->kind == 'i')
 		{
 			fhputs(token_it->token, STDOUT_FILENO);
@@ -1760,7 +1719,10 @@ int main()
 		}
 		else if (token_it->kind == '0')
 		{
-			fhput_int(token_it->int_value, STDOUT_FILENO);
+			if (token_it->int_value == 0)
+				fhputc('0', STDOUT_FILENO);
+			else
+				fhput_int(token_it->int_value, STDOUT_FILENO);
 		}
 		else if (token_it->kind < 127)
 		{
@@ -1768,29 +1730,28 @@ int main()
 		}
 		else if (token_it->kind >= TK_KEYWORD)
 			fhputs(token_it->token, STDOUT_FILENO);
-		else if (token_it->kind ==TK_D_HASH) 	fhputs("##", STDOUT_FILENO);
-		else if (token_it->kind ==TK_EQ) 		fhputs("==", STDOUT_FILENO);
-		else if (token_it->kind ==TK_NE)		fhputs("!=", STDOUT_FILENO);
-		else if (token_it->kind ==TK_LE)		fhputs("<=", STDOUT_FILENO);
-		else if (token_it->kind ==TK_GE)		fhputs(">=", STDOUT_FILENO);
-		else if (token_it->kind ==TK_INC)		fhputs("++", STDOUT_FILENO);
-		else if (token_it->kind ==TK_DEC)		fhputs("--", STDOUT_FILENO);
-		else if (token_it->kind ==TK_ARROW)		fhputs("->", STDOUT_FILENO);
-		else if (token_it->kind ==TK_MUL_ASS)	fhputs("*=", STDOUT_FILENO);
-		else if (token_it->kind ==TK_DIV_ASS)	fhputs("/=", STDOUT_FILENO);
-		else if (token_it->kind ==TK_MOD_ASS)	fhputs("%%=", STDOUT_FILENO);
-		else if (token_it->kind ==TK_ADD_ASS)	fhputs("+=", STDOUT_FILENO);
-		else if (token_it->kind ==TK_SUB_ASS)	fhputs("-=", STDOUT_FILENO);
-		else if (token_it->kind ==TK_SHL_ASS)	fhputs("<<=", STDOUT_FILENO);
-		else if (token_it->kind ==TK_SHR_ASS)	fhputs(">>=", STDOUT_FILENO);
-		else if (token_it->kind ==TK_SHL)		fhputs("<<", STDOUT_FILENO);
-		else if (token_it->kind ==TK_SHR)		fhputs(">>", STDOUT_FILENO);
-		else if (token_it->kind ==TK_AND)		fhputs("&&", STDOUT_FILENO);
-		else if (token_it->kind ==TK_OR)		fhputs("||", STDOUT_FILENO);
+		else if (token_it->kind == TK_D_HASH) 	fhputs("##", STDOUT_FILENO);
+		else if (token_it->kind == TK_EQ) 		fhputs("==", STDOUT_FILENO);
+		else if (token_it->kind == TK_NE)		fhputs("!=", STDOUT_FILENO);
+		else if (token_it->kind == TK_LE)		fhputs("<=", STDOUT_FILENO);
+		else if (token_it->kind == TK_GE)		fhputs(">=", STDOUT_FILENO);
+		else if (token_it->kind == TK_INC)		fhputs("++", STDOUT_FILENO);
+		else if (token_it->kind == TK_DEC)		fhputs("--", STDOUT_FILENO);
+		else if (token_it->kind == TK_ARROW)		fhputs("->", STDOUT_FILENO);
+		else if (token_it->kind == TK_MUL_ASS)	fhputs("*=", STDOUT_FILENO);
+		else if (token_it->kind == TK_DIV_ASS)	fhputs("/=", STDOUT_FILENO);
+		else if (token_it->kind == TK_MOD_ASS)	fhputs("%%=", STDOUT_FILENO);
+		else if (token_it->kind == TK_ADD_ASS)	fhputs("+=", STDOUT_FILENO);
+		else if (token_it->kind == TK_SUB_ASS)	fhputs("-=", STDOUT_FILENO);
+		else if (token_it->kind == TK_SHL_ASS)	fhputs("<<=", STDOUT_FILENO);
+		else if (token_it->kind == TK_SHR_ASS)	fhputs(">>=", STDOUT_FILENO);
+		else if (token_it->kind == TK_SHL)		fhputs("<<", STDOUT_FILENO);
+		else if (token_it->kind == TK_SHR)		fhputs(">>", STDOUT_FILENO);
+		else if (token_it->kind == TK_AND)		fhputs("&&", STDOUT_FILENO);
+		else if (token_it->kind == TK_OR)		fhputs("||", STDOUT_FILENO);
 		else fhputs("????", STDOUT_FILENO);
-		fhputs("------C------\n", STDOUT_FILENO);
+
 		token_it_next(token_it, TRUE);
-		fhputs("------D------\n", STDOUT_FILENO);
 	}
 
 	return 0;

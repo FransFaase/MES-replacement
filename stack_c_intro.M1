@@ -33,6 +33,7 @@ DEFINE add_eax,ebx 01D8
 DEFINE add_ebx,eax 01C3
 DEFINE sub_ebx,eax 29C3
 DEFINE cdq 99
+DEFINE imul_eax,ebx 0FAFC3
 DEFINE idiv_ebx F7FB
 DEFINE and_eax, 25
 DEFINE add_ebp, 81C5
