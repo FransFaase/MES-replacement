@@ -682,7 +682,7 @@ include_iterator_p new_include_iterator(char_iterator_p include_it)
 
 typedef struct token_iterator_s token_iterator_t;
 typedef struct token_iterator_s* token_iterator_p;
-typedef void (*token_next_p)(token_iterator_p, bool);
+typedef token_iterator_p (*token_next_p)(token_iterator_p, bool);
 struct token_iterator_s
 {
 	int kind;
@@ -767,7 +767,7 @@ char tokenizer_parse_char_literal(tokenizer_p tokenizer)
 	return ch;
 }
 
-void tokenizer_next(token_iterator_p token_it, bool skip_nl)
+token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 {
 	tokenizer_p tokenizer = (tokenizer_p)token_it;
 	//fhputs("tokenizer_next(\n", STDOUT_FILENO);
@@ -1059,12 +1059,15 @@ void tokenizer_next(token_iterator_p token_it, bool skip_nl)
 		}
 	}
 	done: token_it->token[i] = 0;
+	printf("tokenizer_next %d '%s'\n", token_it->kind, token_it->token);
+	tokenizer->_at_start_of_line = FALSE;
 	//fhputs("tokenizer_next) ", STDOUT_FILENO);
 	//fhput_int(token_it->kind, STDOUT_FILENO);
 	//fhputs(" '", STDOUT_FILENO);
 	//fhputs(token_it->token, STDOUT_FILENO);
 	//fhputs("'\n", STDOUT_FILENO);
-	//printf("tokenizer result %d '%s' %d\n", token_it->kind, token_it->token, token_it->int_value); 
+	//printf("tokenizer result %d '%s' %d\n", token_it->kind, token_it->token, token_it->int_value);
+	return token_it;
 }
 
 tokenizer_p new_tokenizer(char_iterator_p char_iterator)
@@ -1209,13 +1212,13 @@ void del_env(char* name)
 }
 
 #ifdef __GNUC__
-typedef struct expand_iterator_s* expand_iterator_p;
-typedef int (*parse_expr_function_p)(expand_iterator_p it);
+typedef struct conditional_iterator_s* conditional_iterator_p;
+typedef int (*parse_expr_function_p)(conditional_iterator_p it);
 #else
 #define parse_expr_function_p FUNCTION
 #endif
 
-struct expand_iterator_s
+struct conditional_iterator_s
 {
 	token_iterator_t base;
 	include_iterator_p _source_it;
@@ -1227,12 +1230,12 @@ struct expand_iterator_s
 	int _if_level;
 };
 #ifndef __GNUC__
-typedef struct expand_iterator_s* expand_iterator_p;
+typedef struct conditional_iterator_s* conditional_iterator_p;
 #endif
 
-//FUNCTION expand_iterator_rec_parse_or_expr;
+//FUNCTION conditional_iterator_rec_parse_or_expr;
 
-int expand_iterator_parse_primary(expand_iterator_p it)
+int conditional_iterator_parse_primary(conditional_iterator_p it)
 {
 	token_next_p token_it_next = it->_token_it->next;
 	int result = 0;
@@ -1289,69 +1292,69 @@ int expand_iterator_parse_primary(expand_iterator_p it)
 	return result;
 }
 
-int expand_iterator_parse_unary_expr(expand_iterator_p it)
+int conditional_iterator_parse_unary_expr(conditional_iterator_p it)
 {
 	token_next_p token_it_next = it->_token_it->next;
 	if (it->_token_it->kind == '!')
 	{
 		token_it_next(it->_token_it, FALSE);
-		int result = expand_iterator_parse_primary(it);
+		int result = conditional_iterator_parse_primary(it);
 		//printf("xx ! %d = %d\n", result, !result);
-		return !result; //!expand_iterator_parse_primary(it);
+		return !result; //!conditional_iterator_parse_primary(it);
 	}
-	return expand_iterator_parse_primary(it);
+	return conditional_iterator_parse_primary(it);
 }
 
-int expand_iterator_parse_compare_expr(expand_iterator_p it)
+int conditional_iterator_parse_compare_expr(conditional_iterator_p it)
 {
 	token_next_p token_it_next = it->_token_it->next;
-	int value = expand_iterator_parse_unary_expr(it);
+	int value = conditional_iterator_parse_unary_expr(it);
 	if (it->_token_it->kind == TK_EQ)
 	{
 		token_it_next(it->_token_it, FALSE);
-		return value == expand_iterator_parse_unary_expr(it);
+		return value == conditional_iterator_parse_unary_expr(it);
 	}
 	if (it->_token_it->kind == TK_NE)
 	{
 		token_it_next(it->_token_it, FALSE);
-		return value != expand_iterator_parse_unary_expr(it);
+		return value != conditional_iterator_parse_unary_expr(it);
 	}
 	return value;
 }
 
-int expand_iterator_parse_and_expr(expand_iterator_p it)
+int conditional_iterator_parse_and_expr(conditional_iterator_p it)
 {
 	token_next_p token_it_next = it->_token_it->next;
-	int value = expand_iterator_parse_compare_expr(it);
+	int value = conditional_iterator_parse_compare_expr(it);
 	while (it->_token_it->kind == TK_AND)
 	{
 		token_it_next(it->_token_it, FALSE);
-		int value2 = expand_iterator_parse_compare_expr(it);
+		int value2 = conditional_iterator_parse_compare_expr(it);
 		//printf("xx %d && %d = ", value, value2);
-		value = value && value2; //expand_iterator_parse_primary(it);
+		value = value && value2; //conditional_iterator_parse_primary(it);
 		//printf("%d\n", value);
 	}
 	return value;
 }
 
-int expand_iterator_parse_or_expr(expand_iterator_p it)
+int conditional_iterator_parse_or_expr(conditional_iterator_p it)
 {
 	token_next_p token_it_next = it->_token_it->next;
-	int value = expand_iterator_parse_and_expr(it);
+	int value = conditional_iterator_parse_and_expr(it);
 	while (it->_token_it->kind == TK_AND)
 	{
 		token_it_next(it->_token_it, FALSE);
-		value = value || expand_iterator_parse_and_expr(it);
+		value = value || conditional_iterator_parse_and_expr(it);
 	}
 	return value;
 }
 
 char *include_path = 0;
 
-void expand_iterator_next(token_iterator_p token_it, bool dummy)
+token_iterator_p conditional_iterator_next(token_iterator_p token_it, bool dummy)
 {
-	expand_iterator_p it = (expand_iterator_p)token_it;
-	//printf("expand_iterator_next\n");
+	conditional_iterator_p it = (conditional_iterator_p)token_it;
+	//printf("conditional_iterator_next\n");
 	token_next_p token_it_next = it->_token_it->next;
 	int kind;
 	int value = 0;
@@ -1397,7 +1400,7 @@ void expand_iterator_next(token_iterator_p token_it, bool dummy)
 			else if (kind == TK_H_ELIF)
 			{
 				token_it_next(it->_token_it, FALSE);
-				value = expand_iterator_parse_or_expr(it);
+				value = conditional_iterator_parse_or_expr(it);
 				if (it->_skip_level == 1)
 				{
 					if (it->_if_done[it->_if_level] == FALSE)
@@ -1437,7 +1440,7 @@ void expand_iterator_next(token_iterator_p token_it, bool dummy)
 		{
 			token_it_next(it->_token_it, TRUE);
 			it->_if_level = it->_if_level + 1;
-			if (expand_iterator_parse_or_expr(it))
+			if (conditional_iterator_parse_or_expr(it))
 			{
 				it->_if_done[it->_if_level] = TRUE;
 			}
@@ -1562,7 +1565,7 @@ void expand_iterator_next(token_iterator_p token_it, bool dummy)
 			it->base.filename = it->_token_it->filename;
 			it->base.line  = it->_token_it->line;
 			it->base.column = it->_token_it->column;
-			return;
+			return token_it;
 		}
 		else
 		{
@@ -1572,32 +1575,208 @@ void expand_iterator_next(token_iterator_p token_it, bool dummy)
 			it->base.filename = it->_token_it->filename;
 			it->base.line  = it->_token_it->line;
 			it->base.column = it->_token_it->column;
-			return;
+			return token_it;
 		}
-	}	
+	}
+	return token_it;
 }	
 
-expand_iterator_p new_expand_iterator(include_iterator_p source_it, token_iterator_p token_it)
+conditional_iterator_p new_conditional_iterator(include_iterator_p source_it, token_iterator_p token_it)
 {
-	//fhputs("new_expand_iterator(\n", STDOUT_FILENO);
-	//printf("new_expand_iterator\n");
+	//fhputs("new_conditional_iterator(\n", STDOUT_FILENO);
+	//printf("new_conditional_iterator\n");
 	//token_next_p token_it_next = token_it->next;
-	expand_iterator_p it = _malloc(sizeof(struct expand_iterator_s));
+	conditional_iterator_p it = _malloc(sizeof(struct conditional_iterator_s));
 	it->_source_it = source_it;
 	it->_token_it = token_it;
-	it->_parse_or_expr = expand_iterator_parse_or_expr;
+	it->_parse_or_expr = conditional_iterator_parse_or_expr;
 	it->_skip_level = 0;
 	it->_if_level = 0;
-	it->base.next = expand_iterator_next;
+	it->base.next = conditional_iterator_next;
 	if (include_path == 0)
 	{
 		include_path = _malloc(100);
 	}
-	//fhputs("new_expand_iterator)\n", STDOUT_FILENO);
+	//fhputs("new_conditional_iterator)\n", STDOUT_FILENO);
 	return it;
 }
 
+typedef struct expand_macro_iterator_s* expand_macro_iterator_p;
+struct expand_macro_iterator_s
+{
+	token_iterator_t base;
+	tokens_p param_tokens;
+	tokens_p tokens;
+	token_iterator_p _rest_it;
+	env_p _macro;
+	tokens_p args[10];
+};
 
+token_iterator_p expand_macro_iterator_next(token_iterator_p token_it, bool dummy)
+{
+	expand_macro_iterator_p it = (expand_macro_iterator_p)token_it;
+	if (it->param_tokens != 0)
+	{
+		token_it->kind = it->param_tokens->kind;
+		token_it->token = it->param_tokens->token;
+		token_it->int_value = it->param_tokens->int_value;
+		token_it->filename = it->param_tokens->filename;
+		token_it->line = it->param_tokens->line;
+		token_it->column = it->param_tokens->column;
+		printf("token from arg %d %s\n", token_it->kind, token_it->token == 0 ? "?" : token_it->token);
+		it->param_tokens = it->param_tokens->next;
+		return token_it;
+	}
+	
+	for (;;)
+	{
+		tokens_p token = it->tokens;
+		if (token == 0)
+		{
+			token_iterator_p rest_it = it->_rest_it;
+			free(it);
+			return rest_it->next(rest_it, dummy);
+		}
+		
+		printf("token from macro %d %s\n", token->kind, token->token == 0 ? "?" : token->token);
+		it->tokens = token->next;
+		if (token->kind == 'i')
+		{
+			int nr_args = it->_macro->nr_args;
+			int i = 0;
+			for (; i < nr_args; i++)
+				if (strcmp(token->token, it->_macro->args[i]) == 0)
+					break;
+			if (i < nr_args)
+			{
+				tokens_p tokens = it->args[i];
+				if (tokens == 0)
+					continue;
+				token_it->kind = tokens->kind;
+				token_it->token = tokens->token;
+				token_it->int_value = tokens->int_value;
+				token_it->filename = tokens->filename;
+				token_it->line = tokens->line;
+				token_it->column = token->column;
+				it->param_tokens = tokens->next;
+				return token_it;
+			}
+		}
+		token_it->kind = token->kind;
+		token_it->token = token->token;
+		token_it->int_value = token->int_value;
+		token_it->filename = token->filename;
+		token_it->line = token->line;
+		token_it->column = token->column;
+		
+		return token_it;
+	}
+}
+
+token_iterator_p new_exapnd_macro_iterator(env_p macro, tokens_p *args, token_iterator_p rest_it)
+{
+	expand_macro_iterator_p it = _malloc(sizeof(struct expand_macro_iterator_s));
+	it->base.next = expand_macro_iterator_next;
+	it->param_tokens = NULL;
+	it->tokens = macro->tokens;
+	it->_rest_it = rest_it;
+	it->_macro = macro;
+	for (int arg_nr = 0; arg_nr < macro->nr_args; arg_nr++)
+		it->args[arg_nr] = args[arg_nr];
+	return expand_macro_iterator_next(&it->base, FALSE);
+}
+
+typedef struct expand_iterator_s* expand_iterator_p;
+struct expand_iterator_s
+{
+	token_iterator_t base;
+	token_iterator_p _source_it;
+};
+
+token_iterator_p expand_iterator_next(token_iterator_p token_it, bool dummy)
+{
+	expand_iterator_p it = (expand_iterator_p)token_it;
+	token_iterator_p source_it = it->_source_it;
+
+	source_it = source_it->next(source_it, dummy);
+	
+	for (bool go = TRUE; go;)
+	{
+		go = FALSE;
+		if (source_it->kind == 'i')
+		{
+			env_p macro = get_env(source_it->token, FALSE);
+			if (macro != NULL)
+			{
+				go = TRUE;
+				printf("Expand token %s %d: ", source_it->token, macro->nr_args);
+				tokens_p args[10];
+				int nr_args = 0;
+				if (macro->nr_args > 0)
+				{
+					source_it = source_it->next(source_it, dummy);
+					if (source_it->kind != '(')
+					{
+						printf("ERROR: No arguments for %s when parameters (%d) are expected\n", macro->name, macro->nr_args);
+						continue;
+					}
+					do
+					{
+						source_it = source_it->next(source_it, dummy);
+						args[nr_args] = NULL;
+						tokens_p *ref_tokens = &args[nr_args];
+						nr_args++;
+						char stack[20];
+						int stack_depth = 0;
+						while (stack_depth > 0 || (source_it->kind != 0 && source_it->kind != ',' && source_it->kind != ')'))
+						{
+							*ref_tokens = new_token_from_it(source_it);
+							ref_tokens = &(*ref_tokens)->next;
+							if (source_it->kind == '(')
+								stack[stack_depth++] = ')';
+							else if (source_it->kind == '{')
+								stack[stack_depth++] = '}';
+							else if (source_it->kind == '[')
+								stack[stack_depth++] = ']';
+							else if (stack_depth > 0 && source_it->kind == stack[stack_depth - 1])
+								stack_depth--;
+							source_it = source_it->next(source_it, dummy);
+						}
+					}
+					while (source_it->kind == ',');
+				}
+				printf(" %d\n", nr_args);
+				if (macro->nr_args != nr_args)
+				{
+					printf("ERROR: Number arguments (%d) for %s does not match parameters (%d)\n", nr_args, macro->name, macro->nr_args);
+					source_it = source_it->next(source_it, dummy);
+				}
+				else if (macro->tokens == NULL)
+					source_it = source_it->next(source_it, dummy);
+				else						
+					source_it = new_exapnd_macro_iterator(macro, args, source_it);
+			}
+		}
+		it->_source_it = source_it;
+	}
+	
+	token_it->kind = source_it->kind;
+	token_it->token = source_it->token;
+	token_it->int_value = source_it->int_value;
+	token_it->filename = source_it->filename;
+	token_it->line = source_it->line;
+	token_it->column = source_it->column;
+			
+	return token_it;
+}
+
+expand_iterator_p new_expand_iterator(token_iterator_p source_it)
+{
+	expand_iterator_p it = _malloc(sizeof(struct expand_iterator_s));
+	it->_source_it = source_it;
+	it->base.next = expand_iterator_next;
+	return it;
+}
 /*
 struct tokens_iterator_s 
 {
@@ -1652,9 +1831,9 @@ int main()
 	comment_strip_iterator_p comment_it;
 	include_iterator_p include_it;
 	tokenizer_p tokenizer_it;
+	conditional_iterator_p conditional_it;
 	expand_iterator_p expand_it;
 	token_iterator_p token_it;
-	token_next_p token_it_next;
 	int i;
 	char ch;
 	
@@ -1669,90 +1848,96 @@ int main()
 	comment_it = new_comment_strip_iterator(&splice_it->base);
 	include_it = new_include_iterator(&comment_it->base);
 	tokenizer_it = new_tokenizer(&include_it->base);
-	expand_it = new_expand_iterator(include_it, &tokenizer_it->base);
+	conditional_it = new_conditional_iterator(include_it, &tokenizer_it->base);
+	expand_it = new_expand_iterator(&conditional_it->base);
 	
 	token_it = (token_iterator_p)expand_it;
 	
-	token_it_next = token_it->next;
-	token_it_next(token_it, TRUE);
+	FILE *fout = fopen("tcc_p.c", "w");
+	int fouth = fileno(fout);
+	
+	token_it = token_it->next(token_it, TRUE);
 	char *prev_file = 0;
 	int prev_line = 0;
 	while (token_it->kind != 0)
 	{
 		if (token_it->filename != prev_file || token_it->line != prev_line)
 		{
-			fhputs("\n", STDOUT_FILENO);
-			fhputs(token_it->filename, STDOUT_FILENO);
-			fhputs(": ", STDOUT_FILENO);
-			fhput_int(token_it->line, STDOUT_FILENO);
+			fhputs("\n", fouth);
+			fhputs(token_it->filename, fouth);
+			fhputs(": ", fouth);
+			fhput_int(token_it->line, fouth);
 			for (int i = 0; i < token_it->column; i++)
-				fhputc(' ', STDOUT_FILENO);
+				fhputc(' ', fouth);
 			prev_file = token_it->filename;
 			prev_line = token_it->line;
 		}
-		fhputc(' ', STDOUT_FILENO);
+		fhputc(' ', fouth);
 		if (token_it->kind == 'i')
 		{
-			fhputs(token_it->token, STDOUT_FILENO);
+			fhputs(token_it->token, fouth);
 		}
 		else if (token_it->kind == '"')
 		{
-			fhputs("\"", STDOUT_FILENO);
+			fhputs("\"", fouth);
 			for (i = 0; i < token_it->int_value ; i = i + 1)
 			{
 				ch = token_it->token[i];
 				if (ch == '\n')
-					fhputs("\\n", STDOUT_FILENO);
+					fhputs("\\n", fouth);
 				else if (ch == '\r')
-					fhputs("\\r", STDOUT_FILENO);
+					fhputs("\\r", fouth);
 				else if (ch == '\0')
-					fhputs("\\0", STDOUT_FILENO);
+					fhputs("\\0", fouth);
 				else if (' ' <= ch && ch < 127)
-					fhputc(ch, STDOUT_FILENO);
+					fhputc(ch, fouth);
 				else
 				{
-					fhputs("\\", STDOUT_FILENO);
-					fhputc(ch, STDOUT_FILENO);
+					fhputs("\\", fouth);
+					fhputc(ch, fouth);
 				}
 			}
-			fhputs("\"", STDOUT_FILENO);
+			fhputs("\"", fouth);
 		}
 		else if (token_it->kind == '0')
 		{
 			if (token_it->int_value == 0)
-				fhputc('0', STDOUT_FILENO);
+				fhputc('0', fouth);
 			else
-				fhput_int(token_it->int_value, STDOUT_FILENO);
+				fhput_int(token_it->int_value, fouth);
 		}
 		else if (token_it->kind < 127)
 		{
-			fhputc(token_it->kind, STDOUT_FILENO);
+			fhputc(token_it->kind, fouth);
 		}
 		else if (token_it->kind >= TK_KEYWORD)
-			fhputs(token_it->token, STDOUT_FILENO);
-		else if (token_it->kind == TK_D_HASH) 	fhputs("##", STDOUT_FILENO);
-		else if (token_it->kind == TK_EQ) 		fhputs("==", STDOUT_FILENO);
-		else if (token_it->kind == TK_NE)		fhputs("!=", STDOUT_FILENO);
-		else if (token_it->kind == TK_LE)		fhputs("<=", STDOUT_FILENO);
-		else if (token_it->kind == TK_GE)		fhputs(">=", STDOUT_FILENO);
-		else if (token_it->kind == TK_INC)		fhputs("++", STDOUT_FILENO);
-		else if (token_it->kind == TK_DEC)		fhputs("--", STDOUT_FILENO);
-		else if (token_it->kind == TK_ARROW)		fhputs("->", STDOUT_FILENO);
-		else if (token_it->kind == TK_MUL_ASS)	fhputs("*=", STDOUT_FILENO);
-		else if (token_it->kind == TK_DIV_ASS)	fhputs("/=", STDOUT_FILENO);
-		else if (token_it->kind == TK_MOD_ASS)	fhputs("%%=", STDOUT_FILENO);
-		else if (token_it->kind == TK_ADD_ASS)	fhputs("+=", STDOUT_FILENO);
-		else if (token_it->kind == TK_SUB_ASS)	fhputs("-=", STDOUT_FILENO);
-		else if (token_it->kind == TK_SHL_ASS)	fhputs("<<=", STDOUT_FILENO);
-		else if (token_it->kind == TK_SHR_ASS)	fhputs(">>=", STDOUT_FILENO);
-		else if (token_it->kind == TK_SHL)		fhputs("<<", STDOUT_FILENO);
-		else if (token_it->kind == TK_SHR)		fhputs(">>", STDOUT_FILENO);
-		else if (token_it->kind == TK_AND)		fhputs("&&", STDOUT_FILENO);
-		else if (token_it->kind == TK_OR)		fhputs("||", STDOUT_FILENO);
-		else fhputs("????", STDOUT_FILENO);
+			fhputs(token_it->token, fouth);
+		else if (token_it->kind == TK_D_HASH) 	fhputs("##", fouth);
+		else if (token_it->kind == TK_EQ) 		fhputs("==", fouth);
+		else if (token_it->kind == TK_NE)		fhputs("!=", fouth);
+		else if (token_it->kind == TK_LE)		fhputs("<=", fouth);
+		else if (token_it->kind == TK_GE)		fhputs(">=", fouth);
+		else if (token_it->kind == TK_INC)		fhputs("++", fouth);
+		else if (token_it->kind == TK_DEC)		fhputs("--", fouth);
+		else if (token_it->kind == TK_ARROW)		fhputs("->", fouth);
+		else if (token_it->kind == TK_MUL_ASS)	fhputs("*=", fouth);
+		else if (token_it->kind == TK_DIV_ASS)	fhputs("/=", fouth);
+		else if (token_it->kind == TK_MOD_ASS)	fhputs("%%=", fouth);
+		else if (token_it->kind == TK_ADD_ASS)	fhputs("+=", fouth);
+		else if (token_it->kind == TK_SUB_ASS)	fhputs("-=", fouth);
+		else if (token_it->kind == TK_SHL_ASS)	fhputs("<<=", fouth);
+		else if (token_it->kind == TK_SHR_ASS)	fhputs(">>=", fouth);
+		else if (token_it->kind == TK_SHL)		fhputs("<<", fouth);
+		else if (token_it->kind == TK_SHR)		fhputs(">>", fouth);
+		else if (token_it->kind == TK_AND)		fhputs("&&", fouth);
+		else if (token_it->kind == TK_OR)		fhputs("||", fouth);
+		else fhputs("????", fouth);
 
-		token_it_next(token_it, TRUE);
+		token_it = token_it->next(token_it, TRUE);
 	}
+
+	fprintf(fout, "\n\nDone\n");	
+	fclose(fout);
 
 	return 0;
 }
