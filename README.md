@@ -39,3 +39,10 @@ programming language, which can compile the `hello.sl` program with the help of
 some live-bootstrap executables (see the script `build_stack_hello`) to an
 executable `hellosl` that does print out the text 'hello world!'.
 
+## WIP 17 april 2025
+
+The [commit 8084af1c](https://github.com/FransFaase/MES-replacement/commit/8084af1c5680a15dd3c292fd1a667481be3177b3)
+contains a version of `tcc_cc.c` that implements a preprocessor that can process
+the TCC sources (it seems). It is based on iterators.
+
+
