@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdlib.h>
 
 char fhgetc(int f)
 {
@@ -697,7 +698,6 @@ struct token_iterator_s
 struct tokenizer_s
 {
 	token_iterator_t base;
-	bool _at_start_of_line;
 	char_iterator_p _char_iterator;
 };
 typedef struct tokenizer_s *tokenizer_p;
@@ -711,10 +711,6 @@ void tokenizer_skip_white_space(tokenizer_p tokenizer, bool skip_nl)
 
 	while (ch != 0 && ch <= ' ' && (skip_nl || ch != '\n'))
 	{
-		if (ch == '\n')
-		{
-			tokenizer->_at_start_of_line = TRUE;
-		}
 		it_next(it); ch = it->ch;
 	}
 }
@@ -782,6 +778,8 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 	{
 		goto done;
 	}
+	bool at_start_of_line =    token_it->filename != tokenizer->_char_iterator->filename
+							|| token_it->line != tokenizer->_char_iterator->line;
 	token_it->filename = it->filename;
 	token_it->line = it->line;
 	token_it->column = it->column;
@@ -789,7 +787,7 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 	{
 		token_it->kind = '\n';
 	}
-	else if (tokenizer->_at_start_of_line && ch == '#')
+	else if (ch == '#' && at_start_of_line)
 	{
 		token_it->token[i] = '#'; i = i + 1; it_next(it);
 		tokenizer_skip_white_space(tokenizer, TRUE);
@@ -936,6 +934,7 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 		{
 			it_next(it);
 		}
+		token_it->int_value = i;
 	}
 	else if (ch == '"')
 	{
@@ -1058,9 +1057,8 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 			it_next(it);
 		}
 	}
-	done: token_it->token[i] = 0;
+	done: token_it->token[i] = '\0';
 	printf("tokenizer_next %d '%s'\n", token_it->kind, token_it->token);
-	tokenizer->_at_start_of_line = FALSE;
 	//fhputs("tokenizer_next) ", STDOUT_FILENO);
 	//fhput_int(token_it->kind, STDOUT_FILENO);
 	//fhputs(" '", STDOUT_FILENO);
@@ -1074,9 +1072,9 @@ tokenizer_p new_tokenizer(char_iterator_p char_iterator)
 {
 	//fhputs("new_tokenizer(\n", STDOUT_FILENO);
 	tokenizer_p tokenizer = _malloc(sizeof(struct tokenizer_s));
-	tokenizer->_at_start_of_line = TRUE;
 	tokenizer->_char_iterator = char_iterator;
 	tokenizer->base.token = _malloc(6000);
+	tokenizer->base.filename = NULL;
 	tokenizer->base.next = tokenizer_next;
 	//fhputs("new_tokenizer)\n", STDOUT_FILENO);
 	return tokenizer;
@@ -1601,6 +1599,8 @@ conditional_iterator_p new_conditional_iterator(include_iterator_p source_it, to
 	return it;
 }
 
+#define APPENDED_TOKEN_LEN 50
+
 typedef struct expand_macro_iterator_s* expand_macro_iterator_p;
 struct expand_macro_iterator_s
 {
@@ -1608,6 +1608,8 @@ struct expand_macro_iterator_s
 	tokens_p param_tokens;
 	tokens_p tokens;
 	token_iterator_p _rest_it;
+	bool stringify;
+	char appended_token[APPENDED_TOKEN_LEN];
 	env_p _macro;
 	tokens_p args[10];
 };
@@ -1617,7 +1619,7 @@ token_iterator_p expand_macro_iterator_next(token_iterator_p token_it, bool dumm
 	expand_macro_iterator_p it = (expand_macro_iterator_p)token_it;
 	if (it->param_tokens != 0)
 	{
-		token_it->kind = it->param_tokens->kind;
+		token_it->kind = it->stringify ? '"' : it->param_tokens->kind;
 		token_it->token = it->param_tokens->token;
 		token_it->int_value = it->param_tokens->int_value;
 		token_it->filename = it->param_tokens->filename;
@@ -1640,36 +1642,90 @@ token_iterator_p expand_macro_iterator_next(token_iterator_p token_it, bool dumm
 		
 		printf("token from macro %d %s\n", token->kind, token->token == 0 ? "?" : token->token);
 		it->tokens = token->next;
-		if (token->kind == 'i')
-		{
-			int nr_args = it->_macro->nr_args;
-			int i = 0;
-			for (; i < nr_args; i++)
-				if (strcmp(token->token, it->_macro->args[i]) == 0)
-					break;
-			if (i < nr_args)
-			{
-				tokens_p tokens = it->args[i];
-				if (tokens == 0)
-					continue;
-				token_it->kind = tokens->kind;
-				token_it->token = tokens->token;
-				token_it->int_value = tokens->int_value;
-				token_it->filename = tokens->filename;
-				token_it->line = tokens->line;
-				token_it->column = token->column;
-				it->param_tokens = tokens->next;
-				return token_it;
-			}
-		}
-		token_it->kind = token->kind;
-		token_it->token = token->token;
-		token_it->int_value = token->int_value;
-		token_it->filename = token->filename;
-		token_it->line = token->line;
-		token_it->column = token->column;
+		it->stringify = FALSE;
 		
-		return token_it;
+		if (token->next != NULL && token->next->kind == TK_D_HASH)
+		{
+			token_it->kind = 'i';
+			token_it->filename = token->filename;
+			token_it->line = token->line;
+			token_it->column = token->column;
+			int p = 0;
+			for (;;)
+			{
+				char *s = token->token;
+				if (token->kind == 'i')
+				{
+					int nr_args = it->_macro->nr_args;
+					int i = 0;
+					for (; i < nr_args; i++)
+						if (strcmp(token->token, it->_macro->args[i]) == 0)
+							break;
+					if (i < nr_args)
+					{
+						tokens_p tokens = it->args[i];
+						if (tokens == NULL || tokens->next != NULL)
+							printf("ERROR: append arg not one value\n");
+						else
+							s = tokens->token;
+					}
+				}
+				for (; *s != '\0'; s++)
+					if (p < APPENDED_TOKEN_LEN - 1)
+						it->appended_token[p++] = *s;
+				if (token->next == NULL || token->next->kind != TK_D_HASH)
+					break;
+				token = token->next->next;
+			}
+			it->tokens = token;
+			it->appended_token[p] = '\0';
+			printf("INFO: Appended token '%s'\n", it->appended_token);
+			token_it->token = it->appended_token;
+			token_it->int_value = p;
+			
+			return token_it;
+		}
+		else
+		{
+			if (token->kind == '#')
+			{
+				it->stringify = TRUE;
+				it->tokens = token->next;
+				if (it->tokens == 0)
+					return it->_rest_it->next(it->_rest_it, dummy);
+			}
+			
+			if (token->kind == 'i')
+			{
+				int nr_args = it->_macro->nr_args;
+				int i = 0;
+				for (; i < nr_args; i++)
+					if (strcmp(token->token, it->_macro->args[i]) == 0)
+						break;
+				if (i < nr_args)
+				{
+					tokens_p tokens = it->args[i];
+					if (tokens == 0)
+						continue;
+					token_it->kind = tokens->kind;
+					token_it->token = tokens->token;
+					token_it->int_value = tokens->int_value;
+					token_it->filename = tokens->filename;
+					token_it->line = tokens->line;
+					token_it->column = token->column;
+					it->param_tokens = tokens->next;
+					return token_it;
+				}
+			}
+			token_it->kind = it->stringify ? '"' : token->kind;
+			token_it->token = token->token;
+			token_it->int_value = token->int_value;
+			token_it->filename = token->filename;
+			token_it->line = token->line;
+			token_it->column = token->column;
+			
+			return token_it;
+		}
 	}
 }
 
@@ -1877,9 +1933,10 @@ int main()
 		{
 			fhputs(token_it->token, fouth);
 		}
-		else if (token_it->kind == '"')
+		else if (token_it->kind == '"' || token_it->kind == '\'')
 		{
-			fhputs("\"", fouth);
+			char strsep = token_it->kind;
+			fhputc(strsep, fouth);
 			for (i = 0; i < token_it->int_value ; i = i + 1)
 			{
 				ch = token_it->token[i];
@@ -1897,7 +1954,7 @@ int main()
 					fhputc(ch, fouth);
 				}
 			}
-			fhputs("\"", fouth);
+			fhputc(strsep, fouth);
 		}
 		else if (token_it->kind == '0')
 		{
