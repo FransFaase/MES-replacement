@@ -626,6 +626,8 @@ include_iterator_p new_include_iterator(char_iterator_p include_it)
 #define TK_INC		 505
 #define TK_DEC		 506
 #define TK_ARROW	 507
+#define TK_DPERIOD   508
+#define TK_DASHES    509
 
 #define TK_ASS		600
 #define TK_MUL_ASS  (600 + '*')
@@ -659,28 +661,29 @@ include_iterator_p new_include_iterator(char_iterator_p include_it)
 #define TK_INLINE		1013
 #define TK_INT			1014
 #define TK_LONG			1015
-#define TK_SHORT		1016
-#define TK_SIZEOF		1017
-#define TK_STATIC		1018
-#define TK_STRUCT		1019
-#define TK_SWITCH		1020
-#define TK_THEN			1021
-#define TK_TYPEDEF		1022
-#define TK_UNION		1023
-#define TK_UNSIGNED		1024
-#define TK_VOID			1025
-#define TK_WHILE		1026
-#define TK_H_ELSE		1027
-#define TK_H_ELIF		1028
-#define TK_H_ENDIF		1029
-#define TK_H_DEFINE		1030
-#define TK_DEFINED		1031
-#define TK_H_IF			1032
-#define TK_H_IFDEF		1033
-#define TK_H_IFNDEF		1034
-#define TK_H_INCLUDE	1035
-#define TK_H_UNDEF		1036
-#define TK_H_ERROR		1037
+#define TK_RETURN       1016
+#define TK_SHORT		1017
+#define TK_SIZEOF		1018
+#define TK_STATIC		1019
+#define TK_STRUCT		1020
+#define TK_SWITCH		1021
+#define TK_THEN			1022
+#define TK_TYPEDEF		1023
+#define TK_UNION		1024
+#define TK_UNSIGNED		1025
+#define TK_VOID			1026
+#define TK_WHILE		1027
+#define TK_H_ELSE		1028
+#define TK_H_ELIF		1029
+#define TK_H_ENDIF		1030
+#define TK_H_DEFINE		1031
+#define TK_DEFINED		1032
+#define TK_H_IF			1033
+#define TK_H_IFDEF		1034
+#define TK_H_IFNDEF		1035
+#define TK_H_INCLUDE	1036
+#define TK_H_UNDEF		1037
+#define TK_H_ERROR		1038
 
 typedef struct token_iterator_s token_iterator_t;
 typedef struct token_iterator_s* token_iterator_p;
@@ -835,6 +838,7 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 		else if (eqstr("inline",   token_it->token)) token_it->kind = TK_INLINE;
 		else if (eqstr("int",      token_it->token)) token_it->kind = TK_INT;
 		else if (eqstr("long",     token_it->token)) token_it->kind = TK_LONG;
+		else if (eqstr("return",   token_it->token)) token_it->kind = TK_RETURN;
 		else if (eqstr("short",    token_it->token)) token_it->kind = TK_SHORT;
 		else if (eqstr("sizeof",   token_it->token)) token_it->kind = TK_SIZEOF;
 		else if (eqstr("static",   token_it->token)) token_it->kind = TK_STATIC;
@@ -872,7 +876,7 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 			}
 			else if (ch < '0' || '9' < ch)
 			{
-				token_it->kind = 's';
+				token_it->kind = '-';
 				goto done;
 			}
 			sign = -1;
@@ -1052,6 +1056,24 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 				token_it->kind = TK_NE;
 				token_it->token[1] = '=';
 				i = 2;
+			}
+		}
+		else if (ch == '.')
+		{
+			it_next(it);
+			if (it->ch == '.')
+			{
+				it_next(it);
+				token_it->kind = TK_DPERIOD;
+				token_it->token[1] = '.';
+				i = 2;
+				if (it->ch == '.')
+				{
+					it_next(it);
+					token_it->kind = TK_DASHES;
+					token_it->token[2] = '.';
+					i = 3;
+				}
 			}
 		}
 		else
@@ -1978,6 +2000,9 @@ void output_preprocessor(const char *filename)
 	fclose(fout);
 }
 
+
+typedef struct type_s *type_p;
+
 #define OPER_POST_INC    2000
 #define OPER_POST_DEC    2001
 #define OPER_PRE_INC     2002
@@ -1993,6 +2018,7 @@ struct expr_s
 	char *str_val;
 	int nr_children;
 	expr_p children[0];
+	type_p type;
 };
 
 expr_p new_expr(int kind, int nr_children)
@@ -2004,6 +2030,7 @@ expr_p new_expr(int kind, int nr_children)
 	expr->nr_children = nr_children;
 	for (int i = 0; i < nr_children; i++)
 		expr->children[i] = NULL;
+	expr->type = NULL;
 	return expr;
 }
 
@@ -2019,6 +2046,8 @@ int expr_eval(expr_p expr)
 	switch (expr->kind)
 	{
 		case '0': return expr->int_val;
+		case '+': return expr_eval(expr->children[0]) + expr_eval(expr->children[1]);
+		case '-': return expr_eval(expr->children[0]) - expr_eval(expr->children[1]);
 		case '/': return expr_eval(expr->children[0]) / expr_eval(expr->children[1]);
 	}
 	if (expr->kind < 128)
@@ -2060,7 +2089,6 @@ typedef enum
 
 typedef struct decl_s *decl_p;
 
-typedef struct type_s *type_p;
 struct type_s
 {
 	type_kind_e kind;
@@ -2129,35 +2157,35 @@ struct decl_s
 	decl_p prev;
 };
 
-decl_p new_decl(decl_kind_e kind, const char *name, type_p type, decl_p prev)
+decl_p cur_decls = NULL;
+
+void new_decl(decl_kind_e kind, const char *name, type_p type)
 {
 	decl_p decl = (decl_p)malloc(sizeof(struct decl_s));
 	decl->kind = kind;
 	decl->name = copystr(name);
 	decl->type = type;
 	decl->is_typedef = FALSE;
-	decl->prev = prev;
-	return decl;
+	decl->prev = cur_decls;
+	cur_decls = decl;
 }
 
-decl_p find_decl(decl_p decls, decl_kind_e kind, char *name)
+decl_p find_decl(decl_kind_e kind, char *name)
 {
-	for (; decls; decls = decls->prev)
+	for (decl_p decls = cur_decls; decls != NULL; decls = decls->prev)
 		if (strcmp(decls->name, name) == 0)
 			return decls;
 	return NULL;
 }
 
-decl_p find_or_add_decl(decl_p *ref_decls, decl_kind_e kind, char *name)
+decl_p find_or_add_decl(decl_kind_e kind, char *name)
 {
-	decl_p decl = find_decl(*ref_decls, kind, name);
+	decl_p decl = find_decl(kind, name);
 	if (decl != NULL)
 		return decl;
-	*ref_decls = new_decl(kind, name, NULL, *ref_decls);
-	return *ref_decls;
+	new_decl(kind, name, NULL);
+	return cur_decls;
 }
-
-decl_p global_decls = NULL;
 
 // Parse functions
 
@@ -2180,6 +2208,7 @@ bool accept_term(int kind)
 #define FAIL_NULL  { printf("Fail in %s at %d\n", __func__, __LINE__); return NULL; }
 
 expr_p parse_expr(void);
+type_p parse_type_specifier(void);
 
 expr_p parse_primary_expr(void)
 {
@@ -2202,17 +2231,44 @@ expr_p parse_primary_expr(void)
 	}
 	else if (token_it->kind == '"')
 	{
-		expr = new_expr('"', 0);
-		expr->str_val = copystr(token_it->token);
+		static char strbuf[6000];
+		int len = token_it->int_value;
+		memcpy(strbuf, token_it->token, len);
 		token_it = token_it->next(token_it, FALSE);
+		while (token_it->kind == '"')
+		{
+			memcpy(strbuf + len, token_it->token, token_it->int_value);
+			len += token_it->int_value;
+			token_it = token_it->next(token_it, FALSE);
+		}
+		strbuf[len++] = '\0';
+		expr = new_expr('"', 0);
+		expr->str_val = (char*)malloc(len);
+		memcpy(expr->str_val, strbuf, len);
 	}
 	else if (accept_term('('))
 	{
-		expr = parse_expr(); 
-		if (expr == NULL)
-			return NULL;
-		if (!accept_term(')'))
-			return NULL;
+		type_p type = parse_type_specifier();
+		if (type != NULL)
+		{
+			printf("Cast expr\n");
+			if (!accept_term(')'))
+				FAIL_NULL
+			expr_p subj_expr = parse_primary_expr();
+			if (subj_expr == NULL)
+				FAIL_NULL;
+			expr = new_expr('c', 1);
+			expr->children[0] = subj_expr;
+			expr->type = type;
+		}
+		else
+		{
+			expr = parse_expr(); 
+			if (expr == NULL)
+				FAIL_NULL
+			if (!accept_term(')'))
+				FAIL_NULL
+		}
 	}
 	return expr;
 }
@@ -2223,16 +2279,16 @@ expr_p parse_postfix_expr(void)
 {
 	expr_p expr = parse_primary_expr();
 	if (expr == NULL)
-		return NULL;
+		FAIL_NULL
 	for (;;)
 	{
 		if (accept_term('['))
 		{
 			expr_p index_expr = parse_expr();
 			if (index_expr == NULL)
-				return NULL;
+				FAIL_NULL
 			if (!accept_term(']'))
-				return NULL;
+				FAIL_NULL
 			expr_p arr_expr = new_expr('[', 2);
 			arr_expr->children[0] = expr;
 			arr_expr->children[1] = index_expr;
@@ -2247,11 +2303,11 @@ expr_p parse_postfix_expr(void)
 			{
 				expr_p child = parse_assignment_expr();
 				if (child == NULL)
-					return NULL;
+					FAIL_NULL
 				children[nr_children++] = child;
 			} while (accept_term(','));
 			if (!accept_term(')'))
-				return NULL;
+				FAIL_NULL
 			expr = new_expr('(', 1 + nr_children);
 			for (int i = 0; i < nr_children; i++)
 				expr->children[i] = children[i];
@@ -2259,7 +2315,7 @@ expr_p parse_postfix_expr(void)
 		else if (accept_term('.'))
 		{
 			if (token_it->kind != 'i')
-				return NULL;
+				FAIL_NULL
 			expr_p field_expr = new_expr('.', 1);
 			field_expr->str_val = copystr(token_it->token);
 			field_expr->children[0] = expr;
@@ -2269,7 +2325,7 @@ expr_p parse_postfix_expr(void)
 		else if (accept_term(TK_ARROW))
 		{
 			if (token_it->kind != 'i')
-				return NULL;
+				FAIL_NULL
 			expr_p field_expr = new_expr(TK_ARROW, 1);
 			field_expr->str_val = copystr(token_it->token);
 			field_expr->children[0] = expr;
@@ -2302,7 +2358,7 @@ expr_p parse_unary_expr(void)
 	{
 		expr_p expr = parse_unary_expr();
 		if (expr == NULL)
-			return NULL;
+			FAIL_NULL
 		expr_p pre_oper_expr = new_expr(OPER_PRE_INC, 1);
 		pre_oper_expr->children[0] = expr;
 		return pre_oper_expr;
@@ -2311,7 +2367,7 @@ expr_p parse_unary_expr(void)
 	{
 		expr_p expr = parse_unary_expr();
 		if (expr == NULL)
-			return NULL;
+			FAIL_NULL
 		expr_p pre_oper_expr = new_expr(OPER_PRE_DEC, 1);
 		pre_oper_expr->children[0] = expr;
 		return pre_oper_expr;
@@ -2320,7 +2376,7 @@ expr_p parse_unary_expr(void)
 	{
 		expr_p expr = parse_unary_expr();
 		if (expr == NULL)
-			return NULL;
+			FAIL_NULL
 		expr_p pre_oper_expr = new_expr('&', 1);
 		pre_oper_expr->children[0] = expr;
 		return pre_oper_expr;
@@ -2329,7 +2385,7 @@ expr_p parse_unary_expr(void)
 	{
 		expr_p expr = parse_unary_expr();
 		if (expr == NULL)
-			return NULL;
+			FAIL_NULL
 		expr_p pre_oper_expr = new_expr(OPER_PLUS, 1);
 		pre_oper_expr->children[0] = expr;
 		return pre_oper_expr;
@@ -2338,7 +2394,7 @@ expr_p parse_unary_expr(void)
 	{
 		expr_p expr = parse_unary_expr();
 		if (expr == NULL)
-			return NULL;
+			FAIL_NULL
 		expr_p pre_oper_expr = new_expr(OPER_MIN, 1);
 		pre_oper_expr->children[0] = expr;
 		return pre_oper_expr;
@@ -2347,7 +2403,7 @@ expr_p parse_unary_expr(void)
 	{
 		expr_p expr = parse_unary_expr();
 		if (expr == NULL)
-			return NULL;
+			FAIL_NULL
 		expr_p pre_oper_expr = new_expr('~', 1);
 		pre_oper_expr->children[0] = expr;
 		return pre_oper_expr;
@@ -2356,7 +2412,7 @@ expr_p parse_unary_expr(void)
 	{
 		expr_p expr = parse_unary_expr();
 		if (expr == NULL)
-			return NULL;
+			FAIL_NULL
 		expr_p pre_oper_expr = new_expr('!', 1);
 		pre_oper_expr->children[0] = expr;
 		return pre_oper_expr;
@@ -2367,14 +2423,14 @@ expr_p parse_unary_expr(void)
 		{
 			expr_p type = parse_sizeof_type();
 			if (type == NULL)
-				return NULL;
+				FAIL_NULL
 			if (!accept_term(')'))
-				return NULL;
+				FAIL_NULL
 		}
 		else
 		{
 			if (parse_unary_expr() == NULL)
-				return NULL;
+				FAIL_NULL
 		}
 		expr_p expr = new_expr(TK_SIZEOF, 0);
 		return expr;		
@@ -2404,7 +2460,7 @@ expr_p parse_sizeof_type(void)
 	{
 		if (token_it->kind == 'i')
 		{
-			decl_p decl = find_decl(global_decls, DK_STRUCT, token_it->token);
+			decl_p decl = find_decl(DK_STRUCT, token_it->token);
 			if (decl != NULL && decl->type != NULL)
 			{
 				expr = new_expr_int_value(decl->type->size);
@@ -2414,7 +2470,7 @@ expr_p parse_sizeof_type(void)
 	}
 	else if (token_it->kind == 'i')
 	{
-		decl_p decl = find_decl(global_decls, DK_IDENT, token_it->token);
+		decl_p decl = find_decl(DK_IDENT, token_it->token);
 		if (decl != NULL && decl->type != NULL)
 		{
 			expr = new_expr_int_value(decl->type->size);
@@ -2422,7 +2478,7 @@ expr_p parse_sizeof_type(void)
 		}
 	}
 	if (expr == NULL)
-		return NULL;
+		FAIL_NULL
 	while (accept_term('*'))
 		expr->int_val = 4;
 	return expr;
@@ -2445,7 +2501,7 @@ expr_p parse_expr1(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_unary_expr();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr('*', 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2455,7 +2511,7 @@ expr_p parse_expr1(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_unary_expr();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr('/', 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2465,7 +2521,7 @@ expr_p parse_expr1(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_unary_expr();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr('%', 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2487,7 +2543,7 @@ expr_p parse_expr2(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr1();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr('+', 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2497,7 +2553,7 @@ expr_p parse_expr2(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr1();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr('-', 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2519,7 +2575,7 @@ expr_p parse_expr3(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr2();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr(TK_SHL, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2529,7 +2585,7 @@ expr_p parse_expr3(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr2();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr(TK_SHR, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2551,7 +2607,7 @@ expr_p parse_expr4(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr3();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr(TK_EQ, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2561,7 +2617,7 @@ expr_p parse_expr4(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr3();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr(TK_NE, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2571,7 +2627,7 @@ expr_p parse_expr4(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr3();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr(TK_LE, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2581,7 +2637,7 @@ expr_p parse_expr4(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr3();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr(TK_GE, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2591,7 +2647,7 @@ expr_p parse_expr4(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr3();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr('<', 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2601,7 +2657,7 @@ expr_p parse_expr4(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr3();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr('>', 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2623,7 +2679,7 @@ expr_p parse_expr5(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr4();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr('^', 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2645,7 +2701,7 @@ expr_p parse_expr6(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr5();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr('&', 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2667,7 +2723,7 @@ expr_p parse_expr7(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr6();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr('|', 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2689,7 +2745,7 @@ expr_p parse_expr8(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr7();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr(TK_AND, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2711,7 +2767,7 @@ expr_p parse_expr9(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr8();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr(TK_OR, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2731,12 +2787,12 @@ expr_p parse_conditional_expr(void)
 		expr_p cond_expr = expr;
 		expr_p then_expr = parse_expr9();
 		if (then_expr == NULL)
-			return NULL;
+			FAIL_NULL
 		if (!accept_term(':'))
-			return NULL;
+			FAIL_NULL
 		expr_p else_expr = parse_conditional_expr();
 		if (else_expr == NULL)
-			return NULL;
+			FAIL_NULL
 		expr = new_expr(TK_OR, 3);
 		expr->children[0] = cond_expr;
 		expr->children[1] = then_expr;
@@ -2751,12 +2807,22 @@ expr_p parse_assignment_expr(void)
 	expr_p expr = parse_conditional_expr();
 	for (;;)
 	{
-		if (accept_term(TK_MUL_ASS))
+		if (accept_term('='))
 		{
 			expr_p lhs = expr;
 			expr_p rhs = parse_assignment_expr();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
+			expr = new_expr('=', 2);
+			expr->children[0] = lhs;
+			expr->children[1] = rhs;
+		}
+		else if (accept_term(TK_MUL_ASS))
+		{
+			expr_p lhs = expr;
+			expr_p rhs = parse_assignment_expr();
+			if (rhs == NULL)
+				FAIL_NULL
 			expr = new_expr(TK_MUL_ASS, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2766,7 +2832,7 @@ expr_p parse_assignment_expr(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_assignment_expr();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr(TK_DIV_ASS, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2776,7 +2842,7 @@ expr_p parse_assignment_expr(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_assignment_expr();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr(TK_MOD_ASS, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2786,7 +2852,7 @@ expr_p parse_assignment_expr(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_assignment_expr();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr(TK_ADD_ASS, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2796,7 +2862,7 @@ expr_p parse_assignment_expr(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_assignment_expr();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr(TK_SUB_ASS, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2806,7 +2872,7 @@ expr_p parse_assignment_expr(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_assignment_expr();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr(TK_SHL_ASS, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2816,7 +2882,7 @@ expr_p parse_assignment_expr(void)
 			expr_p lhs = expr;
 			expr_p rhs = parse_assignment_expr();
 			if (rhs == NULL)
-				return NULL;
+				FAIL_NULL
 			expr = new_expr(TK_SHR_ASS, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
@@ -2833,7 +2899,7 @@ expr_p parse_expr(void)
 {
 	expr_p expr = parse_assignment_expr();
 	if (expr == NULL)
-		return NULL;
+		FAIL_NULL
 	if (accept_term(','))
 	{
 		int nr_children = 1;
@@ -2843,7 +2909,7 @@ expr_p parse_expr(void)
 		{
 			expr_p child = parse_assignment_expr();
 			if (child == NULL)
-				return NULL;
+				FAIL_NULL
 			children[nr_children++] = child;
 		} while (accept_term(','));
 		expr = new_expr(',', nr_children);
@@ -2858,13 +2924,29 @@ expr_p parse_expr(void)
 		RULE NTP("conditional_expr")
 */
 
-type_p parse_type_specifier(decl_p *ref_decls);
 bool parse_statements(void)
 {
-	return FALSE;
+	for (;;)
+	{
+		if (accept_term(TK_RETURN))
+		{
+			if (parse_expr() == NULL)
+				FAIL_FALSE;
+			if (!accept_term(';'))
+				FAIL_FALSE;
+		}
+		else
+		{
+			expr_p expr = parse_expr();
+			(void)expr;
+			if (!accept_term(';'))
+				break;
+		}
+	}
+	return TRUE;
 }
 
-bool parse_declaration(decl_p *ref_decls, bool is_param)
+bool parse_declaration(bool is_param)
 {
 	bool is_typedef = FALSE;
 	for (;;)
@@ -2885,7 +2967,7 @@ bool parse_declaration(decl_p *ref_decls, bool is_param)
 		else
 			break;
 	}
-	type_p type = parse_type_specifier(ref_decls);
+	type_p type = parse_type_specifier();
 	printf("type %d %p\n", is_typedef, type);
 	if (type == NULL)
 		FAIL_FALSE
@@ -2901,7 +2983,7 @@ bool parse_declaration(decl_p *ref_decls, bool is_param)
 		bool as_pointer = FALSE;
 		if (token_it->kind == 'i')
 		{
-			decl = find_or_add_decl(ref_decls, DK_IDENT, token_it->token);
+			decl = find_or_add_decl(DK_IDENT, token_it->token);
 			next_token();
 		}
 		else if (accept_term('('))
@@ -2911,13 +2993,13 @@ bool parse_declaration(decl_p *ref_decls, bool is_param)
 				if (token_it->kind == 'i')
 				{
 					as_pointer = TRUE;
-					decl = find_or_add_decl(ref_decls, DK_IDENT, token_it->token);
+					decl = find_or_add_decl(DK_IDENT, token_it->token);
 					next_token();
 				}
 			}
 
 			if (!accept_term(')'))
-			FAIL_FALSE
+				FAIL_FALSE
 		}
 		if (decl != NULL)
 		{
@@ -2925,18 +3007,23 @@ bool parse_declaration(decl_p *ref_decls, bool is_param)
 			{
 				if (accept_term('('))
 				{
-					decl_p local_decls = *ref_decls;
+					decl_p save_decls = cur_decls;
 					type_p members[20];
 					members[0] = type;
 					int nr_members = 1;
 					do
 					{
-						if (!parse_declaration(&local_decls, TRUE))
-							return FALSE;
-						members[nr_members++] = local_decls->type;
+						if (accept_term(TK_DASHES))
+						{
+							members[nr_members++] = NULL;
+							break;
+						}
+						if (!parse_declaration(TRUE))
+							FAIL_FALSE;
+						members[nr_members++] = cur_decls->type;
 					} while (accept_term(','));
 					if (!accept_term(')'))
-						return FALSE;
+						FAIL_FALSE;
 					if (decl->type != NULL)
 					{
 						decl->type = new_type(TYPE_KIND_FUNCTION, 4, nr_members);
@@ -2949,20 +3036,30 @@ bool parse_declaration(decl_p *ref_decls, bool is_param)
 							FAIL_FALSE
 						return accept_term('}');
 					}
+					cur_decls = save_decls;
 					break;
 				}
 				else if (accept_term('['))
 				{
-					expr_p expr = parse_expr();
-					if (expr == NULL)
-						return FALSE;
-					int nr_elems = expr_eval(expr);
-					type_p arr_type = new_type(TYPE_KIND_ARRAY, nr_elems * type->size, 1);
-					arr_type->members[0] = type;
-					arr_type->nr_elems = nr_elems;
-					type = arr_type;
-					if (!accept_term(']'))
-						FAIL_FALSE
+					if (accept_term(']'))
+					{
+						type_p ptr_type = new_type(TYPE_KIND_POINTER, 4, 1);
+						ptr_type->members[0] = type;
+						type = ptr_type;
+					}
+					else
+					{
+						expr_p expr = parse_expr();
+						if (expr == NULL)
+							return FALSE;
+						int nr_elems = expr_eval(expr);
+						type_p arr_type = new_type(TYPE_KIND_ARRAY, nr_elems * type->size, 1);
+						arr_type->members[0] = type;
+						arr_type->nr_elems = nr_elems;
+						type = arr_type;
+						if (!accept_term(']'))
+							FAIL_FALSE
+					}
 				}
 				else
 					break;
@@ -2975,6 +3072,11 @@ bool parse_declaration(decl_p *ref_decls, bool is_param)
 			}
 			decl->type = type;
 			decl->is_typedef = is_typedef;
+			if (accept_term('='))
+			{
+				parse_expr();
+				// TODO: should be initializer
+			}
 		}
 	} while (!is_param && accept_term(','));
 /*
@@ -3007,13 +3109,14 @@ bool parse_declaration(decl_p *ref_decls, bool is_param)
 	return is_param || accept_term(';');
 }
 
-type_p parse_struct_or_union_specifier(decl_kind_e decl_kind, decl_p *ref_decls);
-type_p parse_enum_specifier(decl_p *ref_decls);
+type_p parse_struct_or_union_specifier(decl_kind_e decl_kind);
+type_p parse_enum_specifier(void);
 
-type_p parse_type_specifier(decl_p *ref_decls)
+type_p parse_type_specifier(void)
 {
 	if (accept_term(TK_CONST))
 	{
+		/*
 		if (accept_term(TK_CHAR))
 		{
 			return new_base_type(BT_S8);
@@ -3034,6 +3137,7 @@ type_p parse_type_specifier(decl_p *ref_decls)
 			return new_base_type(BT_VOID);
 		}
 		FAIL_NULL
+		*/
 	}
 	if (accept_term(TK_CHAR))
 	{
@@ -3100,19 +3204,19 @@ type_p parse_type_specifier(decl_p *ref_decls)
 	}
 	if (accept_term(TK_STRUCT))
 	{
-		return parse_struct_or_union_specifier(DK_STRUCT, ref_decls);
+		return parse_struct_or_union_specifier(DK_STRUCT);
 	}
 	if (accept_term(TK_UNION))
 	{
-		return parse_struct_or_union_specifier(DK_UNION, ref_decls);
+		return parse_struct_or_union_specifier(DK_UNION);
 	}
 	if (accept_term(TK_ENUM))
 	{
-		return parse_enum_specifier(ref_decls);
+		return parse_enum_specifier();
 	}
 	if (token_it->kind == 'i')
 	{
-		decl_p decl = find_decl(*ref_decls, DK_IDENT, token_it->token);
+		decl_p decl = find_decl(DK_IDENT, token_it->token);
 		if (decl == NULL)
 		{
 			printf("Ident %s has no declaration\n", token_it->token);
@@ -3135,13 +3239,13 @@ type_p parse_type_specifier(decl_p *ref_decls)
 	FAIL_NULL
 }
 
-type_p parse_struct_or_union_specifier(decl_kind_e decl_kind, decl_p *ref_decls)
+type_p parse_struct_or_union_specifier(decl_kind_e decl_kind)
 {
 	type_kind_e type_kind = decl_kind == DK_STRUCT ? TYPE_KIND_STRUCT : TYPE_KIND_UNION;
 	type_p type = NULL;
 	if (token_it->kind == 'i')
 	{
-		decl_p decl = find_or_add_decl(ref_decls, decl_kind, token_it->token);
+		decl_p decl = find_or_add_decl(decl_kind, token_it->token);
 		if (decl->type == NULL)
 		{
 			decl->type = new_type(type_kind, 0, 0);
@@ -3151,16 +3255,16 @@ type_p parse_struct_or_union_specifier(decl_kind_e decl_kind, decl_p *ref_decls)
 	}
 	if (accept_term('{'))
 	{
-		decl_p local_decls = *ref_decls;
+		decl_p save_decls = cur_decls;
 		int nr_decls = 0;
 		decl_p decls[200];
 		int size = 0;
 		do
 		{
-			if (!parse_declaration(&local_decls, FALSE))
+			if (!parse_declaration(FALSE))
 				FAIL_NULL
-			decls[nr_decls++] = local_decls;
-			int decl_size = local_decls->type != 0 ? local_decls->type->size : 0;
+			decls[nr_decls++] = cur_decls;
+			int decl_size = cur_decls->type != 0 ? cur_decls->type->size : 0;
 			if (decl_kind == DK_STRUCT)
 				size += decl_size;
 			else if (decl_size > size)
@@ -3179,6 +3283,7 @@ type_p parse_struct_or_union_specifier(decl_kind_e decl_kind, decl_p *ref_decls)
 		}
 		for (int i = 0; i < nr_decls; i++)
 			type->decls[i] = decls[i];
+		cur_decls = save_decls;
 	}
 	return type;
 }
@@ -3245,12 +3350,12 @@ type_p parse_struct_or_union_specifier(decl_kind_e decl_kind, decl_p *ref_decls)
 	//	} OPTN ADD_CHILD TREE("record_field")
 */
 
-type_p parse_enum_specifier(decl_p *ref_decls)
+type_p parse_enum_specifier()
 {
 	type_p type = NULL;
 	if (token_it->kind == 'i')
 	{
-		decl_p decl = find_or_add_decl(ref_decls, DK_ENUM, token_it->token);
+		decl_p decl = find_or_add_decl(DK_ENUM, token_it->token);
 		if (decl->type == NULL)
 		{
 			decl->type = new_type(DK_ENUM, 4, 0);
@@ -3265,7 +3370,7 @@ type_p parse_enum_specifier(decl_p *ref_decls)
 		{
 			if (token_it->kind != 'i')
 				FAIL_NULL
-			decl_p const_decl = find_or_add_decl(ref_decls, DK_IDENT, token_it->token);
+			decl_p const_decl = find_or_add_decl(DK_IDENT, token_it->token);
 			next_token();
 			if (accept_term('='))
 			{
@@ -3421,8 +3526,8 @@ type_p parse_enum_specifier(decl_p *ref_decls)
 
 void add_base_type(const char *name, base_type_e base)
 {
-	global_decls = new_decl(DK_IDENT, name, new_base_type(base), global_decls);
-	global_decls->is_typedef = TRUE;
+	new_decl(DK_IDENT, name, new_base_type(base));
+	cur_decls->is_typedef = TRUE;
 }
 
 void add_predefined_types()
@@ -3431,6 +3536,7 @@ void add_predefined_types()
 	add_base_type("uint32_t", BT_U32);
 	add_base_type("int32_t", BT_S32);
 	add_base_type("uint8_t", BT_U8);
+	add_base_type("size_t", BT_U32);
 	add_base_type("jmp_buf", BT_JMP_BUF);
 	add_base_type("FILE", BT_FILE);
 }
@@ -3478,7 +3584,7 @@ int main(int argc, char *argv[])
 	}
 	add_predefined_types();
 	
-	while (parse_declaration(&global_decls, FALSE))
+	while (parse_declaration(FALSE))
 	{
 	}
 	if (token_it != 0)
