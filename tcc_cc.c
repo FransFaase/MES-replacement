@@ -1737,19 +1737,20 @@ token_iterator_p expand_macro_iterator_next(token_iterator_p token_it, bool dumm
 					tokens_p tokens = it->args[i];
 					if (tokens == 0)
 						continue;
-					token_it->kind = tokens->kind;
+					token_it->kind = it->stringify ? '"' : tokens->kind;
 					token_it->token = tokens->token;
-					token_it->int_value = tokens->int_value;
+					token_it->int_value = it->stringify ? strlen(token_it->token) : tokens->int_value;
 					token_it->filename = tokens->filename;
 					token_it->line = tokens->line;
 					token_it->column = token->column;
 					it->param_tokens = tokens->next;
+					it->tokens = token->next;
 					return token_it;
 				}
 			}
 			token_it->kind = it->stringify ? '"' : token->kind;
 			token_it->token = token->token;
-			token_it->int_value = token->int_value;
+			token_it->int_value = it->stringify ? strlen(token_it->token) : token->int_value;
 			token_it->filename = token->filename;
 			token_it->line = token->line;
 			token_it->column = token->column;
