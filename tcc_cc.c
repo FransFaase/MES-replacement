@@ -1683,7 +1683,7 @@ token_iterator_p expand_macro_iterator_next(token_iterator_p token_it, bool dumm
 			int p = 0;
 			for (;;)
 			{
-				char *s = token->token;
+				const char *s = token->token;
 				if (token->kind == 'i')
 				{
 					int nr_args = it->_macro->nr_args;
@@ -1695,7 +1695,10 @@ token_iterator_p expand_macro_iterator_next(token_iterator_p token_it, bool dumm
 					{
 						tokens_p tokens = it->args[i];
 						if (tokens == NULL || tokens->next != NULL)
+						{
 							printf("ERROR: append arg not one value\n");
+							s = "";
+						}
 						else
 							s = tokens->token;
 					}
@@ -1981,7 +1984,7 @@ void output_preprocessor(const char *filename)
 		else if (token_it->kind == TK_GE)		fhputs(">=", fouth);
 		else if (token_it->kind == TK_INC)		fhputs("++", fouth);
 		else if (token_it->kind == TK_DEC)		fhputs("--", fouth);
-		else if (token_it->kind == TK_ARROW)		fhputs("->", fouth);
+		else if (token_it->kind == TK_ARROW)	fhputs("->", fouth);
 		else if (token_it->kind == TK_MUL_ASS)	fhputs("*=", fouth);
 		else if (token_it->kind == TK_DIV_ASS)	fhputs("/=", fouth);
 		else if (token_it->kind == TK_MOD_ASS)	fhputs("%%=", fouth);
@@ -2244,6 +2247,7 @@ bool accept_term(int kind)
 
 expr_p parse_expr(void);
 type_p parse_type_specifier(void);
+expr_p parse_unary_expr(void);
 
 expr_p parse_primary_expr(void)
 {
@@ -2303,7 +2307,7 @@ expr_p parse_primary_expr(void)
 			}
 			if (!accept_term(')'))
 				FAIL_NULL
-			expr_p subj_expr = parse_primary_expr();
+			expr_p subj_expr = parse_unary_expr();
 			if (subj_expr == NULL)
 				FAIL_NULL;
 			expr_p expr = new_expr('c', 1);
@@ -2470,21 +2474,31 @@ expr_p parse_unary_expr(void)
 	}
 	if (accept_term(TK_SIZEOF))
 	{
+		expr_p sizeof_expr = NULL;
 		if (accept_term('('))
 		{
-			expr_p type = parse_sizeof_type();
-			if (type == NULL)
-				FAIL_NULL
+			sizeof_expr = parse_sizeof_type();
+			if (sizeof_expr == NULL)
+			{
+				sizeof_expr = parse_expr();
+				if (sizeof_expr == NULL)
+					FAIL_NULL
+			}
 			if (!accept_term(')'))
 				FAIL_NULL
 		}
 		else
 		{
-			if (parse_unary_expr() == NULL)
+			sizeof_expr = parse_unary_expr();
+			if (sizeof_expr == NULL)
 				FAIL_NULL
 		}
-		expr_p expr = new_expr(TK_SIZEOF, 0);
-		return expr;		
+		if (sizeof_expr->type == 0)
+		{
+			printf("Error: sizeof expression has not type\n");
+			return new_expr_int_value(4);
+		}
+		return new_expr_int_value(sizeof_expr->type != 0 ? sizeof_expr->type->size : 4);
 	}
 	
 	return parse_postfix_expr();
@@ -2522,7 +2536,7 @@ expr_p parse_sizeof_type(void)
 	else if (token_it->kind == 'i')
 	{
 		decl_p decl = find_decl(DK_IDENT, token_it->token);
-		if (decl != NULL && decl->type != NULL)
+		if (decl != NULL && decl->type != NULL && decl->is_typedef)
 		{
 			expr = new_expr_int_value(decl->type->size);
 			next_token();
@@ -3520,7 +3534,7 @@ expr_p parse_initializer(void)
 {
 	if (accept_term('{'))
 	{
-		expr_p exprs[200];
+		expr_p exprs[2000];
 		int nr_exprs = 0;
 		for (;;)
 		{
@@ -3762,13 +3776,18 @@ void add_function(const char *name)
 
 void add_predefined_types()
 {
-	add_base_type("uint16_t", BT_U16);
 	add_base_type("uint32_t", BT_U32);
 	add_base_type("int32_t", BT_S32);
+	add_base_type("uint16_t", BT_U16);
 	add_base_type("uint8_t", BT_U8);
+	add_base_type("int8_t", BT_S8);
 	add_base_type("size_t", BT_U32);
+	// Need to verify the following:
+	add_base_type("ssize_t", BT_U32);
 	add_base_type("jmp_buf", BT_JMP_BUF);
 	add_base_type("FILE", BT_FILE);
+	add_base_type("time_t", BT_U32);
+	add_base_type("va_list", BT_U32);
 
 	add_function("memcpy");
 	add_function("memmove");
@@ -3777,9 +3796,56 @@ void add_predefined_types()
 	add_function("strlen");
 	add_function("strcpy");
 	add_function("strcmp");
+	add_function("strncmp");
+	add_function("strchr");
+	add_function("strrchr");
+	add_function("strtol");
+	add_function("strtoull");
+	add_function("strtoll");
+	add_function("fwrite");
+	add_function("fputs");
+	add_function("fputc");
+	add_function("printf");
+	add_function("fprintf");
 	add_function("sprintf");
+	add_function("snprintf");
+	add_function("vsnprintf");
 	add_function("read");
+	add_function("open");
+	add_function("close");
+	add_function("lseek");
+	add_function("fdopen");
+	add_function("fflush");
+	add_function("fclose");
 	add_function("strtoul");
+	add_function("ldexp");
+	add_function("time");
+	add_function("localtime");
+	add_function("getcwd");
+	add_function("getenv");
+	add_function("unlink");
+	add_function("qsort");
+	add_function("free");
+	add_function("malloc");
+	add_function("realloc");
+	add_function("va_start");
+	add_function("va_end");
+	add_function("longjmp");
+	add_function("exit");
+	add_function("sscanf");
+
+	new_decl(DK_IDENT, "errno", new_base_type(BT_S32));
+	new_decl(DK_IDENT, "stdout", new_base_type(BT_S32));
+	new_decl(DK_IDENT, "stderr", new_base_type(BT_S32));
+	new_decl(DK_IDENT, "LINE_MACRO_OUTPUT_FORMAT_NONE", new_base_type(BT_S32));
+	new_decl(DK_IDENT, "LINE_MACRO_OUTPUT_FORMAT_STD", new_base_type(BT_S32));
+	new_decl(DK_IDENT, "LINE_MACRO_OUTPUT_FORMAT_P10", new_base_type(BT_S32));
+	new_decl(DK_IDENT, "O_WRONLY", new_base_type(BT_S32));
+	new_decl(DK_IDENT, "O_CREAT", new_base_type(BT_S32));
+	new_decl(DK_IDENT, "O_TRUNC", new_base_type(BT_S32));
+	new_decl(DK_IDENT, "O_RDONLY", new_base_type(BT_S32));
+	new_decl(DK_IDENT, "SEEK_SET", new_base_type(BT_S32));
+	new_decl(DK_IDENT, "SEEK_CUR", new_base_type(BT_S32));
 
 	type_p void_type = new_base_type(BT_VOID);
 	type_p ptr_void_type = new_type(TYPE_KIND_POINTER, 4, 1);
@@ -3794,9 +3860,6 @@ int main(int argc, char *argv[])
 		if (strcmp(argv[i], "-E") == 0)
 			only_preprocess = TRUE;
 
-	env_p one_source_env;
-	env_p tcc_version_env;
-	env_p ldouble_size_env;
 	file_iterator_p input_it;
 	line_splice_iterator_p splice_it;
 	comment_strip_iterator_p comment_it;
@@ -3805,12 +3868,12 @@ int main(int argc, char *argv[])
 	conditional_iterator_p conditional_it;
 	expand_iterator_p expand_it;
 	
-	one_source_env = get_env("ONE_SOURCE", TRUE);
+	env_p one_source_env = get_env("ONE_SOURCE", TRUE);
 	one_source_env->tokens = new_int_token(1);
-	tcc_version_env = get_env("TCC_VERSION", TRUE);
+	env_p tcc_version_env = get_env("TCC_VERSION", TRUE);
 	tcc_version_env->tokens = new_str_token("\"1.0\"");
-	ldouble_size_env = get_env("LDOUBLE_SIZE", TRUE);
-	ldouble_size_env->tokens = new_int_token(8);
+	//env_p ldouble_size_env = get_env("LDOUBLE_SIZE", TRUE);
+	//ldouble_size_env->tokens = new_int_token(8);
 	input_it = new_file_iterator("tcc_sources/tcc.c");
 	splice_it = new_line_splice_iterator(&input_it->base);
 	comment_it = new_comment_strip_iterator(&splice_it->base);
