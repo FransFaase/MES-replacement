@@ -4,6 +4,9 @@
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
 
+#ifndef __GNUC__
+#define __GNUC__
+#endif
 #ifdef __GNUC__
 
 #include <stdio.h>
@@ -2056,6 +2059,7 @@ int expr_eval(expr_p expr)
 		case '+': return expr_eval(expr->children[0]) + expr_eval(expr->children[1]);
 		case '-': return expr_eval(expr->children[0]) - expr_eval(expr->children[1]);
 		case '/': return expr_eval(expr->children[0]) / expr_eval(expr->children[1]);
+		case '|': return expr_eval(expr->children[0]) | expr_eval(expr->children[1]);
 		case TK_SIZEOF: return 100; // TODO fix
 		case OPER_MIN: return -expr_eval(expr->children[0]);
 	}
@@ -3416,7 +3420,7 @@ type_p parse_struct_or_union_specifier(decl_kind_e decl_kind)
 	//	} OPTN ADD_CHILD TREE("record_field")
 */
 
-type_p parse_enum_specifier()
+type_p parse_enum_specifier(void)
 {
 	type_p type = NULL;
 	if (token_it->kind == 'i')
@@ -3633,9 +3637,12 @@ bool parse_statement(void)
 		decl_p save_decl = cur_decls;
 		if (!accept_term('('))
 			FAIL_FALSE
-		parse_expr();
-		if (!accept_term(';'))
-			FAIL_FALSE
+		if (!parse_declaration(FALSE))
+		{
+			parse_expr();
+			if (!accept_term(';'))
+				FAIL_FALSE
+		}
 		parse_expr();
 		if (!accept_term(';'))
 			FAIL_FALSE
@@ -3720,7 +3727,7 @@ bool parse_statements(void)
 	decl_p save_decls = cur_decls;
 	do
 	{
-	} while (parse_declaration(FALSE) || parse_statement());
+	} while (token_it->kind != '}' && (parse_declaration(FALSE) || parse_statement()));
 	cur_decls = save_decls;
 	return TRUE;
 }
@@ -3784,7 +3791,7 @@ void add_function(const char *name)
 	new_decl(DK_IDENT, name, new_type(TYPE_KIND_FUNCTION, 4, 0));
 }
 
-void add_predefined_types()
+void add_predefined_types(void)
 {
 	add_base_type("uint32_t", BT_U32);
 	add_base_type("int32_t", BT_S32);
@@ -3853,6 +3860,10 @@ void add_predefined_types()
 	add_function("execvp");
 	add_function("gettimeofday");
 
+	// for tcc_cc.c
+	add_function("write");
+	add_function("fileno");
+
 	new_decl(DK_IDENT, "errno", new_base_type(BT_S32));
 	new_decl(DK_IDENT, "stdout", new_base_type(BT_S32));
 	new_decl(DK_IDENT, "stderr", new_base_type(BT_S32));
@@ -3871,14 +3882,25 @@ void add_predefined_types()
 	type_p ptr_void_type = new_type(TYPE_KIND_POINTER, 4, 1);
 	ptr_void_type->members[0] = void_type;
 	new_decl(DK_IDENT, "NULL", ptr_void_type);
+
+	// for tcc_cc.c
+	type_p char_type = new_base_type(BT_S8);
+	type_p ptr_char_type = new_type(TYPE_KIND_POINTER, 4, 1);
+	ptr_char_type->members[0] = char_type;
+	new_decl(DK_IDENT, "__func__", ptr_char_type);
+	new_decl(DK_IDENT, "__LINE__", new_base_type(BT_U32));
+
 }
 
 int main(int argc, char *argv[])
 {
 	bool only_preprocess = FALSE;
+	char *input_filename = "tcc_sources/tcc.c";
 	for (int i = 1; i < argc; i++)
 		if (strcmp(argv[i], "-E") == 0)
 			only_preprocess = TRUE;
+		else
+			input_filename = argv[i];
 
 	file_iterator_p input_it;
 	line_splice_iterator_p splice_it;
@@ -3894,7 +3916,7 @@ int main(int argc, char *argv[])
 	tcc_version_env->tokens = new_str_token("1.0");
 	//env_p ldouble_size_env = get_env("LDOUBLE_SIZE", TRUE);
 	//ldouble_size_env->tokens = new_int_token(8);
-	input_it = new_file_iterator("tcc_sources/tcc.c");
+	input_it = new_file_iterator(input_filename);
 	splice_it = new_line_splice_iterator(&input_it->base);
 	comment_it = new_comment_strip_iterator(&splice_it->base);
 	include_it = new_include_iterator(&comment_it->base);
