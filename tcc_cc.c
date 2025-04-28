@@ -1137,7 +1137,7 @@ tokens_p new_int_token(int int_value)
 }
 tokens_p new_str_token(char *str)
 {
-	tokens_p token = new_token('i');
+	tokens_p token = new_token('"');
 	token->token = copystr(str);
 	return token;
 }
@@ -2015,6 +2015,7 @@ typedef struct type_s *type_p;
 #define OPER_PRE_DEC     2002
 #define OPER_PLUS        2003
 #define OPER_MIN         2004
+#define OPER_STAR        2005
 
 typedef struct expr_s *expr_p;
 struct expr_s
@@ -2433,6 +2434,15 @@ expr_p parse_unary_expr(void)
 		if (expr == NULL)
 			FAIL_NULL
 		expr_p pre_oper_expr = new_expr('&', 1);
+		pre_oper_expr->children[0] = expr;
+		return pre_oper_expr;
+	}
+	if (accept_term('*'))
+	{
+		expr_p expr = parse_unary_expr();
+		if (expr == NULL)
+			FAIL_NULL
+		expr_p pre_oper_expr = new_expr(OPER_STAR, 1);
 		pre_oper_expr->children[0] = expr;
 		return pre_oper_expr;
 	}
@@ -3802,6 +3812,7 @@ void add_predefined_types()
 	add_function("strtol");
 	add_function("strtoull");
 	add_function("strtoll");
+	add_function("strstr");
 	add_function("fwrite");
 	add_function("fputs");
 	add_function("fputc");
@@ -3814,9 +3825,13 @@ void add_predefined_types()
 	add_function("open");
 	add_function("close");
 	add_function("lseek");
+	add_function("fopen");
 	add_function("fdopen");
 	add_function("fflush");
 	add_function("fclose");
+	add_function("fseek");
+	add_function("ftell");
+	add_function("fread");
 	add_function("strtoul");
 	add_function("ldexp");
 	add_function("time");
@@ -3833,6 +3848,10 @@ void add_predefined_types()
 	add_function("longjmp");
 	add_function("exit");
 	add_function("sscanf");
+	add_function("atoi");
+	add_function("remove");
+	add_function("execvp");
+	add_function("gettimeofday");
 
 	new_decl(DK_IDENT, "errno", new_base_type(BT_S32));
 	new_decl(DK_IDENT, "stdout", new_base_type(BT_S32));
@@ -3846,6 +3865,7 @@ void add_predefined_types()
 	new_decl(DK_IDENT, "O_RDONLY", new_base_type(BT_S32));
 	new_decl(DK_IDENT, "SEEK_SET", new_base_type(BT_S32));
 	new_decl(DK_IDENT, "SEEK_CUR", new_base_type(BT_S32));
+	new_decl(DK_IDENT, "SEEK_END", new_base_type(BT_S32));
 
 	type_p void_type = new_base_type(BT_VOID);
 	type_p ptr_void_type = new_type(TYPE_KIND_POINTER, 4, 1);
@@ -3871,7 +3891,7 @@ int main(int argc, char *argv[])
 	env_p one_source_env = get_env("ONE_SOURCE", TRUE);
 	one_source_env->tokens = new_int_token(1);
 	env_p tcc_version_env = get_env("TCC_VERSION", TRUE);
-	tcc_version_env->tokens = new_str_token("\"1.0\"");
+	tcc_version_env->tokens = new_str_token("1.0");
 	//env_p ldouble_size_env = get_env("LDOUBLE_SIZE", TRUE);
 	//ldouble_size_env->tokens = new_int_token(8);
 	input_it = new_file_iterator("tcc_sources/tcc.c");
