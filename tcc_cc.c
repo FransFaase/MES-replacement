@@ -2088,6 +2088,8 @@ typedef enum
 	BT_DF  = 33,
 	BT_JMP_BUF  = 34,
 	BT_FILE     = 35,
+	BT_TIME_T   = 36,
+	BT_VA_LIST  = 37,
 } base_type_e;
 
 typedef enum
@@ -2135,6 +2137,22 @@ type_p new_type(type_kind_e kind, int size, int nr_members)
 	return type;
 }
 
+type_p base_type_void = NULL;
+type_p base_type_S8 = NULL;
+type_p base_type_U8 = NULL;
+type_p base_type_S16 = NULL;
+type_p base_type_U16 = NULL;
+type_p base_type_S32 = NULL;
+type_p base_type_U32 = NULL;
+type_p base_type_S64 = NULL;
+type_p base_type_U64 = NULL;
+type_p base_type_float = NULL;
+type_p base_type_double = NULL;
+type_p base_type_jmp_buf = NULL;
+type_p base_type_file = NULL;
+type_p base_type_time_t = NULL;
+type_p base_type_va_list = NULL;
+
 type_p new_base_type(base_type_e base)
 {
 	int size = 4;
@@ -2150,6 +2168,25 @@ type_p new_base_type(base_type_e base)
 	type_p type = new_type(TYPE_KIND_BASE, size, 0);
 	type->base_type = base;
 	return type;
+}
+
+void define_base_types(void)
+{
+	base_type_void = new_base_type(BT_VOID);
+	base_type_S8 = new_base_type(BT_S8);
+	base_type_U8 = new_base_type(BT_U8);
+	base_type_S16 = new_base_type(BT_S16);
+	base_type_U16 = new_base_type(BT_U16);
+	base_type_S32 = new_base_type(BT_S32);
+	base_type_U32 = new_base_type(BT_U32);
+	base_type_S64 = new_base_type(BT_S64);
+	base_type_U64 = new_base_type(BT_U64);
+	base_type_float = new_base_type(BT_F);
+	base_type_double = new_base_type(BT_DF);
+	base_type_jmp_buf = new_base_type(BT_JMP_BUF);
+	base_type_file = new_base_type(BT_FILE);
+	base_type_time_t = new_base_type(BT_TIME_T);
+	base_type_va_list = new_base_type(BT_VA_LIST);
 }
 
 // Declarations
@@ -3186,91 +3223,69 @@ type_p parse_type_specifier(void)
 {
 	if (accept_term(TK_CONST))
 	{
-		/*
-		if (accept_term(TK_CHAR))
-		{
-			return new_base_type(BT_S8);
-		}
-		if (accept_term(TK_INT))
-		{
-			return new_base_type(BT_S16);
-		}
-		if (accept_term(TK_UNSIGNED))
-		{
-			if (accept_term(TK_CHAR))
-			{
-				return new_base_type(BT_U8);
-			}
-		}
-		if (accept_term(TK_VOID))
-		{
-			return new_base_type(BT_VOID);
-		}
-		FAIL_NULL
-		*/
 	}
 	if (accept_term(TK_CHAR))
 	{
 		if (accept_term(TK_CONST))
 		{
 		}
-		return new_base_type(BT_S8);
+		return base_type_S8;
 	}
 	if (accept_term(TK_UNSIGNED))
 	{
 		if (accept_term(TK_CHAR))
 		{
-			return new_base_type(BT_U8);
+			return base_type_U8;
 		}
 		if (accept_term(TK_SHORT))
 		{
-			return new_base_type(BT_U16);
+			return base_type_U16;
 		}
 		if (accept_term(TK_LONG))
 		{
 			if (accept_term(TK_LONG))
 			{
-				return new_base_type(BT_U64);
+				return base_type_U64;
 			}
-			return new_base_type(BT_U32);
+			return base_type_U32;
 		}
 		if (accept_term(TK_INT))
 		{
-			return new_base_type(BT_U32);
+			return base_type_U32;
 		}
-		return new_base_type(BT_S32);
+		return base_type_S32;
 	}
 	if (accept_term(TK_SHORT))
 	{
-		return new_base_type(BT_U16);
+		return base_type_U16;
 	}
 	if (accept_term(TK_INT))
 	{
-		return new_base_type(BT_S32);
+		return base_type_S32;
 	}
 	if (accept_term(TK_LONG))
 	{
 		if (accept_term(TK_DOUBLE))
 		{
-			return new_base_type(BT_DF);
+			return base_type_double;
 		}
 		if (accept_term(TK_LONG))
 		{
-			return new_base_type(BT_S64);
+			return base_type_S64;
 		}
-		return new_base_type(BT_S32); 
+		return base_type_S32; 
 	}
 	if (accept_term(TK_FLOAT))
 	{
-		return new_base_type(BT_F);
+		return base_type_float;
 	}
 	if (accept_term(TK_DOUBLE))
 	{
-		return new_base_type(BT_DF);
+		return base_type_double;
 	}
 	if (accept_term(TK_VOID))
 	{
-		return new_base_type(BT_VOID);
+		return base_type_void;
 	}
 	if (accept_term(TK_STRUCT))
 	{
@@ -3780,9 +3795,9 @@ bool parse_statements(void)
 */
 
 
-void add_base_type(const char *name, base_type_e base)
+void add_base_type(const char *name, type_p base_type)
 {
-	new_decl(DK_IDENT, name, new_base_type(base));
+	new_decl(DK_IDENT, name, base_type);
 	cur_decls->is_typedef = TRUE;
 }
 
@@ -3793,18 +3808,18 @@ void add_function(const char *name)
 
 void add_predefined_types(void)
 {
-	add_base_type("uint32_t", BT_U32);
-	add_base_type("int32_t", BT_S32);
-	add_base_type("uint16_t", BT_U16);
-	add_base_type("uint8_t", BT_U8);
-	add_base_type("int8_t", BT_S8);
-	add_base_type("size_t", BT_U32);
+	add_base_type("uint32_t", base_type_U32);
+	add_base_type("int32_t", base_type_S32);
+	add_base_type("uint16_t", base_type_U16);
+	add_base_type("uint8_t", base_type_U8);
+	add_base_type("int8_t", base_type_S8);
+	add_base_type("size_t", base_type_U32);
 	// Need to verify the following:
-	add_base_type("ssize_t", BT_U32);
-	add_base_type("jmp_buf", BT_JMP_BUF);
-	add_base_type("FILE", BT_FILE);
-	add_base_type("time_t", BT_U32);
-	add_base_type("va_list", BT_U32);
+	add_base_type("ssize_t", base_type_U32);
+	add_base_type("jmp_buf", base_type_jmp_buf);
+	add_base_type("FILE", base_type_file);
+	add_base_type("time_t", base_type_time_t);
+	add_base_type("va_list", base_type_va_list);
 
 	add_function("memcpy");
 	add_function("memmove");
@@ -3864,36 +3879,36 @@ void add_predefined_types(void)
 	add_function("write");
 	add_function("fileno");
 
-	new_decl(DK_IDENT, "errno", new_base_type(BT_S32));
-	new_decl(DK_IDENT, "stdout", new_base_type(BT_S32));
-	new_decl(DK_IDENT, "stderr", new_base_type(BT_S32));
-	new_decl(DK_IDENT, "LINE_MACRO_OUTPUT_FORMAT_NONE", new_base_type(BT_S32));
-	new_decl(DK_IDENT, "LINE_MACRO_OUTPUT_FORMAT_STD", new_base_type(BT_S32));
-	new_decl(DK_IDENT, "LINE_MACRO_OUTPUT_FORMAT_P10", new_base_type(BT_S32));
-	new_decl(DK_IDENT, "O_WRONLY", new_base_type(BT_S32));
-	new_decl(DK_IDENT, "O_CREAT", new_base_type(BT_S32));
-	new_decl(DK_IDENT, "O_TRUNC", new_base_type(BT_S32));
-	new_decl(DK_IDENT, "O_RDONLY", new_base_type(BT_S32));
-	new_decl(DK_IDENT, "SEEK_SET", new_base_type(BT_S32));
-	new_decl(DK_IDENT, "SEEK_CUR", new_base_type(BT_S32));
-	new_decl(DK_IDENT, "SEEK_END", new_base_type(BT_S32));
+	new_decl(DK_IDENT, "errno", base_type_S32);
+	new_decl(DK_IDENT, "stdout", base_type_S32);
+	new_decl(DK_IDENT, "stderr", base_type_S32);
+	new_decl(DK_IDENT, "LINE_MACRO_OUTPUT_FORMAT_NONE", base_type_S32);
+	new_decl(DK_IDENT, "LINE_MACRO_OUTPUT_FORMAT_STD", base_type_S32);
+	new_decl(DK_IDENT, "LINE_MACRO_OUTPUT_FORMAT_P10", base_type_S32);
+	new_decl(DK_IDENT, "O_WRONLY", base_type_S32);
+	new_decl(DK_IDENT, "O_CREAT", base_type_S32);
+	new_decl(DK_IDENT, "O_TRUNC", base_type_S32);
+	new_decl(DK_IDENT, "O_RDONLY", base_type_S32);
+	new_decl(DK_IDENT, "SEEK_SET", base_type_S32);
+	new_decl(DK_IDENT, "SEEK_CUR", base_type_S32);
+	new_decl(DK_IDENT, "SEEK_END", base_type_S32);
 
-	type_p void_type = new_base_type(BT_VOID);
 	type_p ptr_void_type = new_type(TYPE_KIND_POINTER, 4, 1);
-	ptr_void_type->members[0] = void_type;
+	ptr_void_type->members[0] = base_type_void;
 	new_decl(DK_IDENT, "NULL", ptr_void_type);
 
 	// for tcc_cc.c
-	type_p char_type = new_base_type(BT_S8);
 	type_p ptr_char_type = new_type(TYPE_KIND_POINTER, 4, 1);
-	ptr_char_type->members[0] = char_type;
+	ptr_char_type->members[0] = base_type_S8;
 	new_decl(DK_IDENT, "__func__", ptr_char_type);
-	new_decl(DK_IDENT, "__LINE__", new_base_type(BT_U32));
+	new_decl(DK_IDENT, "__LINE__", base_type_U32);
 
 }
 
 int main(int argc, char *argv[])
 {
+	define_base_types();
+
 	bool only_preprocess = FALSE;
 	char *input_filename = "tcc_sources/tcc.c";
 	for (int i = 1; i < argc; i++)
@@ -3933,6 +3948,7 @@ int main(int argc, char *argv[])
 		output_preprocessor("tcc_p.c");
 		return 0;
 	}
+
 	add_predefined_types();
 	
 	while (parse_declaration(FALSE))
