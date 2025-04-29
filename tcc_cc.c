@@ -698,7 +698,7 @@ struct token_iterator_s
 {
 	int kind;
 	char *token;
-	int int_value;
+	unsigned int length;
 	char *filename;
 	int line;
 	int column;
@@ -781,7 +781,6 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 	char_iterator_p it = tokenizer->_char_iterator;
 	char_next_p it_next; it_next = it->next;
 	int i = 0;
-	int sign = 1;
 	char ch = it->ch;
 	tokenizer->base.kind = 0;
 	if (ch == 0)
@@ -862,23 +861,14 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 	else if ('0' <= ch && ch <= '9')
 	{
 		token_it->kind = '0';
-		token_it->int_value = 0;
 		if (ch == '0')
 		{
 			token_it->token[i] = ch; i = i + 1; it_next(it); ch = it->ch;
 			if (ch == 'x')
 			{
 				token_it->token[i] = ch; i = i + 1; it_next(it); ch = it->ch;
-				while (1)
+				while (('0' <= ch && ch <= '9') || ('a' <= ch && ch <= 'f') || ('A' <= ch && ch <= 'F'))
 				{
-					if ('0' <= ch && ch <= '9')
-						token_it->int_value = 16 * token_it->int_value + ch - '0';
-					else if ('a' <= ch && ch <= 'f')
-						token_it->int_value = 16 * token_it->int_value + ch - 'a' + 10;
-					else if ('A' <= ch && ch <= 'F')
-						token_it->int_value = 16 * token_it->int_value + ch - 'A' + 10;
-					else
-						break;
 					token_it->token[i] = ch; i = i + 1; it_next(it); ch = it->ch;
 				}
 			}
@@ -886,7 +876,6 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 			{
 				while ('0' <= ch && ch <= '7')
 				{
-					token_it->int_value = 8 * token_it->int_value + ch - '0';
 					token_it->token[i] = ch; i = i + 1; it_next(it); ch = it->ch;
 				}
 			}
@@ -895,7 +884,6 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 		{
 			while ('0' <= ch && ch <= '9')
 			{
-				token_it->int_value = 10 * token_it->int_value + ch - '0';
 				token_it->token[i] = ch; i = i + 1; it_next(it); ch = it->ch;
 			}
 		}
@@ -907,7 +895,7 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 		{
 			token_it->token[i] = ch; i = i + 1; it_next(it); ch = it->ch;
 		}
-		token_it->int_value *= sign;
+		token_it->length = i;
 	}
 	else if (ch == '\'')
 	{
@@ -919,7 +907,7 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 		{
 			it_next(it);
 		}
-		token_it->int_value = i;
+		token_it->length = i;
 	}
 	else if (ch == '"')
 	{
@@ -934,7 +922,7 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 		{
 			it_next(it);
 		}
-		token_it->int_value = i;
+		token_it->length = i;
 	}
 	else
 	{
@@ -1092,8 +1080,63 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 	//fhputs(" '", STDOUT_FILENO);
 	//fhputs(token_it->token, STDOUT_FILENO);
 	//fhputs("'\n", STDOUT_FILENO);
-	//printf("tokenizer result %d '%s' %d\n", token_it->kind, token_it->token, token_it->int_value);
+	//printf("tokenizer result %d '%s' %d\n", token_it->kind, token_it->token, token_it->length);
 	return token_it;
+}
+
+int string_int_value(const char *s)
+{
+	int int_value = 0;
+	if (*s == '0')
+	{
+		s++;
+		if (*s == 'x')
+		{
+			s++;
+			while (1)
+			{
+				if ('0' <= *s && *s <= '9')
+					int_value = 16 * int_value + *s - '0';
+				else if ('a' <= *s && *s <= 'f')
+					int_value = 16 * int_value + *s - 'a' + 10;
+				else if ('A' <= *s && *s <= 'F')
+					int_value = 16 * int_value + *s - 'A' + 10;
+				else
+					break;
+				s++;
+			}
+		}
+		else
+		{
+			while ('0' <= *s && *s <= '7')
+			{
+				int_value = 8 * int_value + *s - '0';
+				s++;
+			}
+		}
+	}
+	else
+	{
+		while ('0' <= *s && *s <= '9')
+		{
+			int_value = 10 * int_value + *s - '0';
+			s++;
+		}
+	}
+	if (*s == 'U')
+	{
+		s++;
+	}
+	while (*s == 'L')
+	{
+		s++;
+	}
+	return int_value;
+}
+
+int token_it_int_value(token_iterator_p it)
+{
+	return string_int_value(it->token);
 }
 
 tokenizer_p new_tokenizer(char_iterator_p char_iterator)
@@ -1112,7 +1155,7 @@ struct tokens_s
 {
 	int kind;
 	char *token;
-	int int_value;
+	int length;
 	char *filename;
 	int line;
 	int column;
@@ -1125,17 +1168,17 @@ tokens_p new_token(int kind)
 	tokens_p token = _malloc(sizeof(struct tokens_s));
 	token->kind = kind;
 	token->token = 0;
-	token->int_value = 0;
+	token->length = 0;
 	token->filename = "<env>";
 	token->line = 0;
 	token->column = 0;
 	token->next = 0;
 	return token;
 }
-tokens_p new_int_token(int int_value)
+tokens_p new_int_token(const char *str)
 {
 	tokens_p token = new_token('0');
-	token->int_value = int_value;
+	token->token = copystr(str);
 	return token;
 }
 tokens_p new_str_token(char *str)
@@ -1148,7 +1191,7 @@ tokens_p new_token_from_it(token_iterator_p it)
 {
 	tokens_p token = new_token(it->kind);
 	token->token = copystr(it->token);
-	token->int_value = it->int_value;
+	token->length = it->length;
 	token->filename = it->filename;
 	token->line = it->line;
 	token->column = it->column;
@@ -1303,7 +1346,7 @@ int conditional_iterator_parse_primary(conditional_iterator_p it)
 	}
 	else if (it->_token_it->kind == '0')
 	{
-		result = it->_token_it->int_value;
+		result = token_it_int_value(it->_token_it);
 		token_it_next(it->_token_it, FALSE);
 	}
 	else if (it->_token_it->kind == 'i')
@@ -1311,7 +1354,7 @@ int conditional_iterator_parse_primary(conditional_iterator_p it)
 		env_p env = get_env(it->_token_it->token, FALSE);
 		if (env != NULL && env->tokens != NULL && env->tokens->kind == '0')
 		{
-			result = env->tokens->int_value;
+			result = string_int_value(env->tokens->token);
 		}
 		token_it_next(it->_token_it, FALSE);
 	}
@@ -1592,7 +1635,7 @@ token_iterator_p conditional_iterator_next(token_iterator_p token_it, bool dummy
 		{
 			it->base.kind = it->_token_it->kind;
 			it->base.token = it->_token_it->token;
-			it->base.int_value = it->_token_it->int_value;
+			it->base.length = it->_token_it->length;
 			it->base.filename = it->_token_it->filename;
 			it->base.line  = it->_token_it->line;
 			it->base.column = it->_token_it->column;
@@ -1602,7 +1645,7 @@ token_iterator_p conditional_iterator_next(token_iterator_p token_it, bool dummy
 		{
 			it->base.kind = it->_token_it->kind;
 			it->base.token = it->_token_it->token;
-			it->base.int_value = it->_token_it->int_value;
+			it->base.length = it->_token_it->length;
 			it->base.filename = it->_token_it->filename;
 			it->base.line  = it->_token_it->line;
 			it->base.column = it->_token_it->column;
@@ -1654,7 +1697,7 @@ token_iterator_p expand_macro_iterator_next(token_iterator_p token_it, bool dumm
 	{
 		token_it->kind = it->stringify ? '"' : it->param_tokens->kind;
 		token_it->token = it->param_tokens->token;
-		token_it->int_value = it->stringify ? strlen(token_it->token) : it->param_tokens->int_value;
+		token_it->length = it->param_tokens->length;
 		token_it->filename = it->param_tokens->filename;
 		token_it->line = it->param_tokens->line;
 		token_it->column = it->param_tokens->column;
@@ -1718,7 +1761,7 @@ token_iterator_p expand_macro_iterator_next(token_iterator_p token_it, bool dumm
 			it->appended_token[p] = '\0';
 			printf("INFO: Appended token '%s'\n", it->appended_token);
 			token_it->token = it->appended_token;
-			token_it->int_value = p;
+			token_it->length = p;
 			
 			return token_it;
 		}
@@ -1746,7 +1789,7 @@ token_iterator_p expand_macro_iterator_next(token_iterator_p token_it, bool dumm
 						continue;
 					token_it->kind = it->stringify ? '"' : tokens->kind;
 					token_it->token = tokens->token;
-					token_it->int_value = it->stringify ? strlen(token_it->token) : tokens->int_value;
+					token_it->length = tokens->length;
 					token_it->filename = tokens->filename;
 					token_it->line = tokens->line;
 					token_it->column = token->column;
@@ -1757,7 +1800,7 @@ token_iterator_p expand_macro_iterator_next(token_iterator_p token_it, bool dumm
 			}
 			token_it->kind = it->stringify ? '"' : token->kind;
 			token_it->token = token->token;
-			token_it->int_value = it->stringify ? strlen(token_it->token) : token->int_value;
+			token_it->length = token->length;
 			token_it->filename = token->filename;
 			token_it->line = token->line;
 			token_it->column = token->column;
@@ -1856,7 +1899,7 @@ token_iterator_p expand_iterator_next(token_iterator_p token_it, bool dummy)
 	
 	token_it->kind = source_it->kind;
 	token_it->token = source_it->token;
-	token_it->int_value = source_it->int_value;
+	token_it->length = source_it->length;
 	token_it->filename = source_it->filename;
 	token_it->line = source_it->line;
 	token_it->column = source_it->column;
@@ -1903,7 +1946,7 @@ tokens_iterator_p new_tokens_iterator(token_iterator_p it, bool skip_nl)
 	}
 	new_it->base.kind = it->base.kind;
 	new_it->base.token = it->base.token;
-	new_it->base.int_value = it->base.int_value;
+	new_it->base.length = it->base.length;
 	new_it->base.filenam = it->base.filenam;
 	new_it->base.line = it->base.line;
 	new_it->base.column = it->base.column;
@@ -1948,7 +1991,7 @@ void output_preprocessor(const char *filename)
 		{
 			char strsep = token_it->kind;
 			fhputc(strsep, fouth);
-			for (int i = 0; i < token_it->int_value ; i = i + 1)
+			for (int i = 0; i < token_it->length ; i = i + 1)
 			{
 				char ch = token_it->token[i];
 				if (ch == '\n')
@@ -1969,10 +2012,7 @@ void output_preprocessor(const char *filename)
 		}
 		else if (token_it->kind == '0')
 		{
-			if (token_it->int_value == 0)
-				fhputc('0', fouth);
-			else
-				fhput_int(token_it->int_value, fouth);
+			fhputs(token_it->token, fouth);
 		}
 		else if (token_it->kind < 127)
 		{
@@ -2152,6 +2192,7 @@ type_p base_type_jmp_buf = NULL;
 type_p base_type_file = NULL;
 type_p base_type_time_t = NULL;
 type_p base_type_va_list = NULL;
+type_p type_char_ptr = NULL;
 
 type_p new_base_type(base_type_e base)
 {
@@ -2187,6 +2228,8 @@ void define_base_types(void)
 	base_type_file = new_base_type(BT_FILE);
 	base_type_time_t = new_base_type(BT_TIME_T);
 	base_type_va_list = new_base_type(BT_VA_LIST);
+	type_char_ptr = new_type(TYPE_KIND_POINTER, 4, 1);
+	type_char_ptr->members[0] = base_type_S8;
 }
 
 // Declarations
@@ -2307,31 +2350,43 @@ expr_p parse_primary_expr(void)
 	}
 	if (token_it->kind == '0')
 	{
-		expr_p expr = new_expr_int_value(token_it->int_value);
+		expr_p expr = new_expr_int_value(token_it_int_value(token_it));
+		int nr_L = 0;
+		bool has_U = FALSE;
+		for (char *s = token_it->token; *s != '\0'; s++)
+			if (*s == 'L')
+				nr_L++;
+			else if (*s == 'U')
+				has_U = TRUE;
+		expr->type =   has_U
+					 ? (nr_L > 1 ? base_type_U64 : base_type_U32)
+					 : (nr_L > 1 ? base_type_S64 : base_type_S32);
 		token_it = token_it->next(token_it, FALSE);
 		return expr;
 	}
 	if (token_it->kind == '\'')
 	{
 		expr_p expr = new_expr_int_value(token_it->token[0]);
+		expr->type = base_type_S8;
 		token_it = token_it->next(token_it, FALSE);
 		return expr;
 	}
 	if (token_it->kind == '"')
 	{
 		static char strbuf[6000];
-		int len = token_it->int_value;
-		memcpy(strbuf, token_it->token, len);
+		int len = token_it->length;
+		memcpy(strbuf, token_it->token, token_it->length);
 		token_it = token_it->next(token_it, FALSE);
 		while (token_it->kind == '"')
 		{
-			memcpy(strbuf + len, token_it->token, token_it->int_value);
-			len += token_it->int_value;
+			memcpy(strbuf + len, token_it->token, token_it->length);
+			len += token_it->length;
 			token_it = token_it->next(token_it, FALSE);
 		}
 		strbuf[len++] = '\0';
 		expr_p expr = new_expr('"', 0);
 		expr->str_val = (char*)malloc(len);
+		expr->type = type_char_ptr;
 		memcpy(expr->str_val, strbuf, len);
 		return expr;
 	}
@@ -3898,9 +3953,7 @@ void add_predefined_types(void)
 	new_decl(DK_IDENT, "NULL", ptr_void_type);
 
 	// for tcc_cc.c
-	type_p ptr_char_type = new_type(TYPE_KIND_POINTER, 4, 1);
-	ptr_char_type->members[0] = base_type_S8;
-	new_decl(DK_IDENT, "__func__", ptr_char_type);
+	new_decl(DK_IDENT, "__func__", type_char_ptr);
 	new_decl(DK_IDENT, "__LINE__", base_type_U32);
 
 }
@@ -3926,11 +3979,11 @@ int main(int argc, char *argv[])
 	expand_iterator_p expand_it;
 	
 	env_p one_source_env = get_env("ONE_SOURCE", TRUE);
-	one_source_env->tokens = new_int_token(1);
+	one_source_env->tokens = new_int_token("1");
 	env_p tcc_version_env = get_env("TCC_VERSION", TRUE);
 	tcc_version_env->tokens = new_str_token("1.0");
 	//env_p ldouble_size_env = get_env("LDOUBLE_SIZE", TRUE);
-	//ldouble_size_env->tokens = new_int_token(8);
+	//ldouble_size_env->tokens = new_int_token("8");
 	input_it = new_file_iterator(input_filename);
 	splice_it = new_line_splice_iterator(&input_it->base);
 	comment_it = new_comment_strip_iterator(&splice_it->base);
