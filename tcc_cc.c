@@ -255,6 +255,10 @@ char* copystr(const char* str)
 	return new_str;
 }
 
+// Options
+
+bool opt_trace_parser = FALSE;
+
 // Preprocessor
 
 typedef struct char_iterator_s char_iterator_t;
@@ -1074,7 +1078,8 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 		}
 	}
 	done: token_it->token[i] = '\0';
-	printf("tokenizer_next %d '%s'\n", token_it->kind, token_it->token);
+	if (opt_trace_parser)
+		printf("tokenizer_next %d '%s'\n", token_it->kind, token_it->token);
 	//fhputs("tokenizer_next) ", STDOUT_FILENO);
 	//fhput_int(token_it->kind, STDOUT_FILENO);
 	//fhputs(" '", STDOUT_FILENO);
@@ -1701,7 +1706,8 @@ token_iterator_p expand_macro_iterator_next(token_iterator_p token_it, bool dumm
 		token_it->filename = it->param_tokens->filename;
 		token_it->line = it->param_tokens->line;
 		token_it->column = it->param_tokens->column;
-		printf("token from arg %d %s\n", token_it->kind, token_it->token == 0 ? "?" : token_it->token);
+		if (opt_trace_parser)
+			printf("token from arg %d %s\n", token_it->kind, token_it->token == 0 ? "?" : token_it->token);
 		it->param_tokens = it->param_tokens->next;
 		return token_it;
 	}
@@ -1716,7 +1722,8 @@ token_iterator_p expand_macro_iterator_next(token_iterator_p token_it, bool dumm
 			return rest_it->next(rest_it, dummy);
 		}
 		
-		printf("token from macro %d %s\n", token->kind, token->token == 0 ? "?" : token->token);
+		if (opt_trace_parser)
+			printf("token from macro %d %s\n", token->kind, token->token == 0 ? "?" : token->token);
 		it->tokens = token->next;
 		it->stringify = FALSE;
 		
@@ -1740,9 +1747,15 @@ token_iterator_p expand_macro_iterator_next(token_iterator_p token_it, bool dumm
 					if (i < nr_args)
 					{
 						tokens_p tokens = it->args[i];
-						if (tokens == NULL || tokens->next != NULL)
+						if (tokens == NULL)
 						{
-							printf("ERROR: append arg not one value\n");
+							if (opt_trace_parser)
+								printf("INFO: append arg no value\n");
+							s = "";
+						}
+						else if (tokens->next != NULL)
+						{
+							printf("ERROR: append arg more than one value\n");
 							s = "";
 						}
 						else
@@ -1759,7 +1772,8 @@ token_iterator_p expand_macro_iterator_next(token_iterator_p token_it, bool dumm
 			}
 			it->tokens = token;
 			it->appended_token[p] = '\0';
-			printf("INFO: Appended token '%s'\n", it->appended_token);
+			if (opt_trace_parser)
+				printf("INFO: Appended token '%s'\n", it->appended_token);
 			token_it->token = it->appended_token;
 			token_it->length = p;
 			
@@ -1846,7 +1860,8 @@ token_iterator_p expand_iterator_next(token_iterator_p token_it, bool dummy)
 			if (macro != NULL)
 			{
 				go = TRUE;
-				printf("Expand token %s %d: ", source_it->token, macro->nr_args);
+				if (opt_trace_parser)
+					printf("Expand token %s %d: ", source_it->token, macro->nr_args);
 				tokens_p args[10];
 				int nr_args = 0;
 				if (macro->nr_args > 0)
@@ -1882,7 +1897,6 @@ token_iterator_p expand_iterator_next(token_iterator_p token_it, bool dummy)
 					}
 					while (source_it->kind == ',');
 				}
-				printf(" %d\n", nr_args);
 				if (macro->nr_args != nr_args)
 				{
 					printf("ERROR: Number arguments (%d) for %s does not match parameters (%d)\n", nr_args, macro->name, macro->nr_args);
@@ -2327,8 +2341,8 @@ bool accept_term(int kind)
 	return FALSE;
 }
 
-#define FAIL_FALSE { printf("Fail in %s at %d\n", __func__, __LINE__); return FALSE; }
-#define FAIL_NULL  { printf("Fail in %s at %d\n", __func__, __LINE__); return NULL; }
+#define FAIL_FALSE { if (opt_trace_parser) printf("Fail in %s at %d\n", __func__, __LINE__); return FALSE; }
+#define FAIL_NULL  { if (opt_trace_parser) printf("Fail in %s at %d\n", __func__, __LINE__); return NULL; }
 
 expr_p parse_expr(void);
 type_p parse_type_specifier(void);
@@ -2395,7 +2409,8 @@ expr_p parse_primary_expr(void)
 		type_p type = parse_type_specifier();
 		if (type != NULL)
 		{
-			printf("Cast expr\n");
+			if (opt_trace_parser)
+				printf("Cast expr\n");
 			while (accept_term('*'))
 			{
 				type_p ptr_type = new_type(TYPE_KIND_POINTER, 4, 1);
@@ -3130,7 +3145,6 @@ bool parse_declaration(bool is_param)
 			break;
 	}
 	type_p type = parse_type_specifier();
-	printf("type %d %p\n", is_typedef, type);
 	if (type == NULL)
 		FAIL_FALSE
 	do
@@ -3359,20 +3373,23 @@ type_p parse_type_specifier(void)
 		decl_p decl = find_decl(DK_IDENT, token_it->token);
 		if (decl == NULL)
 		{
-			printf("Ident %s has no declaration\n", token_it->token);
+			if (opt_trace_parser)
+				printf("Ident %s has no declaration\n", token_it->token);
 			FAIL_NULL
 		}
 		if (decl->type == NULL)
 			FAIL_NULL
 		if (decl->is_typedef)
 		{
-			printf("Ident %s is typedef\n", decl->name);
+			if (opt_trace_parser)
+				printf("Ident %s is typedef\n", decl->name);
 			next_token();
 			return decl->type;
 		}
 		else
 		{
-			printf("Ident %s is not a typedef\n", token_it->token);
+			if (opt_trace_parser)
+				printf("Ident %s is not a typedef\n", token_it->token);
 			FAIL_NULL
 		}
 	}
@@ -3967,6 +3984,8 @@ int main(int argc, char *argv[])
 	for (int i = 1; i < argc; i++)
 		if (strcmp(argv[i], "-E") == 0)
 			only_preprocess = TRUE;
+		else if (strcmp(argv[i], "-dp") == 0)
+			opt_trace_parser = TRUE;
 		else
 			input_filename = argv[i];
 
