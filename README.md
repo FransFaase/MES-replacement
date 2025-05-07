@@ -45,4 +45,13 @@ The [commit 8084af1c](https://github.com/FransFaase/MES-replacement/commit/8084a
 contains a version of `tcc_cc.c` that implements a preprocessor that can process
 the TCC sources (it seems). It is based on iterators.
 
+## WIP 28 april 2025
+
+The [commit 93fba047](https://github.com/FransFaase/MES-replacement/commit/93fba0474b4527c2e3f0e35bb53e23f1b4c6ed6d)
+contains a version of `tcc_cc.c` that can parse the TCC sources and its own source
+
+## WIP 7 may 2025
+
+The [commit 9122a22a](https://github.com/FransFaase/MES-replacement/commit/9122a22a91ee4b4ff73144e0c675585320b4e69a)
+contains a version of `tcc_cc.c` that determines the type of all expressions.
 
