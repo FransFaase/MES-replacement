@@ -313,7 +313,7 @@ void file_iterator_next(char_iterator_p char_it)
 	//fhputs("'\n", STDOUT_FILENO);
 }
 
-file_iterator_p new_file_iterator(char* fn)
+file_iterator_p new_file_iterator(const char* fn)
 {
 	file_iterator_p it = _malloc(sizeof(struct file_iterator_s));
 	it->_f = open(fn, 0, 0);
@@ -645,6 +645,8 @@ include_iterator_p new_include_iterator(char_iterator_p include_it)
 #define TK_SHL_ASS	(600 + '<')
 #define TK_SHR_ASS	(600 + '>')
 #define TK_XOR_ASS  (600 + '^')
+#define TK_BAND_ASS (600 + '&')
+#define TK_BOR_ASS  (600 + '|')
 
 #define TK_DD_OPER	800
 #define TK_SHL		(800 + '<')
@@ -1024,12 +1026,20 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 				token_it->token[1] = ch;
 				i = 2;
 			}
-			if (it->ch == '=' && (ch == '<' || ch == '>')) 
+			if (it->ch == '=' && (ch == '<' || ch == '>' || ch == '&' || ch == '|')) 
 			{
 				it_next(it);
 				if (i == 2)
 				{
 					token_it->kind = TK_ASS + ch;
+				}
+				else if (ch == '&')
+				{
+					token_it->kind = TK_BAND_ASS;
+				}
+				else if (ch == '|')
+				{
+					token_it->kind = TK_BOR_ASS;
 				}
 				else if (ch == '<')
 				{
@@ -2050,6 +2060,8 @@ void output_preprocessor(const char *filename)
 		else if (token_it->kind == TK_SHL_ASS)	fhputs("<<=", fouth);
 		else if (token_it->kind == TK_SHR_ASS)	fhputs(">>=", fouth);
 		else if (token_it->kind == TK_XOR_ASS)	fhputs("^=", fouth);
+		else if (token_it->kind == TK_BAND_ASS)	fhputs("&=", fouth);
+		else if (token_it->kind == TK_BOR_ASS)	fhputs("|=", fouth);
 		else if (token_it->kind == TK_SHL)		fhputs("<<", fouth);
 		else if (token_it->kind == TK_SHR)		fhputs(">>", fouth);
 		else if (token_it->kind == TK_AND)		fhputs("&&", fouth);
@@ -2061,68 +2073,6 @@ void output_preprocessor(const char *filename)
 
 	fprintf(fout, "\n\nDone\n");	
 	fclose(fout);
-}
-
-
-typedef struct type_s *type_p;
-
-#define OPER_POST_INC    2000
-#define OPER_POST_DEC    2001
-#define OPER_PRE_INC     2002
-#define OPER_PRE_DEC     2002
-#define OPER_PLUS        2003
-#define OPER_MIN         2004
-#define OPER_STAR        2005
-
-typedef struct expr_s *expr_p;
-struct expr_s
-{
-	int kind;
-	int int_val;
-	char *str_val;
-	int nr_children;
-	expr_p children[0];
-	type_p type;
-};
-
-expr_p new_expr(int kind, int nr_children)
-{
-	expr_p expr = (expr_p)malloc(sizeof(struct expr_s) + nr_children * sizeof(expr_p));
-	expr->kind = kind;
-	expr->int_val = 0;
-	expr->str_val = NULL;
-	expr->nr_children = nr_children;
-	for (int i = 0; i < nr_children; i++)
-		expr->children[i] = NULL;
-	expr->type = NULL;
-	return expr;
-}
-
-expr_p new_expr_int_value(int value)
-{
-	expr_p expr = new_expr('0', 0);
-	expr->int_val = value;
-	return expr;
-}
-
-int expr_eval(expr_p expr)
-{
-	switch (expr->kind)
-	{
-		case '0': return expr->int_val;
-		case '+': return expr_eval(expr->children[0]) + expr_eval(expr->children[1]);
-		case '-': return expr_eval(expr->children[0]) - expr_eval(expr->children[1]);
-		case '/': return expr_eval(expr->children[0]) / expr_eval(expr->children[1]);
-		case '|': return expr_eval(expr->children[0]) | expr_eval(expr->children[1]);
-		case TK_SIZEOF: return 100; // TODO fix
-		case OPER_MIN: return -expr_eval(expr->children[0]);
-	}
-	if (expr->kind < 128)
-		printf("Error: expr_eval '%c'\n", expr->kind);
-	else
-		printf("Error: expr_eval %d\n", expr->kind);
-	exit(0);
-	return 0;
 }
 
 // Types
@@ -2158,6 +2108,7 @@ typedef enum
 
 typedef struct decl_s *decl_p;
 
+typedef struct type_s *type_p;
 struct type_s
 {
 	type_kind_e kind;
@@ -2188,7 +2139,19 @@ type_p new_type(type_kind_e kind, int size, int nr_members)
 	type->nr_decls = 0;
 	type->decls = NULL;
 	type->nr_elems = 0;
+	//if (token_it != NULL)
+	//	printf("new_type %p %d (%s %d)\n", type, kind, token_it->filename, token_it->line);
 	return type;
+}
+
+bool type_is_integer(type_p type)
+{
+	return type != NULL && type->kind == TYPE_KIND_BASE && (type->base_type & 1) == 1;
+}
+
+bool type_is_pointer(type_p type)
+{
+	return type != NULL && (type->kind == TYPE_KIND_POINTER || type->kind == TYPE_KIND_ARRAY);
 }
 
 type_p base_type_void = NULL;
@@ -2206,6 +2169,7 @@ type_p base_type_jmp_buf = NULL;
 type_p base_type_file = NULL;
 type_p base_type_time_t = NULL;
 type_p base_type_va_list = NULL;
+type_p base_type_bool = NULL;
 type_p type_char_ptr = NULL;
 
 type_p new_base_type(base_type_e base)
@@ -2242,8 +2206,123 @@ void define_base_types(void)
 	base_type_file = new_base_type(BT_FILE);
 	base_type_time_t = new_base_type(BT_TIME_T);
 	base_type_va_list = new_base_type(BT_VA_LIST);
+	base_type_bool = new_base_type(BT_U32);
 	type_char_ptr = new_type(TYPE_KIND_POINTER, 4, 1);
 	type_char_ptr->members[0] = base_type_S8;
+}
+
+// Expressions
+
+#define LOCATION_IN_EXPR 
+
+#define OPER_POST_INC    2000
+#define OPER_POST_DEC    2001
+#define OPER_PRE_INC     2002
+#define OPER_PRE_DEC     2002
+#define OPER_PLUS        2003
+#define OPER_MIN         2004
+#define OPER_STAR        2005
+
+typedef struct expr_s *expr_p;
+struct expr_s
+{
+	int kind;
+	int int_val;
+	char *str_val;
+	type_p type;
+#ifdef LOCATION_IN_EXPR
+	const char *filename;
+	int line;
+	int column;
+#endif
+	int nr_children;
+	expr_p children[0];
+};
+
+const char *token_it_pos(void)
+{
+	static char buffer[101];
+	snprintf(buffer, 100, "%s: %d.%d", token_it->filename, token_it->line, token_it->column);
+	buffer[100] = '\0';
+	return buffer;
+}
+
+#ifdef LOCATION_IN_EXPR
+const char *filename_for_expr;
+int line_for_expr;
+int column_for_expr;
+
+void store_pos_for_expr(void)
+{
+	filename_for_expr = token_it->filename;
+	line_for_expr = token_it->line;
+	column_for_expr = token_it->column;
+}
+
+const char *expr_pos(expr_p expr)
+{
+	static char buffer[101];
+	if (expr->kind > ' ' && expr->kind < 127)
+		snprintf(buffer, 100, "%s: %d.%d expr '%c ", expr->filename, expr->line, expr->column, expr->kind);
+	else
+		snprintf(buffer, 100, "%s: %d.%d expr %d ", expr->filename, expr->line, expr->column, expr->kind);
+	buffer[100] = '\0';
+	return buffer;
+}
+#else
+void store_pos_for_expr(void) {}
+const char *expr_pos(expr_p expr) {
+	static char buffer[101];
+	if (expr->kind > ' ' && expr->kind < 127)
+		snprintf(buffer, 100, "%sexpr '%c ", token_pos(), expr->kind);
+	else
+		snprintf(buffer, 100, "%s expr %d ", token_pos(), expr->kind);
+	buffer[100] = '\0';
+	return buffer;
+}
+#endif
+
+expr_p new_expr(int kind, int nr_children)
+{
+	expr_p expr = (expr_p)malloc(sizeof(struct expr_s) + nr_children * sizeof(expr_p));
+	expr->kind = kind;
+	expr->int_val = 0;
+	expr->str_val = NULL;
+	expr->nr_children = nr_children;
+	for (int i = 0; i < nr_children; i++)
+		expr->children[i] = NULL;
+	expr->type = NULL;
+#ifdef LOCATION_IN_EXPR
+	expr->filename = filename_for_expr;
+	expr->line = line_for_expr;
+	expr->column = column_for_expr;
+#endif
+	return expr;
+}
+
+expr_p new_expr_int_value(int value)
+{
+	expr_p expr = new_expr('0', 0);
+	expr->int_val = value;
+	expr->type = base_type_S32;
+	return expr;
+}
+
+int expr_eval(expr_p expr)
+{
+	switch (expr->kind)
+	{
+		case '0': return expr->int_val;
+		case '+': return expr_eval(expr->children[0]) + expr_eval(expr->children[1]);
+		case '-': return expr_eval(expr->children[0]) - expr_eval(expr->children[1]);
+		case '/': return expr_eval(expr->children[0]) / expr_eval(expr->children[1]);
+		case '|': return expr_eval(expr->children[0]) | expr_eval(expr->children[1]);
+		case TK_SIZEOF: return 100; // TODO fix
+		case OPER_MIN: return -expr_eval(expr->children[0]);
+	}
+	printf("%s Error: expr_eval\n", expr_pos(expr));
+	exit(0);
+	return 0;
 }
 
 // Declarations
@@ -2264,22 +2343,60 @@ struct decl_s
 	decl_p prev;
 };
 
+// TODO: move after debugging is finished
+void type_set_decls(type_p type, int nr_decls, decl_p* decls)
+{
+	if (nr_decls >= type->nr_decls)
+	{
+		type->nr_decls = nr_decls;
+		type->decls = (decl_p*)malloc(nr_decls * sizeof(decl_p));
+	}
+	//printf("Decls of type %p:", type);
+	for (int i = 0; i < nr_decls; i++)
+	{
+		//printf(" %s", decls[i] != NULL ? decls[i]->name : "...");
+		type->decls[i] = decls[i];
+	}
+	//printf("\n");
+}
+
+
+decl_p cur_ident_decls = NULL;
 decl_p cur_decls = NULL;
 
-void new_decl(decl_kind_e kind, const char *name, type_p type)
+decl_p add_decl(decl_kind_e kind, const char *name, type_p type)
 {
+	//printf("add_decl '%s' %d", name, kind);
+	//if (type != NULL)
+	//	printf("Type %d", type->kind);
+	//printf("\n");
 	decl_p decl = (decl_p)malloc(sizeof(struct decl_s));
 	decl->kind = kind;
 	decl->name = copystr(name);
 	decl->type = type;
 	decl->is_typedef = FALSE;
-	decl->prev = cur_decls;
-	cur_decls = decl;
+	if (kind == DK_IDENT)
+	{
+		decl->prev = cur_ident_decls;
+		cur_ident_decls = decl;
+	}
+	else
+	{
+		decl->prev = cur_decls;
+		cur_decls = decl;
+	}
+	return decl;
+}
+
+void add_decl_clone(decl_p decl)
+{
+	decl_p decl_clone = add_decl(decl->kind, decl->name, decl->type);
+	decl_clone->is_typedef = decl->is_typedef;
 }
 
 decl_p find_decl(decl_kind_e kind, char *name)
 {
-	for (decl_p decls = cur_decls; decls != NULL; decls = decls->prev)
+	for (decl_p decls = kind == DK_IDENT ? cur_ident_decls : cur_decls; decls != NULL; decls = decls->prev)
 		if (strcmp(decls->name, name) == 0)
 			return decls;
 	return NULL;
@@ -2290,8 +2407,7 @@ decl_p find_or_add_decl(decl_kind_e kind, char *name)
 	decl_p decl = find_decl(kind, name);
 	if (decl != NULL)
 		return decl;
-	new_decl(kind, name, NULL);
-	return cur_decls;
+	return add_decl(kind, name, NULL);
 }
 
 
@@ -2324,10 +2440,55 @@ label_p find_or_add_label(const char *name)
 	return label;
 }
 
+// Type functions
+
+type_p expr_type_member(expr_p expr, int nr)
+{
+	if (expr->type != NULL && nr < expr->type->nr_members)
+		return expr->type->members[nr];
+	if (expr->kind == 'i')
+		printf("%s: Error identifier '%s': ", expr_pos(expr), expr->str_val);
+	else
+		printf("%s: Error expression: ", expr_pos(expr));
+	if (expr->type == NULL)
+		printf("Has no type\n");
+	else
+		printf("Type has no member %d (%d)\n", nr, expr->type->nr_members);
+	return NULL;
+}
+
+type_p type_decl(type_p type, const char *name)
+{
+	for (int i = 0; i < type->nr_decls; i++)
+		if (type->decls[i] != NULL && strcmp(type->decls[i]->name, name) == 0)
+			return type->decls[i]->type;
+	printf("%s: Error Type %p has no field %s\n", token_it_pos(), type, name);
+	return NULL;
+}
+
+type_p expr_type_decl(expr_p expr, const char *name)
+{
+	if (expr->type != NULL)
+	{
+		for (int i = 0; i < expr->type->nr_decls; i++)
+			if (expr->type->decls[i] != NULL && strcmp(expr->type->decls[i]->name, name) == 0)
+				return expr->type->decls[i]->type;
+	}
+	printf("%s: Error expression: ", expr_pos(expr));
+	if (expr->type == NULL)
+		printf("Has no type\n");
+	else
+	{
+		printf("Type %p has no field %s\n", expr->type, name);
+	}
+	return NULL;
+}
+
 // Parse functions
 
 void next_token(void)
 {
+	store_pos_for_expr();
 	token_it = token_it->next(token_it, FALSE);
 }
 
@@ -2355,15 +2516,19 @@ expr_p parse_primary_expr(void)
 		decl_p decl = find_decl(DK_IDENT, token_it->token);
 		if (decl != NULL && !decl->is_typedef)
 		{
+			store_pos_for_expr();
 			expr_p expr = new_expr('i', 0);
 			expr->str_val = copystr(token_it->token);
 			expr->type = decl->type;
-			token_it = token_it->next(token_it, FALSE);
+			if (decl->type == NULL)
+				printf("Identifier %s has no type\n", expr->str_val);
+			next_token();
 			return expr;
 		}
 	}
 	if (token_it->kind == '0')
 	{
+		store_pos_for_expr();
 		expr_p expr = new_expr_int_value(token_it_int_value(token_it));
 		int nr_L = 0;
 		bool has_U = FALSE;
@@ -2375,27 +2540,29 @@ expr_p parse_primary_expr(void)
 		expr->type =   has_U
 					 ? (nr_L > 1 ? base_type_U64 : base_type_U32)
 					 : (nr_L > 1 ? base_type_S64 : base_type_S32);
-		token_it = token_it->next(token_it, FALSE);
+		next_token();
 		return expr;
 	}
 	if (token_it->kind == '\'')
 	{
+		store_pos_for_expr();
 		expr_p expr = new_expr_int_value(token_it->token[0]);
 		expr->type = base_type_S8;
-		token_it = token_it->next(token_it, FALSE);
+		next_token();
 		return expr;
 	}
 	if (token_it->kind == '"')
 	{
+		store_pos_for_expr();
 		static char strbuf[6000];
 		int len = token_it->length;
 		memcpy(strbuf, token_it->token, token_it->length);
-		token_it = token_it->next(token_it, FALSE);
+		next_token();
 		while (token_it->kind == '"')
 		{
 			memcpy(strbuf + len, token_it->token, token_it->length);
 			len += token_it->length;
-			token_it = token_it->next(token_it, FALSE);
+			next_token();
 		}
 		strbuf[len++] = '\0';
 		expr_p expr = new_expr('"', 0);
@@ -2446,6 +2613,7 @@ expr_p parse_postfix_expr(void)
 		FAIL_NULL
 	for (;;)
 	{
+		expr_p subj_expr = expr;
 		if (accept_term('['))
 		{
 			expr_p index_expr = parse_expr();
@@ -2453,10 +2621,10 @@ expr_p parse_postfix_expr(void)
 				FAIL_NULL
 			if (!accept_term(']'))
 				FAIL_NULL
-			expr_p arr_expr = new_expr('[', 2);
-			arr_expr->children[0] = expr;
-			arr_expr->children[1] = index_expr;
-			expr = arr_expr;
+			expr = new_expr('[', 2);
+			expr->children[0] = subj_expr;
+			expr->children[1] = index_expr;
+			expr->type = expr_type_member(subj_expr, 0);
 		}
 		else if (accept_term('('))
 		{
@@ -2478,46 +2646,51 @@ expr_p parse_postfix_expr(void)
 			expr = new_expr('(', 1 + nr_children);
 			for (int i = 0; i < nr_children; i++)
 				expr->children[i] = children[i];
+			expr->type = expr_type_member(subj_expr, 0);
 		}
 		else if (accept_term('.'))
 		{
 			if (token_it->kind != 'i')
 				FAIL_NULL
-			expr_p field_expr = new_expr('.', 1);
-			field_expr->str_val = copystr(token_it->token);
-			field_expr->children[0] = expr;
-			expr = field_expr;
+			expr = new_expr('.', 1);
+			expr->str_val = copystr(token_it->token);
+			expr->children[0] = subj_expr;
+			expr->type = expr_type_decl(subj_expr, token_it->token);
 			next_token();
 		}
 		else if (accept_term(TK_ARROW))
 		{
 			if (token_it->kind != 'i')
 				FAIL_NULL
-			expr_p field_expr = new_expr(TK_ARROW, 1);
-			field_expr->str_val = copystr(token_it->token);
-			field_expr->children[0] = expr;
-			expr = field_expr;
+			expr = new_expr(TK_ARROW, 1);
+			expr->str_val = copystr(token_it->token);
+			expr->children[0] = subj_expr;
+			if (subj_expr->type != NULL && subj_expr->type->kind == TYPE_KIND_POINTER)
+				expr->type = type_decl(subj_expr->type->members[0], token_it->token);
+			else
+				printf("-> does not have pointer type\n");
 			next_token();
 		}
 		else if (accept_term(TK_INC))
 		{
-			expr_p post_oper_expr = new_expr(OPER_POST_INC, 1);
-			post_oper_expr->children[0] = expr;
-			expr = post_oper_expr;
+			expr = new_expr(OPER_POST_INC, 1);
+			expr->children[0] = subj_expr;
+			expr->type = subj_expr->type;
 		}
 		else if (accept_term(TK_DEC))
 		{
-			expr_p post_oper_expr = new_expr(OPER_POST_DEC, 1);
-			post_oper_expr->children[0] = expr;
-			expr = post_oper_expr;
+			expr = new_expr(OPER_POST_DEC, 1);
+			expr->children[0] = subj_expr;
+			expr->type = subj_expr->type;
 		}
 		else
 			break;
 	}
+	if (expr->type == NULL) printf("parse_postfix_expr has no type\n");
 	return expr;
 }
 
-expr_p parse_sizeof_type(void);
+int parse_sizeof_type(void);
 
 expr_p parse_unary_expr(void)
 {
@@ -2528,6 +2701,7 @@ expr_p parse_unary_expr(void)
 			FAIL_NULL
 		expr_p pre_oper_expr = new_expr(OPER_PRE_INC, 1);
 		pre_oper_expr->children[0] = expr;
+		pre_oper_expr->type = expr->type;
 		return pre_oper_expr;
 	}
 	if (accept_term(TK_DEC))
@@ -2537,6 +2711,7 @@ expr_p parse_unary_expr(void)
 			FAIL_NULL
 		expr_p pre_oper_expr = new_expr(OPER_PRE_DEC, 1);
 		pre_oper_expr->children[0] = expr;
+		pre_oper_expr->type = expr->type;
 		return pre_oper_expr;
 	}
 	if (accept_term('&'))
@@ -2546,6 +2721,8 @@ expr_p parse_unary_expr(void)
 			FAIL_NULL
 		expr_p pre_oper_expr = new_expr('&', 1);
 		pre_oper_expr->children[0] = expr;
+		pre_oper_expr->type = new_type(TYPE_KIND_POINTER, 4, 1);
+		pre_oper_expr->type->members[0] = expr->type;
 		return pre_oper_expr;
 	}
 	if (accept_term('*'))
@@ -2555,6 +2732,7 @@ expr_p parse_unary_expr(void)
 			FAIL_NULL
 		expr_p pre_oper_expr = new_expr(OPER_STAR, 1);
 		pre_oper_expr->children[0] = expr;
+		pre_oper_expr->type = expr_type_member(expr, 0);
 		return pre_oper_expr;
 	}
 	if (accept_term('+'))
@@ -2564,6 +2742,7 @@ expr_p parse_unary_expr(void)
 			FAIL_NULL
 		expr_p pre_oper_expr = new_expr(OPER_PLUS, 1);
 		pre_oper_expr->children[0] = expr;
+		pre_oper_expr->type = expr->type;
 		return pre_oper_expr;
 	}
 	if (accept_term('-'))
@@ -2573,6 +2752,8 @@ expr_p parse_unary_expr(void)
 			FAIL_NULL
 		expr_p pre_oper_expr = new_expr(OPER_MIN, 1);
 		pre_oper_expr->children[0] = expr;
+		if (expr->type != NULL)
+			pre_oper_expr->type = new_base_type(expr->type->base_type | 2);
 		return pre_oper_expr;
 	}
 	if (accept_term('~'))
@@ -2582,6 +2763,7 @@ expr_p parse_unary_expr(void)
 			FAIL_NULL
 		expr_p pre_oper_expr = new_expr('~', 1);
 		pre_oper_expr->children[0] = expr;
+		pre_oper_expr->type = expr->type;
 		return pre_oper_expr;
 	}
 	if (accept_term('!'))
@@ -2591,15 +2773,17 @@ expr_p parse_unary_expr(void)
 			FAIL_NULL
 		expr_p pre_oper_expr = new_expr('!', 1);
 		pre_oper_expr->children[0] = expr;
+		pre_oper_expr->type = base_type_bool;
 		return pre_oper_expr;
 	}
 	if (accept_term(TK_SIZEOF))
 	{
+		int size = -1;
 		expr_p sizeof_expr = NULL;
 		if (accept_term('('))
 		{
-			sizeof_expr = parse_sizeof_type();
-			if (sizeof_expr == NULL)
+			size = parse_sizeof_type();
+			if (size == -1)
 			{
 				sizeof_expr = parse_expr();
 				if (sizeof_expr == NULL)
@@ -2614,33 +2798,36 @@ expr_p parse_unary_expr(void)
 			if (sizeof_expr == NULL)
 				FAIL_NULL
 		}
-		if (sizeof_expr->type == 0)
+		if (sizeof_expr != NULL && sizeof_expr->type != NULL)
+			size = sizeof_expr->type->size;
+		if (size == -1)
 		{
-			printf("Error: sizeof expression has not type\n");
-			return new_expr_int_value(4);
+			printf("Error: sizeof expression has not size\n");
+			size = 0;
 		}
-		return new_expr_int_value(sizeof_expr->type != 0 ? sizeof_expr->type->size : 4);
+		return new_expr_int_value(size);
 	}
 	
 	return parse_postfix_expr();
 }
 
-expr_p parse_sizeof_type(void)
+int parse_sizeof_type(void)
 {
-	expr_p expr = NULL;
+	int size = -1;
 	if (accept_term(TK_INT))
-		expr = new_expr_int_value(4);
+		size = base_type_S32->size;
 	else if (accept_term(TK_UNSIGNED))
 	{
 		if (accept_term(TK_INT))
-			expr = new_expr_int_value(4);
+			size = base_type_U32->size;
+		size = base_type_U32->size;
 	}
 	else if (accept_term(TK_DOUBLE))
-		expr = new_expr_int_value(8);
+		size = base_type_double->size;
 	else if (accept_term(TK_VOID))
 	{
 		if (accept_term('*'))
-			expr = new_expr_int_value(4);
+			size = 4;
 	}
 	else if (accept_term(TK_STRUCT))
 	{
@@ -2649,7 +2836,7 @@ expr_p parse_sizeof_type(void)
 			decl_p decl = find_decl(DK_STRUCT, token_it->token);
 			if (decl != NULL && decl->type != NULL)
 			{
-				expr = new_expr_int_value(decl->type->size);
+				size = decl->type->size;
 				next_token();
 			}
 		}
@@ -2659,15 +2846,15 @@ expr_p parse_sizeof_type(void)
 		decl_p decl = find_decl(DK_IDENT, token_it->token);
 		if (decl != NULL && decl->type != NULL && decl->is_typedef)
 		{
-			expr = new_expr_int_value(decl->type->size);
+			size = decl->type->size;
 			next_token();
 		}
 	}
-	if (expr == NULL)
-		FAIL_NULL
+	if (size == -1)
+		return size;
 	while (accept_term('*'))
-		expr->int_val = 4;
-	return expr;
+		size = 4;
+	return size;
 }
 
 /*
@@ -2676,6 +2863,38 @@ expr_p parse_sizeof_type(void)
 		RULE CHAR_WS('(') NT("abstract_declaration") CHAR_WS(')') NT("cast_expr") TREE("cast")
 		RULE NTP("unary_expr")
 */
+
+void expr_dioper_set_type(expr_p expr)
+{
+	type_p type_lhs = expr->children[0]->type;
+	type_p type_rhs = expr->children[1]->type;
+	if (type_is_integer(type_lhs) && type_is_integer(type_rhs))
+	{
+		int size = type_lhs->size > type_rhs->size ? type_lhs->size : type_rhs->size;
+		bool signed_int = (((int)type_lhs->base_type | (int)type_lhs->base_type) & 2) == 2;
+		if (size == 8)
+			expr->type = signed_int ? base_type_S64 : base_type_U64;
+		else if (size == 4)
+			expr->type = signed_int ? base_type_S32 : base_type_U32;
+		else if (size == 2)
+			expr->type = signed_int ? base_type_S16 : base_type_U16;
+		else
+			expr->type = signed_int ? base_type_S8 : base_type_U8;
+	}
+	else if (type_is_pointer(type_lhs) && type_is_integer(type_rhs))
+		expr->type = type_lhs;
+	else if (type_is_integer(type_lhs) && type_is_pointer(type_rhs))
+		expr->type = type_rhs;
+	else if (expr->kind == '-' && type_is_pointer(type_lhs) && type_is_pointer(type_rhs))
+		expr->type = base_type_S32;
+	if (expr->type == NULL)
+	{
+		printf("%s: Error dioper expression: Has no type.", expr_pos(expr));
+		if (!type_is_integer(type_lhs)) printf(" LHS not an integer %d", type_lhs == NULL ? -1 : type_lhs->kind);
+		if (!type_is_integer(type_rhs)) printf(" RHS not an integer %d", type_rhs == NULL ? -1 : type_rhs->kind);
+		printf("\n");
+	}
+}
 
 expr_p parse_expr1(void)
 {
@@ -2714,8 +2933,10 @@ expr_p parse_expr1(void)
 		}
 		else
 			break;
+		expr_dioper_set_type(expr);
 	}
 	
+	if (expr != NULL && expr->type == NULL) printf("parse_expr1 has no type\n");
 	return expr;
 }
 
@@ -2746,6 +2967,7 @@ expr_p parse_expr2(void)
 		}
 		else
 			break;
+		expr_dioper_set_type(expr);
 	}
 	
 	return expr;
@@ -2778,6 +3000,7 @@ expr_p parse_expr3(void)
 		}
 		else
 			break;
+		expr->type = expr->children[0]->type;
 	}
 	
 	return expr;
@@ -2850,6 +3073,7 @@ expr_p parse_expr4(void)
 		}
 		else
 			break;
+		expr->type = base_type_bool;
 	}
 	
 	return expr;
@@ -2872,6 +3096,7 @@ expr_p parse_expr5(void)
 		}
 		else
 			break;
+		expr_dioper_set_type(expr);
 	}
 	
 	return expr;
@@ -2894,6 +3119,7 @@ expr_p parse_expr6(void)
 		}
 		else
 			break;
+		expr_dioper_set_type(expr);
 	}
 	
 	return expr;
@@ -2916,6 +3142,7 @@ expr_p parse_expr7(void)
 		}
 		else
 			break;
+		expr_dioper_set_type(expr);
 	}
 	
 	return expr;
@@ -2938,6 +3165,7 @@ expr_p parse_expr8(void)
 		}
 		else
 			break;
+		expr->type = base_type_bool;
 	}
 	
 	return expr;
@@ -2960,6 +3188,7 @@ expr_p parse_expr9(void)
 		}
 		else
 			break;
+		expr->type = base_type_bool;
 	}
 	
 	return expr;
@@ -2983,6 +3212,7 @@ expr_p parse_conditional_expr(void)
 		expr->children[0] = cond_expr;
 		expr->children[1] = then_expr;
 		expr->children[2] = else_expr;
+		expr->type = then_expr->type;
 	}
 	
 	return expr;
@@ -2991,97 +3221,22 @@ expr_p parse_conditional_expr(void)
 expr_p parse_assignment_expr(void)
 {
 	expr_p expr = parse_conditional_expr();
+	if (expr == NULL)
+		FAIL_NULL
 	for (;;)
 	{
-		if (accept_term('='))
+		if (token_it->kind == '=' || (token_it->kind >= TK_ASS && token_it->kind < TK_ASS + 127))
 		{
+			int kind = token_it->kind;
+			next_token();
 			expr_p lhs = expr;
 			expr_p rhs = parse_assignment_expr();
 			if (rhs == NULL)
 				FAIL_NULL
-			expr = new_expr('=', 2);
+			expr = new_expr(kind, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
-		}
-		else if (accept_term(TK_MUL_ASS))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_assignment_expr();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr(TK_MUL_ASS, 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
-		}
-		else if (accept_term(TK_DIV_ASS))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_assignment_expr();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr(TK_DIV_ASS, 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
-		}
-		else if (accept_term(TK_MOD_ASS))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_assignment_expr();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr(TK_MOD_ASS, 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
-		}
-		else if (accept_term(TK_ADD_ASS))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_assignment_expr();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr(TK_ADD_ASS, 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
-		}
-		else if (accept_term(TK_SUB_ASS))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_assignment_expr();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr(TK_SUB_ASS, 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
-		}
-		else if (accept_term(TK_SHL_ASS))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_assignment_expr();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr(TK_SHL_ASS, 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
-		}
-		else if (accept_term(TK_SHR_ASS))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_assignment_expr();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr(TK_SHR_ASS, 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
-		}
-		else if (accept_term(TK_XOR_ASS))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_assignment_expr();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr(TK_XOR_ASS, 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
+			expr->type = lhs->type;
 		}
 		else
 			break;
@@ -3111,6 +3266,7 @@ expr_p parse_expr(void)
 		expr = new_expr(',', nr_children);
 		for (int i = 0; i < nr_children; i++)
 			expr->children[i] = children[i];
+		expr->type = expr->children[nr_children-1]->type;
 	}
 	return expr;
 }
@@ -3122,6 +3278,9 @@ expr_p parse_expr(void)
 
 bool parse_statements(void);
 expr_p parse_initializer(void);
+
+int inside_struct_or_union = 0;
+int save_decl_depth = 0;
 
 bool parse_declaration(bool is_param)
 {
@@ -3144,11 +3303,22 @@ bool parse_declaration(bool is_param)
 		else
 			break;
 	}
-	type_p type = parse_type_specifier();
-	if (type == NULL)
+	type_p type_specifier = parse_type_specifier();
+	if (type_specifier == NULL)
 		FAIL_FALSE
+	if (accept_term(';'))
+	{
+		if (   inside_struct_or_union > 0
+			&& (type_specifier->kind == TYPE_KIND_STRUCT || type_specifier->kind == TYPE_KIND_UNION))
+		{
+			for (int i = 0; i < type_specifier->nr_decls; i++)
+				add_decl_clone(type_specifier->decls[i]);
+		}
+		return TRUE;
+	}
 	do
 	{
+		type_p type = type_specifier;
 		while (accept_term('*'))
 		{
 			type_p pointer_type = new_type(TYPE_KIND_POINTER, 4, 1);
@@ -3159,7 +3329,7 @@ bool parse_declaration(bool is_param)
 		bool as_pointer = FALSE;
 		if (token_it->kind == 'i')
 		{
-			decl = find_or_add_decl(DK_IDENT, token_it->token);
+			decl = add_decl(DK_IDENT, token_it->token, NULL);
 			next_token();
 		}
 		else if (accept_term('('))
@@ -3169,7 +3339,7 @@ bool parse_declaration(bool is_param)
 				if (token_it->kind == 'i')
 				{
 					as_pointer = TRUE;
-					decl = find_or_add_decl(DK_IDENT, token_it->token);
+					decl = add_decl(DK_IDENT, token_it->token, NULL);
 					next_token();
 				}
 			}
@@ -3181,39 +3351,55 @@ bool parse_declaration(bool is_param)
 		{
 			for (;;)
 			{
+				type_p subj_type = type;
 				if (accept_term('('))
 				{
 					cur_labels = NULL;
-					decl_p save_decls = cur_decls;
-					type_p members[20];
-					members[0] = type;
-					int nr_members = 1;
+					decl_p save_ident_decls = cur_ident_decls;
+					bool var_params = FALSE;
 					do
 					{
 						if (accept_term(TK_DASHES))
 						{
-							members[nr_members++] = NULL;
+							var_params = TRUE;
 							break;
 						}
 						if (!parse_declaration(TRUE))
 							FAIL_FALSE;
-						members[nr_members++] = cur_decls->type;
 					} while (accept_term(','));
 					if (!accept_term(')'))
 						FAIL_FALSE;
 					if (decl->type != NULL)
+						type = decl->type;
+					else
 					{
-						decl->type = new_type(TYPE_KIND_FUNCTION, 4, nr_members);
-						for (int i = 0; i < nr_members; i++)
-							decl->type->members[i] = members[i];
+						type = new_type(TYPE_KIND_FUNCTION, 4, 1);
+						type->members[0] = subj_type;
+						int nr_parameters = 0;
+						for (decl_p decl1 = cur_ident_decls; decl1 != save_ident_decls; decl1 = decl1->prev)
+							nr_parameters++;
+						decl_p parameters[20];
+						int i = nr_parameters;
+						if (var_params)
+						{
+							nr_parameters++;
+							parameters[i] = NULL;
+						}
+						for (decl_p decl1 = cur_ident_decls; decl1 != save_ident_decls; decl1 = decl1->prev)
+							parameters[--i] = decl1;
+						type_set_decls(type, nr_parameters, parameters);
 					}
 					if (accept_term('{'))
 					{
+						decl->type = type;
 						if (!parse_statements())
 							FAIL_FALSE
-						return accept_term('}');
+						if (!accept_term('}'))
+							FAIL_FALSE
+						cur_ident_decls = save_ident_decls;
+						return TRUE;
 					}
-					cur_decls = save_decls;
+					cur_ident_decls = save_ident_decls;
 					break;
 				}
 				else if (accept_term('['))
@@ -3412,35 +3598,37 @@ type_p parse_struct_or_union_specifier(decl_kind_e decl_kind)
 	}
 	if (accept_term('{'))
 	{
-		decl_p save_decls = cur_decls;
-		int nr_decls = 0;
-		decl_p decls[200];
-		int size = 0;
+		inside_struct_or_union++;
+		decl_p save_ident_decls = cur_ident_decls;
 		do
 		{
 			if (!parse_declaration(FALSE))
 				FAIL_NULL
-			decls[nr_decls++] = cur_decls;
-			int decl_size = cur_decls->type != 0 ? cur_decls->type->size : 0;
+		} while (!accept_term('}'));
+		int nr_decls = 0;
+		int size = 0;
+		for (decl_p decl1 = cur_ident_decls; decl1 != save_ident_decls; decl1 = decl1->prev)
+		{
+			nr_decls++;
+			int decl_size = decl1->type != 0 ? decl1->type->size : 0;
 			if (decl_kind == DK_STRUCT)
 				size += decl_size;
 			else if (decl_size > size)
 				size = decl_size;
-		} while (!accept_term('}'));
+		}
 		if (type == NULL)
 		{
 			type = new_type(type_kind, size, 0);
 		}
 		else
 			type->size = size;
-		if (nr_decls >= type->nr_decls)
-		{
-			type->nr_decls = nr_decls;
-			type->decls = (decl_p*)malloc(nr_decls * sizeof(decl_p));
-		}
-		for (int i = 0; i < nr_decls; i++)
-			type->decls[i] = decls[i];
-		cur_decls = save_decls;
+		decl_p decls[200];
+		int i = nr_decls;
+		for (decl_p decl1 = cur_ident_decls; decl1 != save_ident_decls; decl1 = decl1->prev)
+			decls[--i] = decl1;
+		type_set_decls(type, nr_decls, decls);
+		cur_ident_decls = save_ident_decls;
+		inside_struct_or_union--;
 	}
 	return type;
 }
@@ -3527,7 +3715,7 @@ type_p parse_enum_specifier(void)
 		{
 			if (token_it->kind != 'i')
 				FAIL_NULL
-			decl_p const_decl = find_or_add_decl(DK_IDENT, token_it->token);
+			decl_p const_decl = add_decl(DK_IDENT, token_it->token, base_type_S32);
 			next_token();
 			if (accept_term('='))
 			{
@@ -3721,7 +3909,7 @@ bool parse_statement(void)
 	}
 	if (accept_term(TK_FOR))
 	{
-		decl_p save_decl = cur_decls;
+		decl_p save_ident_decls = cur_ident_decls;
 		if (!accept_term('('))
 			FAIL_FALSE
 		if (!parse_declaration(FALSE))
@@ -3738,7 +3926,7 @@ bool parse_statement(void)
 			FAIL_FALSE
 		if (!parse_statement())
 			FAIL_FALSE
-		cur_decls = save_decl;
+		cur_ident_decls = save_ident_decls;
 		return TRUE;
 	}
 	if (accept_term(TK_BREAK))
@@ -3811,11 +3999,11 @@ bool parse_statement(void)
 
 bool parse_statements(void)
 {
-	decl_p save_decls = cur_decls;
+	decl_p save_ident_decls = cur_ident_decls;
 	do
 	{
 	} while (token_it->kind != '}' && (parse_declaration(FALSE) || parse_statement()));
-	cur_decls = save_decls;
+	cur_ident_decls = save_ident_decls;
 	return TRUE;
 }
 
@@ -3869,13 +4057,15 @@ bool parse_statements(void)
 
 void add_base_type(const char *name, type_p base_type)
 {
-	new_decl(DK_IDENT, name, base_type);
-	cur_decls->is_typedef = TRUE;
+	add_decl(DK_IDENT, name, base_type);
+	cur_ident_decls->is_typedef = TRUE;
 }
 
-void add_function(const char *name)
+void add_function(const char *name, type_p result_type)
 {
-	new_decl(DK_IDENT, name, new_type(TYPE_KIND_FUNCTION, 4, 0));
+	type_p type = new_type(TYPE_KIND_FUNCTION, 4, 1);
+	type->members[0] = result_type;
+	add_decl(DK_IDENT, name, type);
 }
 
 void add_predefined_types(void)
@@ -3890,94 +4080,46 @@ void add_predefined_types(void)
 	add_base_type("ssize_t", base_type_U32);
 	add_base_type("jmp_buf", base_type_jmp_buf);
 	add_base_type("FILE", base_type_file);
-	add_base_type("time_t", base_type_time_t);
 	add_base_type("va_list", base_type_va_list);
 
-	add_function("memcpy");
-	add_function("memmove");
-	add_function("memset");
-	add_function("memcmp");
-	add_function("strlen");
-	add_function("strcpy");
-	add_function("strcmp");
-	add_function("strncmp");
-	add_function("strchr");
-	add_function("strrchr");
-	add_function("strtol");
-	add_function("strtoull");
-	add_function("strtoll");
-	add_function("strstr");
-	add_function("fwrite");
-	add_function("fputs");
-	add_function("fputc");
-	add_function("printf");
-	add_function("fprintf");
-	add_function("sprintf");
-	add_function("snprintf");
-	add_function("vsnprintf");
-	add_function("read");
-	add_function("open");
-	add_function("close");
-	add_function("lseek");
-	add_function("fopen");
-	add_function("fdopen");
-	add_function("fflush");
-	add_function("fclose");
-	add_function("fseek");
-	add_function("ftell");
-	add_function("fread");
-	add_function("strtoul");
-	add_function("ldexp");
-	add_function("time");
-	add_function("localtime");
-	add_function("getcwd");
-	add_function("getenv");
-	add_function("unlink");
-	add_function("qsort");
-	add_function("free");
-	add_function("malloc");
-	add_function("realloc");
-	add_function("va_start");
-	add_function("va_end");
-	add_function("longjmp");
-	add_function("exit");
-	add_function("sscanf");
-	add_function("atoi");
-	add_function("remove");
-	add_function("execvp");
-	add_function("gettimeofday");
+}
 
-	// for tcc_cc.c
-	add_function("write");
-	add_function("fileno");
+bool parse_file(const char *input_filename, bool only_preprocess)
+{
+	file_iterator_p input_it = new_file_iterator(input_filename);
+	line_splice_iterator_p splice_it = new_line_splice_iterator(&input_it->base);
+	comment_strip_iterator_p comment_it = new_comment_strip_iterator(&splice_it->base);
+	include_iterator_p include_it = new_include_iterator(&comment_it->base);
+	tokenizer_p tokenizer_it = new_tokenizer(&include_it->base);
+	conditional_iterator_p conditional_it = new_conditional_iterator(include_it, &tokenizer_it->base);
+	expand_iterator_p expand_it = new_expand_iterator(&conditional_it->base);
+	
+	token_it = (token_iterator_p)expand_it;
 
-	new_decl(DK_IDENT, "errno", base_type_S32);
-	new_decl(DK_IDENT, "stdout", base_type_S32);
-	new_decl(DK_IDENT, "stderr", base_type_S32);
-	new_decl(DK_IDENT, "LINE_MACRO_OUTPUT_FORMAT_NONE", base_type_S32);
-	new_decl(DK_IDENT, "LINE_MACRO_OUTPUT_FORMAT_STD", base_type_S32);
-	new_decl(DK_IDENT, "LINE_MACRO_OUTPUT_FORMAT_P10", base_type_S32);
-	new_decl(DK_IDENT, "O_WRONLY", base_type_S32);
-	new_decl(DK_IDENT, "O_CREAT", base_type_S32);
-	new_decl(DK_IDENT, "O_TRUNC", base_type_S32);
-	new_decl(DK_IDENT, "O_RDONLY", base_type_S32);
-	new_decl(DK_IDENT, "SEEK_SET", base_type_S32);
-	new_decl(DK_IDENT, "SEEK_CUR", base_type_S32);
-	new_decl(DK_IDENT, "SEEK_END", base_type_S32);
+	token_it = token_it->next(token_it, TRUE);
 
-	type_p ptr_void_type = new_type(TYPE_KIND_POINTER, 4, 1);
-	ptr_void_type->members[0] = base_type_void;
-	new_decl(DK_IDENT, "NULL", ptr_void_type);
+	if (only_preprocess)
+	{
+		output_preprocessor("tcc_p.c");
+		return TRUE;
+	}
 
-	// for tcc_cc.c
-	new_decl(DK_IDENT, "__func__", type_char_ptr);
-	new_decl(DK_IDENT, "__LINE__", base_type_U32);
+	while (parse_declaration(FALSE))
+	{
+	}
 
+	if (token_it != 0 && token_it->kind != 0)
+	{
+		printf("Parsed %s till %s: %d %d: %d '%s'\n", input_filename, token_it->filename, token_it->line, token_it->column, token_it->kind, token_it->token);
+		return FALSE;
+	}
+	return TRUE;
 }
 
 int main(int argc, char *argv[])
 {
 	define_base_types();
+	add_predefined_types();
 
 	bool only_preprocess = FALSE;
 	char *input_filename = "tcc_sources/tcc.c";
@@ -3989,47 +4131,20 @@ int main(int argc, char *argv[])
 		else
 			input_filename = argv[i];
 
-	file_iterator_p input_it;
-	line_splice_iterator_p splice_it;
-	comment_strip_iterator_p comment_it;
-	include_iterator_p include_it;
-	tokenizer_p tokenizer_it;
-	conditional_iterator_p conditional_it;
-	expand_iterator_p expand_it;
-	
+
 	env_p one_source_env = get_env("ONE_SOURCE", TRUE);
 	one_source_env->tokens = new_int_token("1");
 	env_p tcc_version_env = get_env("TCC_VERSION", TRUE);
 	tcc_version_env->tokens = new_str_token("1.0");
-	//env_p ldouble_size_env = get_env("LDOUBLE_SIZE", TRUE);
-	//ldouble_size_env->tokens = new_int_token("8");
-	input_it = new_file_iterator(input_filename);
-	splice_it = new_line_splice_iterator(&input_it->base);
-	comment_it = new_comment_strip_iterator(&splice_it->base);
-	include_it = new_include_iterator(&comment_it->base);
-	tokenizer_it = new_tokenizer(&include_it->base);
-	conditional_it = new_conditional_iterator(include_it, &tokenizer_it->base);
-	expand_it = new_expand_iterator(&conditional_it->base);
-	
-	token_it = (token_iterator_p)expand_it;
-
-	token_it = token_it->next(token_it, TRUE);
 
 	if (only_preprocess)
 	{
-		output_preprocessor("tcc_p.c");
+		parse_file(input_filename, TRUE);
 		return 0;
 	}
 
-	add_predefined_types();
-	
-	while (parse_declaration(FALSE))
-	{
-	}
-	if (token_it != 0)
-	{
-		printf("Parsed till %s: %d %d: %d '%s'\n", token_it->filename, token_it->line, token_it->column, token_it->kind, token_it->token);
-	}	
-	
+	if (!parse_file("stdlib.c", FALSE))
+		return 0;
+	parse_file(input_filename, FALSE);
 	return 0;
 }
