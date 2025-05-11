@@ -2334,12 +2334,22 @@ typedef enum {
 	DK_ENUM,
 } decl_kind_e;
 
+typedef enum {
+	ST_NONE,
+	ST_STATIC,
+	ST_TYPEDEF,
+	ST_CONST,
+} storage_type_e;
+
 struct decl_s
 {
 	decl_kind_e kind;
 	char *name;
 	type_p type;
-	bool is_typedef;
+	storage_type_e storage_type;
+	expr_p value;
+	int pos;
+	int su_nr;
 	decl_p prev;
 };
 
@@ -2374,7 +2384,10 @@ decl_p add_decl(decl_kind_e kind, const char *name, type_p type)
 	decl->kind = kind;
 	decl->name = copystr(name);
 	decl->type = type;
-	decl->is_typedef = FALSE;
+	decl->storage_type = ST_NONE;
+	decl->value = NULL;
+	decl->pos = 0;
+	decl->su_nr = 0;
 	if (kind == DK_IDENT)
 	{
 		decl->prev = cur_ident_decls;
@@ -2391,7 +2404,7 @@ decl_p add_decl(decl_kind_e kind, const char *name, type_p type)
 void add_decl_clone(decl_p decl)
 {
 	decl_p decl_clone = add_decl(decl->kind, decl->name, decl->type);
-	decl_clone->is_typedef = decl->is_typedef;
+	decl_clone->storage_type = decl->storage_type;
 }
 
 decl_p find_decl(decl_kind_e kind, char *name)
@@ -2506,15 +2519,17 @@ bool accept_term(int kind)
 #define FAIL_NULL  { if (opt_trace_parser) printf("Fail in %s at %d\n", __func__, __LINE__); return NULL; }
 
 expr_p parse_expr(void);
-type_p parse_type_specifier(void);
+type_p parse_type_specifier(storage_type_e *ref_storage_type);
 expr_p parse_unary_expr(void);
+
+#define MAX_CONST_STRLEN 8000
 
 expr_p parse_primary_expr(void)
 {
 	if (token_it->kind == 'i')
 	{
 		decl_p decl = find_decl(DK_IDENT, token_it->token);
-		if (decl != NULL && !decl->is_typedef)
+		if (decl != NULL && decl->storage_type != ST_TYPEDEF)
 		{
 			store_pos_for_expr();
 			expr_p expr = new_expr('i', 0);
@@ -2554,15 +2569,21 @@ expr_p parse_primary_expr(void)
 	if (token_it->kind == '"')
 	{
 		store_pos_for_expr();
-		static char strbuf[6000];
+		static char strbuf[MAX_CONST_STRLEN];
 		int len = token_it->length;
 		memcpy(strbuf, token_it->token, token_it->length);
 		next_token();
 		while (token_it->kind == '"')
 		{
-			memcpy(strbuf + len, token_it->token, token_it->length);
+			if (len + token_it->length < MAX_CONST_STRLEN - 1)
+				memcpy(strbuf + len, token_it->token, token_it->length);
 			len += token_it->length;
 			next_token();
+		}
+		if (len >= MAX_CONST_STRLEN - 1)
+		{
+			printf("MAX_CONST_STRLEN < %d\n", len + 1);
+			exit(0);
 		}
 		strbuf[len++] = '\0';
 		expr_p expr = new_expr('"', 0);
@@ -2573,7 +2594,7 @@ expr_p parse_primary_expr(void)
 	}
 	if (accept_term('('))
 	{
-		type_p type = parse_type_specifier();
+		type_p type = parse_type_specifier(NULL);
 		if (type != NULL)
 		{
 			if (opt_trace_parser)
@@ -2844,7 +2865,7 @@ int parse_sizeof_type(void)
 	else if (token_it->kind == 'i')
 	{
 		decl_p decl = find_decl(DK_IDENT, token_it->token);
-		if (decl != NULL && decl->type != NULL && decl->is_typedef)
+		if (decl != NULL && decl->type != NULL && decl->storage_type == ST_TYPEDEF)
 		{
 			size = decl->type->size;
 			next_token();
@@ -3284,12 +3305,12 @@ int save_decl_depth = 0;
 
 bool parse_declaration(bool is_param)
 {
-	bool is_typedef = FALSE;
+	storage_type_e storage_type = ST_NONE;
 	for (;;)
 	{
 		if (accept_term(TK_TYPEDEF))
 		{
-			is_typedef = TRUE;
+			storage_type = ST_TYPEDEF;
 		}
 		else if (accept_term(TK_EXTERN))
 		{
@@ -3299,11 +3320,12 @@ bool parse_declaration(bool is_param)
 		}
 		else if (accept_term(TK_STATIC))
 		{
+			storage_type = ST_STATIC;
 		}
 		else
 			break;
 	}
-	type_p type_specifier = parse_type_specifier();
+	type_p type_specifier = parse_type_specifier(&storage_type);
 	if (type_specifier == NULL)
 		FAIL_FALSE
 	if (accept_term(';'))
@@ -3434,10 +3456,10 @@ bool parse_declaration(bool is_param)
 				type = ptr_type;
 			}
 			decl->type = type;
-			decl->is_typedef = is_typedef;
+			decl->storage_type = storage_type;
 			if (accept_term('='))
 			{
-				parse_initializer();
+				decl->value = parse_initializer();
 			}
 		}
 	} while (!is_param && accept_term(','));
@@ -3474,15 +3496,17 @@ bool parse_declaration(bool is_param)
 type_p parse_struct_or_union_specifier(decl_kind_e decl_kind);
 type_p parse_enum_specifier(void);
 
-type_p parse_type_specifier(void)
+type_p parse_type_specifier(storage_type_e *ref_storage_type)
 {
 	if (accept_term(TK_CONST))
 	{
+		if (ref_storage_type != NULL) *ref_storage_type = ST_CONST;
 	}
 	if (accept_term(TK_CHAR))
 	{
 		if (accept_term(TK_CONST))
 		{
+			if (ref_storage_type != NULL) *ref_storage_type = ST_CONST;
 		}
 		return base_type_S8;
 	}
@@ -3565,7 +3589,7 @@ type_p parse_type_specifier(void)
 		}
 		if (decl->type == NULL)
 			FAIL_NULL
-		if (decl->is_typedef)
+		if (decl->storage_type == ST_TYPEDEF)
 		{
 			if (opt_trace_parser)
 				printf("Ident %s is typedef\n", decl->name);
@@ -3610,9 +3634,9 @@ type_p parse_struct_or_union_specifier(decl_kind_e decl_kind)
 		for (decl_p decl1 = cur_ident_decls; decl1 != save_ident_decls; decl1 = decl1->prev)
 		{
 			nr_decls++;
-			int decl_size = decl1->type != 0 ? decl1->type->size : 0;
+			int decl_size = decl1->type->size;
 			if (decl_kind == DK_STRUCT)
-				size += decl_size;
+				size += (decl_size + 3) & ~3;
 			else if (decl_size > size)
 				size = decl_size;
 		}
@@ -3626,6 +3650,24 @@ type_p parse_struct_or_union_specifier(decl_kind_e decl_kind)
 		int i = nr_decls;
 		for (decl_p decl1 = cur_ident_decls; decl1 != save_ident_decls; decl1 = decl1->prev)
 			decls[--i] = decl1;
+		if (decl_kind == DK_STRUCT)
+		{
+			int pos = 0;
+			for (int i = 0; i < nr_decls; i++)
+			{
+				decls[i]->pos = pos;
+				pos += (decls[i]->type->size + 3) & ~3;
+			}
+		}
+		{
+			static int struct_union_nr = 0;
+			for (int i = 0; i < nr_decls; i++)
+			{
+				decls[i]->su_nr = struct_union_nr;
+				printf("const s%d_m_%s %d\n", struct_union_nr, decls[i]->name, decls[i]->pos);
+			}
+			struct_union_nr++;
+		}
 		type_set_decls(type, nr_decls, decls);
 		cur_ident_decls = save_ident_decls;
 		inside_struct_or_union--;
@@ -3724,8 +3766,8 @@ type_p parse_enum_specifier(void)
 					FAIL_NULL
 				next_enum_val = expr_eval(expr);
 			}
-			// TODO
-			(void)const_decl;
+			const_decl->value = new_expr_int_value(next_enum_val);
+			const_decl->storage_type = ST_CONST;
 			next_enum_val++;
 			if (!accept_term(','))
 				break;
@@ -4058,7 +4100,7 @@ bool parse_statements(void)
 void add_base_type(const char *name, type_p base_type)
 {
 	add_decl(DK_IDENT, name, base_type);
-	cur_ident_decls->is_typedef = TRUE;
+	cur_ident_decls->storage_type = ST_TYPEDEF;
 }
 
 void add_function(const char *name, type_p result_type)
