@@ -97,10 +97,10 @@ int stderr = 3;
 #define NULL 0
 
 // This is a hack for an enum that is defined inside a struct
-int LINE_MACRO_OUTPUT_FORMAT_GCC = 0;
-int LINE_MACRO_OUTPUT_FORMAT_NONE = 1;
-int LINE_MACRO_OUTPUT_FORMAT_STD = 2;
-int LINE_MACRO_OUTPUT_FORMAT_P10 = 11;
+const int LINE_MACRO_OUTPUT_FORMAT_GCC = 0;
+const int LINE_MACRO_OUTPUT_FORMAT_NONE = 1;
+const int LINE_MACRO_OUTPUT_FORMAT_STD = 2;
+const int LINE_MACRO_OUTPUT_FORMAT_P10 = 11;
 
 // for tcc_cc.c
 
