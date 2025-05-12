@@ -2154,6 +2154,22 @@ bool type_is_pointer(type_p type)
 	return type != NULL && (type->kind == TYPE_KIND_POINTER || type->kind == TYPE_KIND_ARRAY);
 }
 
+void type_set_decls(type_p type, int nr_decls, decl_p* decls)
+{
+	if (nr_decls >= type->nr_decls)
+	{
+		type->nr_decls = nr_decls;
+		type->decls = (decl_p*)malloc(nr_decls * sizeof(decl_p));
+	}
+	//printf("Decls of type %p:", type);
+	for (int i = 0; i < nr_decls; i++)
+	{
+		//printf(" %s", decls[i] != NULL ? decls[i]->name : "...");
+		type->decls[i] = decls[i];
+	}
+	//printf("\n");
+}
+
 type_p base_type_void = NULL;
 type_p base_type_S8 = NULL;
 type_p base_type_U8 = NULL;
@@ -2222,6 +2238,7 @@ void define_base_types(void)
 #define OPER_PLUS        2003
 #define OPER_MIN         2004
 #define OPER_STAR        2005
+#define OPER_ADDR        2006
 
 typedef struct expr_s *expr_p;
 struct expr_s
@@ -2317,7 +2334,6 @@ int expr_eval(expr_p expr)
 		case '-': return expr_eval(expr->children[0]) - expr_eval(expr->children[1]);
 		case '/': return expr_eval(expr->children[0]) / expr_eval(expr->children[1]);
 		case '|': return expr_eval(expr->children[0]) | expr_eval(expr->children[1]);
-		case TK_SIZEOF: return 100; // TODO fix
 		case OPER_MIN: return -expr_eval(expr->children[0]);
 	}
 	printf("%s Error: expr_eval\n", expr_pos(expr));
@@ -2352,23 +2368,6 @@ struct decl_s
 	int su_nr;
 	decl_p prev;
 };
-
-// TODO: move after debugging is finished
-void type_set_decls(type_p type, int nr_decls, decl_p* decls)
-{
-	if (nr_decls >= type->nr_decls)
-	{
-		type->nr_decls = nr_decls;
-		type->decls = (decl_p*)malloc(nr_decls * sizeof(decl_p));
-	}
-	//printf("Decls of type %p:", type);
-	for (int i = 0; i < nr_decls; i++)
-	{
-		//printf(" %s", decls[i] != NULL ? decls[i]->name : "...");
-		type->decls[i] = decls[i];
-	}
-	//printf("\n");
-}
 
 
 decl_p cur_ident_decls = NULL;
@@ -2496,6 +2495,17 @@ type_p expr_type_decl(expr_p expr, const char *name)
 	}
 	return NULL;
 }
+
+// Code generation forward declarations
+
+void gen_start_struct_or_union(void);
+void gen_struct_or_union_member(decl_p decl);
+void gen_variable_decl(decl_p decl);
+void gen_function_start(decl_p decl);
+void gen_function_end(void);
+void gen_stats_open(void);
+void gen_stats_close(void);
+void gen_stat_expr(expr_p expr);
 
 // Parse functions
 
@@ -2740,7 +2750,7 @@ expr_p parse_unary_expr(void)
 		expr_p expr = parse_unary_expr();
 		if (expr == NULL)
 			FAIL_NULL
-		expr_p pre_oper_expr = new_expr('&', 1);
+		expr_p pre_oper_expr = new_expr(OPER_ADDR, 1);
 		pre_oper_expr->children[0] = expr;
 		pre_oper_expr->type = new_type(TYPE_KIND_POINTER, 4, 1);
 		pre_oper_expr->type->members[0] = expr->type;
@@ -3302,6 +3312,7 @@ expr_p parse_initializer(void);
 
 int inside_struct_or_union = 0;
 int save_decl_depth = 0;
+bool inside_function = FALSE;
 
 bool parse_declaration(bool is_param)
 {
@@ -3311,6 +3322,8 @@ bool parse_declaration(bool is_param)
 		if (accept_term(TK_TYPEDEF))
 		{
 			storage_type = ST_TYPEDEF;
+			if (inside_function)
+				printf("%s: XX inside function", token_it_pos());
 		}
 		else if (accept_term(TK_EXTERN))
 		{
@@ -3391,34 +3404,33 @@ bool parse_declaration(bool is_param)
 					} while (accept_term(','));
 					if (!accept_term(')'))
 						FAIL_FALSE;
-					if (decl->type != NULL)
-						type = decl->type;
-					else
+					type = new_type(TYPE_KIND_FUNCTION, 4, 1);
+					type->members[0] = subj_type;
+					int nr_parameters = 0;
+					for (decl_p decl1 = cur_ident_decls; decl1 != save_ident_decls; decl1 = decl1->prev)
+						nr_parameters++;
+					decl_p parameters[20];
+					int i = nr_parameters;
+					if (var_params)
 					{
-						type = new_type(TYPE_KIND_FUNCTION, 4, 1);
-						type->members[0] = subj_type;
-						int nr_parameters = 0;
-						for (decl_p decl1 = cur_ident_decls; decl1 != save_ident_decls; decl1 = decl1->prev)
-							nr_parameters++;
-						decl_p parameters[20];
-						int i = nr_parameters;
-						if (var_params)
-						{
-							nr_parameters++;
-							parameters[i] = NULL;
-						}
-						for (decl_p decl1 = cur_ident_decls; decl1 != save_ident_decls; decl1 = decl1->prev)
-							parameters[--i] = decl1;
-						type_set_decls(type, nr_parameters, parameters);
+						nr_parameters++;
+						parameters[i] = NULL;
 					}
+					for (decl_p decl1 = cur_ident_decls; decl1 != save_ident_decls; decl1 = decl1->prev)
+						parameters[--i] = decl1;
+					type_set_decls(type, nr_parameters, parameters);
+					decl->type = type;
 					if (accept_term('{'))
 					{
-						decl->type = type;
+						inside_function = TRUE;
+						gen_function_start(decl);
 						if (!parse_statements())
 							FAIL_FALSE
 						if (!accept_term('}'))
 							FAIL_FALSE
 						cur_ident_decls = save_ident_decls;
+						gen_function_end();
+						inside_function = FALSE;
 						return TRUE;
 					}
 					cur_ident_decls = save_ident_decls;
@@ -3461,6 +3473,8 @@ bool parse_declaration(bool is_param)
 			{
 				decl->value = parse_initializer();
 			}
+			if (!is_param && inside_struct_or_union == 0 && decl->storage_type != ST_TYPEDEF)
+				gen_variable_decl(decl);
 		}
 	} while (!is_param && accept_term(','));
 /*
@@ -3660,13 +3674,9 @@ type_p parse_struct_or_union_specifier(decl_kind_e decl_kind)
 			}
 		}
 		{
-			static int struct_union_nr = 0;
+			gen_start_struct_or_union();
 			for (int i = 0; i < nr_decls; i++)
-			{
-				decls[i]->su_nr = struct_union_nr;
-				printf("const s%d_m_%s %d\n", struct_union_nr, decls[i]->name, decls[i]->pos);
-			}
-			struct_union_nr++;
+				gen_struct_or_union_member(decls[i]);
 		}
 		type_set_decls(type, nr_decls, decls);
 		cur_ident_decls = save_ident_decls;
@@ -4026,14 +4036,16 @@ bool parse_statement(void)
 	}
 	if (accept_term('{'))
 	{
+		gen_stats_open();
 		if (!parse_statements())
 			FAIL_FALSE;
 		if (!accept_term('}'))
 			FAIL_FALSE
+		gen_stats_close();
 		return TRUE;
 	}
 	expr_p expr = parse_expr();
-	(void)expr;
+	gen_stat_expr(expr);
 	if (!accept_term(';'))
 		FAIL_FALSE
 	return TRUE;
@@ -4158,8 +4170,181 @@ bool parse_file(const char *input_filename, bool only_preprocess)
 	return TRUE;
 }
 
+// Code generation function
+
+FILE *fcode = NULL;
+
+int indent = 0;
+void gen_indent(void)
+{
+	fprintf(fcode, "%*.*s", 4 * indent, 4 * indent, "");
+}
+
+void gen_newline(void)
+{
+	fprintf(fcode, "\n");
+}
+
+int struct_union_nr = 0;
+
+void gen_start_struct_or_union(void)
+{
+	struct_union_nr++;
+}
+
+void gen_struct_or_union_member(decl_p decl)
+{
+	decl->su_nr = struct_union_nr;
+	fprintf(fcode, "const s%d_m_%s %d\n", struct_union_nr, decl->name, decl->pos);
+}
+
+void gen_variable_decl(decl_p decl)
+{
+	gen_indent();
+	fprintf(fcode, "var ");
+	if (decl->type->size > 4)
+		fprintf(fcode, "%d ", (decl->type->size + 3) / 4);
+	fprintf(fcode, "%s\n", decl->name);
+}
+
+void gen_function_start(decl_p decl)
+{
+	type_p type = decl->type;
+	if (type->members[0]->size > 4)
+		printf("Warning: return type %s has size %d\n", decl->name, type->members[0]->size);
+	fprintf(fcode, "func %s\n{\n", decl->name);
+	indent++;
+	for (int i = type->nr_decls - 1; i >= 0; i--)
+	{
+		decl_p mem_decl = type->decls[i];
+		if (mem_decl == NULL)
+			printf("Warning: %s has vararg\n", decl->name);
+		else
+		{
+			if (mem_decl->type->size > 4)
+				printf("Warning: argument %s of %s has size %d\n", mem_decl->name, decl->name, mem_decl->type->size);
+			gen_indent();
+			fprintf(fcode, "var %s %s =\n", mem_decl->name, mem_decl->name);
+		}
+	}
+}
+
+void gen_function_end(void)
+{
+	indent--;
+	fprintf(fcode, "}\n");
+}
+
+void gen_stats_open(void)
+{
+	gen_indent();
+	fprintf(fcode, "{\n");
+	indent++;
+}
+
+void gen_stats_close(void)
+{
+	indent--;
+	gen_indent();
+	fprintf(fcode, "}\n");
+}
+
+void gen_expr(expr_p expr)
+{
+	if (expr == NULL)
+		return; // TODO: Warning
+	switch (expr->kind) {
+		case 'i':
+			fprintf(fcode, "%s ", expr->str_val);
+			break;
+		case '0':
+			fprintf(fcode, "%d ", expr->int_val);
+			break;
+		case '"':
+			fprintf(fcode, "\"");
+			for (const char *s = expr->str_val; *s != '\0'; s++)
+				if (*s == '\n')
+					fprintf(fcode, "\\n");
+				else if (*s == '\r')
+					fprintf(fcode, "\\r");
+				else if (*s == '\t')
+					fprintf(fcode, "\\t");
+				else if (*s == '\"' || *s == '\\')
+					fprintf(fcode, "\\%c", *s);
+				else if (*s < ' ')
+					fprintf(fcode, "\\%3o", *s);
+				else
+					fprintf(fcode, "%c", *s);
+			fprintf(fcode, "\" ");
+			break;
+		case 'c': // cast
+			gen_expr(expr->children[0]);
+			break;
+		case ',':
+			for (int i = 0; i < expr->nr_children; i++)
+			gen_expr(expr->children[i]);
+			break;
+		case '+':
+		case '-':
+		case '*':
+		case '/':
+		case '%':
+		case '=':
+		case '^':
+		case '&':
+		case '|':
+		case TK_SHL:
+		case TK_SHR:
+			gen_expr(expr->children[0]);
+			gen_expr(expr->children[1]);
+			switch (expr->kind)
+			{
+				case TK_SHL: fprintf(fcode, "<< "); break;
+				case TK_SHR: fprintf(fcode, ">> "); break;
+				default: fprintf(fcode, "%c ", expr->kind); break;
+			}
+			break;
+		case TK_ARROW:
+			gen_expr(expr->children[0]);
+			fprintf(fcode, "->%s ", expr->str_val); // TODO: should be s%d_%s 
+			break;
+		case '(':
+			for (int i = 1; i < expr->nr_children; i++)
+				gen_expr(expr->children[i]);
+			gen_expr(expr->children[0]);
+			fprintf(fcode, "() ");
+			break;
+		default:
+			if (expr->kind > ' ' && expr->kind < 127)
+				printf("Warning: expr '%c' not implemented yet\n", expr->kind);
+			else
+				printf("Warning: expr %d not implemented yet\n", expr->kind);
+			fprintf(fcode, "? ");
+			break;
+	}
+}
+
+void gen_stat_expr(expr_p expr)
+{
+	if (expr != NULL)
+	{
+		gen_indent();
+		gen_expr(expr);
+		if (   expr->kind == '('
+			&& (   expr->type->kind == TYPE_KIND_POINTER
+				|| (expr->type->kind == TYPE_KIND_BASE 
+					&& expr->type->base_type != BT_VOID)))
+			fprintf(fcode, "pop");
+		gen_newline();
+	}
+}
+
+// Main
+
 int main(int argc, char *argv[])
 {
+	fcode = fopen("output.sl", "w");
+
 	define_base_types();
 	add_predefined_types();
 
