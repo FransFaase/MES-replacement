@@ -2469,22 +2469,22 @@ type_p expr_type_member(expr_p expr, int nr)
 	return NULL;
 }
 
-type_p type_decl(type_p type, const char *name)
+decl_p type_decl(type_p type, const char *name)
 {
 	for (int i = 0; i < type->nr_decls; i++)
 		if (type->decls[i] != NULL && strcmp(type->decls[i]->name, name) == 0)
-			return type->decls[i]->type;
+			return type->decls[i];
 	printf("%s: Error Type %p has no field %s\n", token_it_pos(), type, name);
 	return NULL;
 }
 
-type_p expr_type_decl(expr_p expr, const char *name)
+decl_p expr_type_decl(expr_p expr, const char *name)
 {
 	if (expr->type != NULL)
 	{
-		for (int i = 0; i < expr->type->nr_decls; i++)
-			if (expr->type->decls[i] != NULL && strcmp(expr->type->decls[i]->name, name) == 0)
-				return expr->type->decls[i]->type;
+		decl_p decl = type_decl(expr->type, name);
+		if (decl != NULL)
+			return decl;
 	}
 	printf("%s: Error expression: ", expr_pos(expr));
 	if (expr->type == NULL)
@@ -2686,7 +2686,12 @@ expr_p parse_postfix_expr(void)
 			expr = new_expr('.', 1);
 			expr->str_val = copystr(token_it->token);
 			expr->children[0] = subj_expr;
-			expr->type = expr_type_decl(subj_expr, token_it->token);
+			decl_p mem_decl = expr_type_decl(subj_expr, token_it->token);
+			if (mem_decl != NULL)
+			{
+				expr->type = mem_decl->type;
+				expr->int_val = mem_decl->su_nr;
+			}
 			next_token();
 		}
 		else if (accept_term(TK_ARROW))
@@ -2697,7 +2702,14 @@ expr_p parse_postfix_expr(void)
 			expr->str_val = copystr(token_it->token);
 			expr->children[0] = subj_expr;
 			if (subj_expr->type != NULL && subj_expr->type->kind == TYPE_KIND_POINTER)
-				expr->type = type_decl(subj_expr->type->members[0], token_it->token);
+			{
+				decl_p mem_decl = type_decl(subj_expr->type->members[0], token_it->token);
+				if (mem_decl != NULL)
+				{
+					expr->type = mem_decl->type;
+					expr->int_val = mem_decl->su_nr;
+				}
+			}
 			else
 				printf("-> does not have pointer type\n");
 			next_token();
@@ -4249,7 +4261,7 @@ void gen_stats_close(void)
 	fprintf(fcode, "}\n");
 }
 
-void gen_expr(expr_p expr)
+void gen_expr(expr_p expr, bool as_value)
 {
 	if (expr == NULL)
 		return; // TODO: Warning
@@ -4278,11 +4290,11 @@ void gen_expr(expr_p expr)
 			fprintf(fcode, "\" ");
 			break;
 		case 'c': // cast
-			gen_expr(expr->children[0]);
+			gen_expr(expr->children[0], TRUE);
 			break;
 		case ',':
 			for (int i = 0; i < expr->nr_children; i++)
-			gen_expr(expr->children[i]);
+			gen_expr(expr->children[i], TRUE);
 			break;
 		case '+':
 		case '-':
@@ -4295,8 +4307,8 @@ void gen_expr(expr_p expr)
 		case '|':
 		case TK_SHL:
 		case TK_SHR:
-			gen_expr(expr->children[0]);
-			gen_expr(expr->children[1]);
+			gen_expr(expr->children[0], TRUE);
+			gen_expr(expr->children[1], TRUE);
 			switch (expr->kind)
 			{
 				case TK_SHL: fprintf(fcode, "<< "); break;
@@ -4305,13 +4317,17 @@ void gen_expr(expr_p expr)
 			}
 			break;
 		case TK_ARROW:
-			gen_expr(expr->children[0]);
-			fprintf(fcode, "->%s ", expr->str_val); // TODO: should be s%d_%s 
+			gen_expr(expr->children[0], FALSE);
+			fprintf(fcode, "->s%d_%s ", expr->int_val, expr->str_val);
+			break;
+		case '.':
+			gen_expr(expr->children[0], FALSE);
+			fprintf(fcode, ".s%d_%s ", expr->int_val, expr->str_val);
 			break;
 		case '(':
 			for (int i = 1; i < expr->nr_children; i++)
-				gen_expr(expr->children[i]);
-			gen_expr(expr->children[0]);
+				gen_expr(expr->children[i], TRUE);
+			gen_expr(expr->children[0], FALSE);
 			fprintf(fcode, "() ");
 			break;
 		default:
@@ -4319,9 +4335,13 @@ void gen_expr(expr_p expr)
 				printf("Warning: expr '%c' not implemented yet\n", expr->kind);
 			else
 				printf("Warning: expr %d not implemented yet\n", expr->kind);
-			fprintf(fcode, "? ");
+			fprintf(fcode, "$ ");
 			break;
 	}
+	if (   as_value
+		&& (   expr->kind == 'i'
+			|| expr->kind == TK_ARROW))
+		fprintf(fcode, "? ");
 }
 
 void gen_stat_expr(expr_p expr)
@@ -4329,7 +4349,7 @@ void gen_stat_expr(expr_p expr)
 	if (expr != NULL)
 	{
 		gen_indent();
-		gen_expr(expr);
+		gen_expr(expr, TRUE);
 		if (   expr->kind == '('
 			&& (   expr->type->kind == TYPE_KIND_POINTER
 				|| (expr->type->kind == TYPE_KIND_BASE 
