@@ -56,6 +56,12 @@ int fflush(FILE *stream);
 int fseek(FILE *stream, long offset, int whence);
 long ftell(FILE *stream);
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
+int feof(FILE *stream);
+int fgetc(FILE *stream);
+
+FILE *stdin;
+FILE *stderr;
+FILE *stdout;
 
 
 double ldexp(double x, int exp);

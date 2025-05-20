@@ -2149,6 +2149,11 @@ bool type_is_integer(type_p type)
 	return type != NULL && type->kind == TYPE_KIND_BASE && (type->base_type & 1) == 1;
 }
 
+bool type_is_signed_integer(type_p type)
+{
+	return type != NULL && type->kind == TYPE_KIND_BASE && (type->base_type & 2) == 2;
+}
+
 bool type_is_pointer(type_p type)
 {
 	return type != NULL && (type->kind == TYPE_KIND_POINTER || type->kind == TYPE_KIND_ARRAY);
@@ -2506,6 +2511,10 @@ void gen_function_end(void);
 void gen_stats_open(void);
 void gen_stats_close(void);
 void gen_stat_expr(expr_p expr);
+void gen_expr(expr_p expr, bool as_value);
+void gen_indent(void);
+
+FILE *fcode = NULL;
 
 // Parse functions
 
@@ -3319,7 +3328,7 @@ expr_p parse_expr(void)
 		RULE NTP("conditional_expr")
 */
 
-bool parse_statements(void);
+bool parse_statements(expr_p continue_expr);
 expr_p parse_initializer(void);
 
 int inside_struct_or_union = 0;
@@ -3436,7 +3445,7 @@ bool parse_declaration(bool is_param)
 					{
 						inside_function = TRUE;
 						gen_function_start(decl);
-						if (!parse_statements())
+						if (!parse_statements(NULL))
 							FAIL_FALSE
 						if (!accept_term('}'))
 							FAIL_FALSE
@@ -3907,7 +3916,7 @@ expr_p parse_initializer(void)
 	return parse_assignment_expr();
 }
 
-bool parse_statement(void)
+bool parse_statement(bool in_block, expr_p continue_expr)
 {
 	for (;;)
 	{
@@ -3918,6 +3927,8 @@ bool parse_statement(void)
 				label = find_or_add_label(token_it->token);
 			if (label != NULL)
 			{
+				gen_indent();
+				fprintf(fcode, ":%s\n", label->name);
 				next_token();
 				if (!accept_term(':'))
 					FAIL_FALSE
@@ -3930,79 +3941,124 @@ bool parse_statement(void)
 	{
 		if (!accept_term('('))
 			FAIL_FALSE
-		if (parse_expr() == NULL)
+		expr_p cond = parse_expr();
+		if (cond == NULL)
 			FAIL_FALSE
 		if (!accept_term(')'))
 			FAIL_FALSE
-		if (!parse_statement())
+		gen_indent();
+		gen_expr(cond, TRUE);
+		fprintf(fcode, "then\n");
+		gen_stats_open();
+		if (!parse_statement(TRUE, continue_expr))
 			FAIL_FALSE
+		gen_stats_close();
 		if (accept_term(TK_ELSE))
 		{
-			if (!parse_statement())
+			gen_indent();
+			fprintf(fcode, "else\n");
+			gen_stats_open();
+			if (!parse_statement(TRUE, continue_expr))
 				FAIL_FALSE
+			gen_stats_close();
 		}
 		return TRUE;
 	}
 	if (accept_term(TK_WHILE))
 	{
+		gen_indent();
+		fprintf(fcode, "loop\n");
+		gen_stats_open();
 		if (!accept_term('('))
 			FAIL_FALSE
-		if (parse_expr() == NULL)
+		expr_p cond = parse_expr();
+		if (cond == NULL)
 			FAIL_FALSE
 		if (!accept_term(')'))
 			FAIL_FALSE
-		if (!parse_statement())
+		gen_indent();
+		gen_expr(cond, TRUE);
+		fprintf(fcode, "! then { break }\n");
+		if (!parse_statement(TRUE, NULL))
 			FAIL_FALSE
+		gen_stats_close();
 		return TRUE;
 	}
 	if (accept_term(TK_DO))
 	{
-		if (!parse_statement())
+		gen_indent();
+		fprintf(fcode, "loop\n");
+		gen_stats_open();
+		if (!parse_statement(TRUE, NULL))
 			FAIL_FALSE
 		if (!accept_term(TK_WHILE))
 			FAIL_FALSE
 		if (!accept_term('('))
 			FAIL_FALSE
-		if (parse_expr() == NULL)
+		expr_p cond = parse_expr(); 
+		if (cond == NULL)
 			FAIL_FALSE
 		if (!accept_term(')'))
 			FAIL_FALSE
 		if (!accept_term(';'))
 			FAIL_FALSE
+		gen_indent();
+		gen_expr(cond, TRUE);
+		fprintf(fcode, "! then { break }\n");
+		gen_stats_close();
 		return TRUE;
 	}
 	if (accept_term(TK_FOR))
 	{
+		gen_stats_open();
 		decl_p save_ident_decls = cur_ident_decls;
 		if (!accept_term('('))
 			FAIL_FALSE
 		if (!parse_declaration(FALSE))
 		{
-			parse_expr();
+			expr_p init_expr = parse_expr();
+			gen_stat_expr(init_expr);
 			if (!accept_term(';'))
 				FAIL_FALSE
 		}
-		parse_expr();
+		gen_indent();
+		fprintf(fcode, "loop\n");
+		gen_stats_open();
+		expr_p cond = parse_expr();
+		if (cond != 0)
+		{
+			gen_indent();
+			gen_expr(cond, TRUE);
+			fprintf(fcode, "! then { break }\n");
+		}
 		if (!accept_term(';'))
 			FAIL_FALSE
-		parse_expr();
+		expr_p next_expr = parse_expr();
 		if (!accept_term(')'))
 			FAIL_FALSE
-		if (!parse_statement())
+		if (!parse_statement(TRUE, next_expr))
 			FAIL_FALSE
+		gen_stat_expr(next_expr);
 		cur_ident_decls = save_ident_decls;
+		gen_stats_close();
+		gen_stats_close();
 		return TRUE;
 	}
 	if (accept_term(TK_BREAK))
 	{
 		if (!accept_term(';'))
 			FAIL_FALSE
+		gen_indent();
+		fprintf(fcode, "break\n");
 		return TRUE;
 	}
 	if (accept_term(TK_CONTINUE))
 	{
 		if (!accept_term(';'))
 			FAIL_FALSE
+		gen_stat_expr(continue_expr);
+		gen_indent();
+		fprintf(fcode, "continue\n");
 		return TRUE;
 	}
 	if (accept_term(TK_SWITCH))
@@ -4013,7 +4069,7 @@ bool parse_statement(void)
 			FAIL_FALSE
 		if (!accept_term(')'))
 			FAIL_FALSE
-		if (!parse_statement())
+		if (!parse_statement(FALSE, continue_expr))
 			FAIL_FALSE
 		return TRUE;
 	}
@@ -4033,7 +4089,13 @@ bool parse_statement(void)
 	}
 	if (accept_term(TK_RETURN))
 	{
-		parse_expr();
+		gen_indent();
+		expr_p ret_value = parse_expr();
+		if (ret_value != NULL)
+		{
+			gen_expr(ret_value, TRUE);
+		}
+		fprintf(fcode, "return\n");
 		if (!accept_term(';'))
 			FAIL_FALSE
 		return TRUE;
@@ -4041,6 +4103,8 @@ bool parse_statement(void)
 	if (accept_term(TK_GOTO))
 	{
 		find_or_add_label(token_it->token);
+		gen_indent();
+		fprintf(fcode, "goto %s\n", token_it->token);
 		next_token();
 		if (!accept_term(';'))
 			FAIL_FALSE
@@ -4048,12 +4112,14 @@ bool parse_statement(void)
 	}
 	if (accept_term('{'))
 	{
-		gen_stats_open();
-		if (!parse_statements())
+		if (!in_block)
+			gen_stats_open();
+		if (!parse_statements(continue_expr))
 			FAIL_FALSE;
 		if (!accept_term('}'))
 			FAIL_FALSE
-		gen_stats_close();
+		if (!in_block)
+			gen_stats_close();
 		return TRUE;
 	}
 	expr_p expr = parse_expr();
@@ -4063,12 +4129,12 @@ bool parse_statement(void)
 	return TRUE;
 }
 
-bool parse_statements(void)
+bool parse_statements(expr_p continue_expr)
 {
 	decl_p save_ident_decls = cur_ident_decls;
 	do
 	{
-	} while (token_it->kind != '}' && (parse_declaration(FALSE) || parse_statement()));
+	} while (token_it->kind != '}' && (parse_declaration(FALSE) || parse_statement(FALSE, continue_expr)));
 	cur_ident_decls = save_ident_decls;
 	return TRUE;
 }
@@ -4184,8 +4250,6 @@ bool parse_file(const char *input_filename, bool only_preprocess)
 
 // Code generation function
 
-FILE *fcode = NULL;
-
 int indent = 0;
 void gen_indent(void)
 {
@@ -4216,7 +4280,14 @@ void gen_variable_decl(decl_p decl)
 	fprintf(fcode, "var ");
 	if (decl->type->size > 4)
 		fprintf(fcode, "%d ", (decl->type->size + 3) / 4);
-	fprintf(fcode, "%s\n", decl->name);
+	fprintf(fcode, "%s", decl->name);
+	if (decl->value != 0)
+	{
+		fprintf(fcode, " ");
+		gen_expr(decl->value, TRUE);
+		fprintf(fcode, "=: pop");
+	}
+	fprintf(fcode, "\n");
 }
 
 void gen_function_start(decl_p decl)
@@ -4261,6 +4332,14 @@ void gen_stats_close(void)
 	fprintf(fcode, "}\n");
 }
 
+void ignore_value_expr(expr_p expr)
+{
+	if (   expr->kind != '('
+		|| expr->type->kind != TYPE_KIND_BASE
+		|| expr->type->base_type != BT_VOID)
+		fprintf(fcode, "pop ");
+}
+
 void gen_expr(expr_p expr, bool as_value)
 {
 	if (expr == NULL)
@@ -4294,26 +4373,77 @@ void gen_expr(expr_p expr, bool as_value)
 			break;
 		case ',':
 			for (int i = 0; i < expr->nr_children; i++)
-			gen_expr(expr->children[i], TRUE);
+			{
+				gen_expr(expr->children[i], TRUE);
+				if (i < expr->nr_children - 1)
+					ignore_value_expr(expr->children[i]);
+			}
+			break;
+		case '!':
+		case '~':
+			gen_expr(expr->children[0], TRUE);
+			fprintf(fcode, "%c ", expr->kind);
 			break;
 		case '+':
 		case '-':
 		case '*':
 		case '/':
 		case '%':
-		case '=':
 		case '^':
 		case '&':
 		case '|':
+		case '=':
+		case TK_NE:
 		case TK_SHL:
 		case TK_SHR:
+		case TK_EQ:
+			gen_expr(expr->children[0], expr->kind != '=');
+			gen_expr(expr->children[1], TRUE);
+			switch (expr->kind)
+			{
+				case '=': fprintf(fcode, "=: "); break;
+				case TK_SHL: fprintf(fcode, "<< "); break;
+				case TK_SHR: fprintf(fcode, ">> "); break;
+				case TK_EQ: fprintf(fcode, "== "); break;
+				case TK_NE: fprintf(fcode, "!= "); break;
+				default: fprintf(fcode, "%c ", expr->kind); break;
+			}
+			break;
+		case '<':
+		case '>':
+		case TK_LE:
+		case TK_GE:
 			gen_expr(expr->children[0], TRUE);
 			gen_expr(expr->children[1], TRUE);
 			switch (expr->kind)
 			{
-				case TK_SHL: fprintf(fcode, "<< "); break;
-				case TK_SHR: fprintf(fcode, ">> "); break;
-				default: fprintf(fcode, "%c ", expr->kind); break;
+				case TK_LE: fprintf(fcode, "<="); break;
+				case TK_GE: fprintf(fcode, ">="); break;
+				default: fprintf(fcode, "%c", expr->kind); break;
+			}
+			if (   type_is_signed_integer(expr->children[0]->type)
+				|| type_is_signed_integer(expr->children[1]->type))
+				fprintf(fcode, "s");
+			fprintf(fcode, " ");
+			break;
+		case TK_MUL_ASS:
+		case TK_DIV_ASS:
+		case TK_MOD_ASS:
+		case TK_ADD_ASS:
+		case TK_SUB_ASS:
+		case TK_SHL_ASS:
+		case TK_SHR_ASS:
+		case TK_XOR_ASS:
+		case TK_BAND_ASS:
+		case TK_BOR_ASS: 
+			gen_expr(expr->children[0], FALSE);
+			fprintf(fcode, "dup ");
+			gen_expr(expr->children[1], TRUE);
+			switch (expr->kind)
+			{
+				case TK_SHL: fprintf(fcode, "<< =: "); break;
+				case TK_SHR: fprintf(fcode, ">> =: "); break;
+				default: fprintf(fcode, "%c =: ", expr->kind - TK_ASS); break;
 			}
 			break;
 		case TK_ARROW:
@@ -4322,13 +4452,62 @@ void gen_expr(expr_p expr, bool as_value)
 			break;
 		case '.':
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, ".s%d_%s ", expr->int_val, expr->str_val);
+			fprintf(fcode, "s%d_%s + ", expr->int_val, expr->str_val);
+			break;
+		case '[':
+			gen_expr(expr->children[0], FALSE);
+			gen_expr(expr->children[1], TRUE);
+			fprintf(fcode, "%d * + ", expr->children[0]->type->size);
 			break;
 		case '(':
 			for (int i = 1; i < expr->nr_children; i++)
 				gen_expr(expr->children[i], TRUE);
 			gen_expr(expr->children[0], FALSE);
 			fprintf(fcode, "() ");
+			break;
+		case OPER_POST_INC:
+			gen_expr(expr->children[0], FALSE);
+			fprintf(fcode, "dup ? 1 + =: 1 - ");
+			break;
+		case OPER_POST_DEC:
+			gen_expr(expr->children[0], FALSE);
+			fprintf(fcode, "dup ? 1 - =: 1 + ");
+			break;
+		case OPER_PRE_INC:
+			gen_expr(expr->children[0], FALSE);
+			fprintf(fcode, "dup ? 1 + =: ");
+			break;
+		case OPER_MIN:
+			fprintf(fcode, "0 ");
+			gen_expr(expr->children[0], TRUE);
+			fprintf(fcode, "- ");
+			break;
+		case OPER_STAR:
+			gen_expr(expr->children[0], TRUE);
+			fprintf(fcode, "? ");
+			break;
+		case OPER_ADDR:
+			gen_expr(expr->children[0], TRUE);
+			break;
+		case TK_OR:
+			gen_expr(expr->children[0], TRUE);
+			fprintf(fcode, "or { ");
+			gen_expr(expr->children[1], TRUE);
+			fprintf(fcode, "} ");
+			break;
+		case TK_AND:
+			gen_expr(expr->children[0], TRUE);
+			fprintf(fcode, "and { ");
+			gen_expr(expr->children[1], TRUE);
+			fprintf(fcode, "} ");
+			break;
+		case 'l':
+			for (int i = 0; i < expr->nr_children; i++)
+			{
+				gen_expr(expr->children[i], TRUE);
+				if (i < expr->nr_children - 1)
+					ignore_value_expr(expr->children[i]);
+			}
 			break;
 		default:
 			if (expr->kind > ' ' && expr->kind < 127)
@@ -4350,11 +4529,7 @@ void gen_stat_expr(expr_p expr)
 	{
 		gen_indent();
 		gen_expr(expr, TRUE);
-		if (   expr->kind == '('
-			&& (   expr->type->kind == TYPE_KIND_POINTER
-				|| (expr->type->kind == TYPE_KIND_BASE 
-					&& expr->type->base_type != BT_VOID)))
-			fprintf(fcode, "pop");
+		ignore_value_expr(expr);
 		gen_newline();
 	}
 }
