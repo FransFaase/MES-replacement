@@ -2330,22 +2330,6 @@ expr_p new_expr_int_value(int value)
 	return expr;
 }
 
-int expr_eval(expr_p expr)
-{
-	switch (expr->kind)
-	{
-		case '0': return expr->int_val;
-		case '+': return expr_eval(expr->children[0]) + expr_eval(expr->children[1]);
-		case '-': return expr_eval(expr->children[0]) - expr_eval(expr->children[1]);
-		case '/': return expr_eval(expr->children[0]) / expr_eval(expr->children[1]);
-		case '|': return expr_eval(expr->children[0]) | expr_eval(expr->children[1]);
-		case OPER_MIN: return -expr_eval(expr->children[0]);
-	}
-	printf("%s Error: expr_eval\n", expr_pos(expr));
-	exit(0);
-	return 0;
-}
-
 // Declarations
 
 typedef enum {
@@ -2455,6 +2439,32 @@ label_p find_or_add_label(const char *name)
 	label->next = cur_labels;
 	cur_labels = label;
 	return label;
+}
+
+// Eval expression
+
+int expr_eval(expr_p expr)
+{
+	switch (expr->kind)
+	{
+		case '0': return expr->int_val;
+		case '+': return expr_eval(expr->children[0]) + expr_eval(expr->children[1]);
+		case '-': return expr_eval(expr->children[0]) - expr_eval(expr->children[1]);
+		case '/': return expr_eval(expr->children[0]) / expr_eval(expr->children[1]);
+		case '|': return expr_eval(expr->children[0]) | expr_eval(expr->children[1]);
+		case OPER_MIN: return -expr_eval(expr->children[0]);
+		case 'i':
+		{
+			decl_p expr_decl = find_decl(DK_IDENT, expr->str_val);
+			if (expr_decl->storage_type == ST_CONST)
+				return expr_decl->value->int_val;
+			printf("Error: storage type of %s = %d\n", expr->str_val, expr_decl->storage_type);
+			break;
+		}
+	}
+	printf("%s Error: expr_eval\n", expr_pos(expr));
+	exit(0);
+	return 0;
 }
 
 // Type functions
@@ -3494,7 +3504,7 @@ bool parse_declaration(bool is_param)
 			{
 				decl->value = parse_initializer();
 			}
-			if (!is_param && inside_struct_or_union == 0 && decl->storage_type != ST_TYPEDEF)
+			if (!is_param && inside_struct_or_union == 0 && decl->storage_type != ST_TYPEDEF && type->kind != TYPE_KIND_FUNCTION)
 				gen_variable_decl(decl);
 		}
 	} while (!is_param && accept_term(','));
@@ -3916,6 +3926,8 @@ expr_p parse_initializer(void)
 	return parse_assignment_expr();
 }
 
+int default_case_nr = 0;
+
 bool parse_statement(bool in_block, expr_p continue_expr)
 {
 	for (;;)
@@ -4065,26 +4077,106 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 	{
 		if (!accept_term('('))
 			FAIL_FALSE
-		if (parse_expr() == NULL)
+		expr_p switch_expr = parse_expr();
+		if (switch_expr == NULL)
 			FAIL_FALSE
 		if (!accept_term(')'))
 			FAIL_FALSE
-		if (!parse_statement(FALSE, continue_expr))
+		if (!accept_term('{'))
 			FAIL_FALSE
-		return TRUE;
-	}
-	if (accept_term(TK_CASE))
-	{
-		if (parse_expr() == NULL)
+		gen_indent();
+		fprintf(fcode, "loop\n");
+		gen_stats_open();
+		int case_labels[100];
+		int nr_case_labels = 0;
+		bool has_default = FALSE;
+		while (token_it->kind == TK_CASE || token_it->kind == TK_DEFAULT)
+		{
+			bool default_case = FALSE;
+			for (;;)
+			{
+				if (accept_term(TK_CASE))
+				{
+					expr_p expr = parse_expr(); 
+					if (expr == NULL)
+						FAIL_FALSE
+					if (!accept_term(':'))
+						FAIL_FALSE
+					if (nr_case_labels < 100)
+						case_labels[nr_case_labels++] = expr_eval(expr);
+					else
+						printf("Error: more than 50 case label\n");
+				}
+				else if (accept_term(TK_DEFAULT))
+				{
+					if (!accept_term(':'))
+						FAIL_FALSE
+					default_case = TRUE;
+					has_default = TRUE;
+				}
+				else
+					break;
+			}
+			if (nr_case_labels == 0)
+			{
+				gen_indent();
+				fprintf(fcode, "0 ");
+			}
+			else
+			{
+				for (int i = 0; i < nr_case_labels; i++)
+				{
+					gen_indent();
+					if (i > 0)
+					{
+						fprintf(fcode, "or { ");
+					}
+					gen_expr(switch_expr, TRUE);
+					fprintf(fcode, "%u == ", case_labels[i]);
+					if (i + 1 < nr_case_labels)
+						fprintf(fcode, "\n");
+				}
+				for (int i = 1; i < nr_case_labels; i++)
+					fprintf(fcode, "}");
+				if (nr_case_labels > 1)
+					fprintf(fcode, " ");
+			}
+			fprintf(fcode, "then\n");
+			gen_stats_open();
+			if (default_case)
+			{
+				gen_indent();
+				fprintf(fcode, ":_default_case_%d\n", default_case_nr);
+			}
+
+			bool has_break = FALSE;
+			for (;;)
+			{
+				if (token_it->kind == TK_BREAK || token_it->kind == TK_RETURN || token_it->kind == TK_GOTO)
+					has_break = TRUE;
+				if (!parse_statement(FALSE, continue_expr))
+					break;
+			}
+			if (token_it->kind == '}' && !has_break)
+			{
+				gen_indent();
+				fprintf(fcode, "break ");
+			}
+			if (has_break)
+				nr_case_labels = 0;
+			gen_stats_close();
+		}
+		if (!accept_term('}'))
 			FAIL_FALSE
-		if (!accept_term(':'))
-			FAIL_FALSE
-		return TRUE;
-	}
-	if (accept_term(TK_DEFAULT))
-	{
-		if (!accept_term(':'))
-			FAIL_FALSE
+		gen_indent();
+		if (has_default)
+		{
+			fprintf(fcode, "goto _default_case_%d\n", default_case_nr);
+			default_case_nr++;
+		}
+		else
+			fprintf(fcode, "break\n");
+		gen_stats_close();
 		return TRUE;
 	}
 	if (accept_term(TK_RETURN))
