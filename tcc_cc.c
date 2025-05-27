@@ -4366,6 +4366,8 @@ void gen_struct_or_union_member(decl_p decl)
 	fprintf(fcode, "const s%d_m_%s %d\n", struct_union_nr, decl->name, decl->pos);
 }
 
+void gen_initializer(expr_p expr, type_p type);
+
 void gen_variable_decl(decl_p decl)
 {
 	gen_indent();
@@ -4375,11 +4377,11 @@ void gen_variable_decl(decl_p decl)
 	fprintf(fcode, "%s", decl->name);
 	if (decl->value != 0)
 	{
-		fprintf(fcode, " ");
-		gen_expr(decl->value, TRUE);
-		fprintf(fcode, "=: pop");
+		fprintf(fcode, " %s ", decl->name);
+		gen_initializer(decl->value, decl->type);
 	}
-	fprintf(fcode, "\n");
+	else
+		fprintf(fcode, "\n");
 }
 
 void gen_function_start(decl_p decl)
@@ -4399,7 +4401,7 @@ void gen_function_start(decl_p decl)
 			if (mem_decl->type->size > 4)
 				printf("Warning: argument %s of %s has size %d\n", mem_decl->name, decl->name, mem_decl->type->size);
 			gen_indent();
-			fprintf(fcode, "var %s %s =\n", mem_decl->name, mem_decl->name);
+			fprintf(fcode, "var %s %s =:\n", mem_decl->name, mem_decl->name);
 		}
 	}
 }
@@ -4432,10 +4434,16 @@ void ignore_value_expr(expr_p expr)
 		fprintf(fcode, "pop ");
 }
 
+const char *size_ind(expr_p expr)
+{
+	return expr->type != NULL && expr->type->size == 1 ? "1" : "";
+}
+
 void gen_expr(expr_p expr, bool as_value)
 {
 	if (expr == NULL)
 		return; // TODO: Warning
+	const char *expr_size_ind = size_ind(expr);
 	switch (expr->kind) {
 		case 'i':
 			fprintf(fcode, "%s ", expr->str_val);
@@ -4493,7 +4501,7 @@ void gen_expr(expr_p expr, bool as_value)
 			gen_expr(expr->children[1], TRUE);
 			switch (expr->kind)
 			{
-				case '=': fprintf(fcode, "=: "); break;
+				case '=': fprintf(fcode, "= "); break;
 				case TK_SHL: fprintf(fcode, "<< "); break;
 				case TK_SHR: fprintf(fcode, ">> "); break;
 				case TK_EQ: fprintf(fcode, "== "); break;
@@ -4533,10 +4541,11 @@ void gen_expr(expr_p expr, bool as_value)
 			gen_expr(expr->children[1], TRUE);
 			switch (expr->kind)
 			{
-				case TK_SHL: fprintf(fcode, "<< =: "); break;
-				case TK_SHR: fprintf(fcode, ">> =: "); break;
-				default: fprintf(fcode, "%c =: ", expr->kind - TK_ASS); break;
+				case TK_SHL: fprintf(fcode, "<<"); break;
+				case TK_SHR: fprintf(fcode, ">>"); break;
+				default: fprintf(fcode, "%c", expr->kind - TK_ASS); break;
 			}
+			fprintf(fcode, " =%s ", expr_size_ind);
 			break;
 		case TK_ARROW:
 			gen_expr(expr->children[0], FALSE);
@@ -4549,7 +4558,9 @@ void gen_expr(expr_p expr, bool as_value)
 		case '[':
 			gen_expr(expr->children[0], FALSE);
 			gen_expr(expr->children[1], TRUE);
-			fprintf(fcode, "%d * + ", expr->children[0]->type->size);
+			if (expr->type->size > 1)
+				fprintf(fcode, "%d * ", expr->type->size);
+			fprintf(fcode, "+ ");
 			break;
 		case '(':
 			for (int i = 1; i < expr->nr_children; i++)
@@ -4559,15 +4570,15 @@ void gen_expr(expr_p expr, bool as_value)
 			break;
 		case OPER_POST_INC:
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "dup ? 1 + =: 1 - ");
+			fprintf(fcode, "dup ?%s 1 + =%s 1 - ", expr_size_ind, expr_size_ind);
 			break;
 		case OPER_POST_DEC:
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "dup ? 1 - =: 1 + ");
+			fprintf(fcode, "dup ?%s 1 - =%s 1 + ", expr_size_ind, expr_size_ind);
 			break;
 		case OPER_PRE_INC:
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "dup ? 1 + =: ");
+			fprintf(fcode, "dup ?%s 1 + =%s ", expr_size_ind, expr_size_ind);
 			break;
 		case OPER_MIN:
 			fprintf(fcode, "0 ");
@@ -4576,7 +4587,7 @@ void gen_expr(expr_p expr, bool as_value)
 			break;
 		case OPER_STAR:
 			gen_expr(expr->children[0], TRUE);
-			fprintf(fcode, "? ");
+			fprintf(fcode, "?%s ", expr_size_ind);
 			break;
 		case OPER_ADDR:
 			gen_expr(expr->children[0], TRUE);
@@ -4613,6 +4624,42 @@ void gen_expr(expr_p expr, bool as_value)
 		&& (   expr->kind == 'i'
 			|| expr->kind == TK_ARROW))
 		fprintf(fcode, "? ");
+}
+
+void gen_initializer(expr_p expr, type_p type)
+{
+	if (expr->kind == 'l')
+	{
+		if (type->kind == TYPE_KIND_ARRAY)
+		{
+			for (int i = 0; i < expr->nr_children; i++)
+			{
+				if (i + 1 < expr->nr_children)
+					fprintf(fcode, "dup ");
+				gen_initializer(expr->children[i], type->members[0]);
+				if (i + 1 < expr->nr_children)
+					fprintf(fcode, "%u + ", type->members[0]->size);
+			}
+		}
+		else if (type->kind == TYPE_KIND_STRUCT)
+		{
+			for (int i = 0; i < expr->nr_children; i++)
+			{
+				if (i + 1 < expr->nr_children)
+					fprintf(fcode, "dup ");
+				gen_initializer(expr->children[i], type->decls[i]->type);
+				if (i + 1 < expr->nr_children)
+					fprintf(fcode, "%u + ", type->decls[i]->type->size);
+			}
+		}
+		else
+			printf("Error: unfit type for initializer");
+	}
+	else
+	{
+		gen_expr(expr, TRUE);
+		fprintf(fcode, "=%s pop\n", size_ind(expr));
+	}
 }
 
 void gen_stat_expr(expr_p expr)

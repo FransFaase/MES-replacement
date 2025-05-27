@@ -3,6 +3,10 @@ typedef uint32_t off_t;
 typedef uint32_t time_t;
 typedef uint32_t suseconds_t;
 
+const FILE *stdin = 0;
+const FILE *stderr = 1;
+const FILE *stdout = 2;
+
 void *memcpy(void *dest, const void *src, size_t n);
 void *memmove(void *dest, const void *src, size_t n);
 void *memset(void *s, int c, size_t n);
@@ -14,7 +18,19 @@ char *strncpy(char *dest, const char *src, size_t n);
 char *strchr(const char *s, int c);
 char *strrchr(const char *s, int c);
 char *strstr(const char *haystack, const char *needle);
-int strcmp(const char *s1, const char *s2);
+int strcmp(const char *s1, const char *s2)
+{
+	int result;
+	for (;;)
+	{
+		result = *s1 - *s2;
+		if (result != 0 || *s1 == 0)
+			break;
+		s1++;
+		s2++;
+	}
+	return result;
+}
 int strncmp(const char *s1, const char *s2, size_t n);
 
 
@@ -58,10 +74,6 @@ long ftell(FILE *stream);
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
 int feof(FILE *stream);
 int fgetc(FILE *stream);
-
-FILE *stdin;
-FILE *stderr;
-FILE *stdout;
 
 
 double ldexp(double x, int exp);
