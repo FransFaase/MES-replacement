@@ -236,6 +236,7 @@ typedef struct
 
 Var vars[500];
 int nr_vars = 0;
+int pos = 0;
 
 typedef struct String String;
 struct String
@@ -275,8 +276,9 @@ int nr_for_string(const char *s)
 
 #define MAX_NESTING 100
 
-int nesting[MAX_NESTING];
 int nesting_depth = 0;
+int nesting_nr_vars[MAX_NESTING];
+int nesting_pos[MAX_NESTING];
 char nesting_type[MAX_NESTING];
 int nesting_id[MAX_NESTING];
 
@@ -365,7 +367,9 @@ int main(int argc, char *argv[])
 				//printf("start function %s\n", function_name);
 				fprintf(fout, "\n:%s\n\tpop_eax\n\tmov_[ebp],eax\n\tpop_eax\n", function_name);
 				nesting_type[nesting_depth] = ' ';
-				nesting[nesting_depth++] = nr_vars;
+				nesting_nr_vars[nesting_depth] = nr_vars;
+				nesting_pos[nesting_depth] = pos;
+				nesting_depth++
 				id = 1;
 			}
 			else
@@ -396,18 +400,25 @@ int main(int argc, char *argv[])
 		else if (sym == 'V')
 		{
 			get_token();
+			int size = 1;
+			if (sym == '0')
+			{
+				size = int_value;
+				get_token();
+			}
 			if (sym != 'i')
 			{
-				fprintf(ferr, "ERROR %d: Expecting name after 'const'\n", cur_line);
+				fprintf(ferr, "ERROR %d: Expecting name after 'var'\n", cur_line);
 				return 0;
 			}
 			vars[nr_vars].type = nesting_depth == 0 ? 'G' : 'L';
 			strcpy(vars[nr_vars].name, token);
 			if (nesting_depth > 0)
 			{
-				vars[nr_vars].pos = nr_vars - nesting[0] + 1;
-			} 
+				vars[nr_vars].pos = pos - nesting_pos[0] + 1;
+			}
 			nr_vars++;
+			pos += size;
 		}
 		else if (sym == 'L')
 		{
@@ -420,7 +431,9 @@ int main(int argc, char *argv[])
 			fprintf(fout, ":_%s_loop%d\n", function_name, id);
 			nesting_type[nesting_depth] = 'L';
 			nesting_id[nesting_depth] = id++;
-			nesting[nesting_depth++] = nr_vars;
+			nesting_nr_vars[nesting_depth] = nr_vars;
+			nesting_pos[nesting_depth] = pos;
+			nesting_depth++
 		}
 		else if (sym == 'B' || sym == 'C')
 		{
@@ -449,7 +462,9 @@ int main(int argc, char *argv[])
 			fprintf(fout, "\ttest_eax,eax           # then\n\tpop_eax\n\tje %%_%s_else%d\n", function_name, id);
 			nesting_type[nesting_depth] = 'T';
 			nesting_id[nesting_depth] = id++;
-			nesting[nesting_depth++] = nr_vars;
+			nesting_nr_vars[nesting_depth] = nr_vars;
+			nesting_pos[nesting_depth] = pos;
+			nesting_depth++
 		}
 		else if (sym == 'E')
 		{
@@ -467,7 +482,9 @@ int main(int argc, char *argv[])
 			fprintf(fout, "\ttest_eax,eax          # and\n\tje %%_%s_and_end%d\n\tpop_eax\n", function_name, id);
 			nesting_type[nesting_depth] = 'A';
 			nesting_id[nesting_depth] = id++;
-			nesting[nesting_depth++] = nr_vars;
+			nesting_nr_vars[nesting_depth] = nr_vars;
+			nesting_pos[nesting_depth] = pos;
+			nesting_depth++
 		}
 		else if (sym == 'O')
 		{
@@ -480,12 +497,14 @@ int main(int argc, char *argv[])
 			fprintf(fout, "\ttest_eax,eax          # or\n\tjne %%_%s_or_end%d\n\tpop_eax\n", function_name, id);
 			nesting_type[nesting_depth] = 'O';
 			nesting_id[nesting_depth] = id++;
-			nesting[nesting_depth++] = nr_vars;
+			nesting_nr_vars[nesting_depth] = nr_vars;
+			nesting_pos[nesting_depth] = pos;
+			nesting_depth++
 		}
 		else if (sym == '{')
 		{
 			nesting_type[nesting_depth] = ' ';
-			nesting[nesting_depth++] = nr_vars;
+			nesting_nr_vars[nesting_depth++] = nr_vars;
 		}
 		else if (sym == '}')
 		{
@@ -494,7 +513,9 @@ int main(int argc, char *argv[])
 				fprintf(ferr, "ERROR %d: To many }\n", cur_line);
 				return 0;
 			}
-			nr_vars = nesting[--nesting_depth];
+			nesting_depth--;
+			nr_vars = nesting_nr_vars[nesting_depth];
+			pos = nesting_pos[nesting_depth];
 			if (nesting_type[nesting_depth] == 'L')
 				fprintf(fout, "\tjmp %%_%s_loop%d\n:_%s_loop_end%d\n", function_name, nesting_id[nesting_depth], function_name, nesting_id[nesting_depth]);
 			else if (nesting_type[nesting_depth] == 'T')
@@ -511,7 +532,9 @@ int main(int argc, char *argv[])
 					fprintf(fout, "\tjmp %%_%s_else_end%d\n", function_name, nesting_id[nesting_depth]);
 					fprintf(fout, ":_%s_else%d\n", function_name, nesting_id[nesting_depth]);
 					nesting_type[nesting_depth] = 'E';
-					nesting[nesting_depth++] = nr_vars;
+					nesting_nr_vars[nesting_depth] = nr_vars;
+					nesting_pos[nesting_depth] = pos;
+					nesting_depth++
 				}
 				else
 				{
@@ -649,8 +672,8 @@ int main(int argc, char *argv[])
 			}
 			else if (strcmp(token, "()") == 0)
 			{
-				int nr = nr_vars - nesting[0] + 1;
-				//printf(" call at %d offset %d\n", nr_vars, nr);
+				int nr = pos - nesting_nr_vars[0] + 1;
+				//printf(" call at %d offset %d\n", pos, nr);
 				fprintf(fout, "\tadd_ebp, %%%d         # ()\n\tcall_eax\n\tsub_ebp, %%%d\n", 4 * nr, 4 * nr);
 			}
 			else if (strcmp(token, "==") == 0)
