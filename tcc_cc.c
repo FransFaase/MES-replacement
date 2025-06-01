@@ -679,23 +679,22 @@ include_iterator_p new_include_iterator(char_iterator_p include_it)
 #define TK_STATIC		1021
 #define TK_STRUCT		1022
 #define TK_SWITCH		1023
-#define TK_THEN			1024
-#define TK_TYPEDEF		1025
-#define TK_UNION		1026
-#define TK_UNSIGNED		1027
-#define TK_VOID			1028
-#define TK_WHILE		1029
-#define TK_H_ELSE		1030
-#define TK_H_ELIF		1031
-#define TK_H_ENDIF		1032
-#define TK_H_DEFINE		1033
-#define TK_DEFINED		1034
-#define TK_H_IF			1035
-#define TK_H_IFDEF		1036
-#define TK_H_IFNDEF		1037
-#define TK_H_INCLUDE	1038
-#define TK_H_UNDEF		1039
-#define TK_H_ERROR		1040
+#define TK_TYPEDEF		1024
+#define TK_UNION		1025
+#define TK_UNSIGNED		1026
+#define TK_VOID			1027
+#define TK_WHILE		1028
+#define TK_H_ELSE		1029
+#define TK_H_ELIF		1030
+#define TK_H_ENDIF		1031
+#define TK_H_DEFINE		1032
+#define TK_DEFINED		1033
+#define TK_H_IF			1034
+#define TK_H_IFDEF		1035
+#define TK_H_IFNDEF		1036
+#define TK_H_INCLUDE	1037
+#define TK_H_UNDEF		1038
+#define TK_H_ERROR		1039
 
 typedef struct token_iterator_s token_iterator_t;
 typedef struct token_iterator_s* token_iterator_p;
@@ -775,6 +774,10 @@ char tokenizer_parse_char_literal(tokenizer_p tokenizer)
 	else if (ch == 'r')
 	{
 		ch = '\r';
+	}
+	else if (ch == 't')
+	{
+		ch = '\t';
 	}
 	return ch;
 }
@@ -857,7 +860,6 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 		else if (eqstr("static",   token_it->token)) token_it->kind = TK_STATIC;
 		else if (eqstr("struct",   token_it->token)) token_it->kind = TK_STRUCT;
 		else if (eqstr("switch",   token_it->token)) token_it->kind = TK_SWITCH;
-		else if (eqstr("then",     token_it->token)) token_it->kind = TK_THEN;
 		else if (eqstr("typedef",  token_it->token)) token_it->kind = TK_TYPEDEF;
 		else if (eqstr("union",    token_it->token)) token_it->kind = TK_UNION;
 		else if (eqstr("unsigned", token_it->token)) token_it->kind = TK_UNSIGNED;
@@ -3960,7 +3962,7 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 			FAIL_FALSE
 		gen_indent();
 		gen_expr(cond, TRUE);
-		fprintf(fcode, "then\n");
+		fprintf(fcode, "if\n");
 		gen_stats_open();
 		if (!parse_statement(TRUE, continue_expr))
 			FAIL_FALSE
@@ -3979,7 +3981,7 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 	if (accept_term(TK_WHILE))
 	{
 		gen_indent();
-		fprintf(fcode, "loop\n");
+		fprintf(fcode, "do\n");
 		gen_stats_open();
 		if (!accept_term('('))
 			FAIL_FALSE
@@ -3990,7 +3992,7 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 			FAIL_FALSE
 		gen_indent();
 		gen_expr(cond, TRUE);
-		fprintf(fcode, "! then { break }\n");
+		fprintf(fcode, "! if { break }\n");
 		if (!parse_statement(TRUE, NULL))
 			FAIL_FALSE
 		gen_stats_close();
@@ -3999,7 +4001,7 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 	if (accept_term(TK_DO))
 	{
 		gen_indent();
-		fprintf(fcode, "loop\n");
+		fprintf(fcode, "do\n");
 		gen_stats_open();
 		if (!parse_statement(TRUE, NULL))
 			FAIL_FALSE
@@ -4016,7 +4018,7 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 			FAIL_FALSE
 		gen_indent();
 		gen_expr(cond, TRUE);
-		fprintf(fcode, "! then { break }\n");
+		fprintf(fcode, "! if { break }\n");
 		gen_stats_close();
 		return TRUE;
 	}
@@ -4034,14 +4036,14 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 				FAIL_FALSE
 		}
 		gen_indent();
-		fprintf(fcode, "loop\n");
+		fprintf(fcode, "do\n");
 		gen_stats_open();
 		expr_p cond = parse_expr();
 		if (cond != 0)
 		{
 			gen_indent();
 			gen_expr(cond, TRUE);
-			fprintf(fcode, "! then { break }\n");
+			fprintf(fcode, "! if { break }\n");
 		}
 		if (!accept_term(';'))
 			FAIL_FALSE
@@ -4085,7 +4087,7 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 		if (!accept_term('{'))
 			FAIL_FALSE
 		gen_indent();
-		fprintf(fcode, "loop\n");
+		fprintf(fcode, "do\n");
 		gen_stats_open();
 		int case_labels[100];
 		int nr_case_labels = 0;
@@ -4141,7 +4143,7 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 				if (nr_case_labels > 1)
 					fprintf(fcode, " ");
 			}
-			fprintf(fcode, "then\n");
+			fprintf(fcode, "if\n");
 			gen_stats_open();
 			if (default_case)
 			{
@@ -4366,43 +4368,45 @@ void gen_struct_or_union_member(decl_p decl)
 	fprintf(fcode, "const s%d_m_%s %d\n", struct_union_nr, decl->name, decl->pos);
 }
 
-void gen_initializer(expr_p expr, type_p type);
-
 void gen_variable_decl(decl_p decl)
 {
 	gen_indent();
-	fprintf(fcode, "var ");
+	fprintf(fcode, "int ");
 	if (decl->type->size > 4)
 		fprintf(fcode, "%d ", (decl->type->size + 3) / 4);
-	fprintf(fcode, "%s", decl->name);
-	if (decl->value != 0)
-	{
-		fprintf(fcode, " %s ", decl->name);
-		gen_initializer(decl->value, decl->type);
-	}
-	else
-		fprintf(fcode, "\n");
+	fprintf(fcode, "%s\n", decl->name);
 }
 
 void gen_function_start(decl_p decl)
 {
+	bool is_main = strcmp(decl->name, "main") == 0;
+	if (is_main)
+		fprintf(fcode, "void __init_globals__ ;\n");
 	type_p type = decl->type;
 	if (type->members[0]->size > 4)
 		printf("Warning: return type %s has size %d\n", decl->name, type->members[0]->size);
-	fprintf(fcode, "func %s\n{\n", decl->name);
+	fprintf(fcode, "void %s\n{\n", decl->name);
 	indent++;
 	for (int i = type->nr_decls - 1; i >= 0; i--)
 	{
 		decl_p mem_decl = type->decls[i];
 		if (mem_decl == NULL)
-			printf("Warning: %s has vararg\n", decl->name);
+		{
+			gen_indent();
+			fprintf(fcode, "int __var_args __var_args =:\n");
+		}
 		else
 		{
 			if (mem_decl->type->size > 4)
 				printf("Warning: argument %s of %s has size %d\n", mem_decl->name, decl->name, mem_decl->type->size);
 			gen_indent();
-			fprintf(fcode, "var %s %s =:\n", mem_decl->name, mem_decl->name);
+			fprintf(fcode, "int %s %s =:\n", mem_decl->name, mem_decl->name);
 		}
+	}
+	if (is_main)
+	{
+		gen_indent();
+		fprintf(fcode, "__init_globals__ ()\n");
 	}
 }
 
@@ -4431,7 +4435,7 @@ void ignore_value_expr(expr_p expr)
 	if (   expr->kind != '('
 		|| expr->type->kind != TYPE_KIND_BASE
 		|| expr->type->base_type != BT_VOID)
-		fprintf(fcode, "pop ");
+		fprintf(fcode, "; ");
 }
 
 const char *size_ind(expr_p expr)
@@ -4537,7 +4541,7 @@ void gen_expr(expr_p expr, bool as_value)
 		case TK_BAND_ASS:
 		case TK_BOR_ASS: 
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "dup ");
+			fprintf(fcode, "$ ");
 			gen_expr(expr->children[1], TRUE);
 			switch (expr->kind)
 			{
@@ -4549,11 +4553,11 @@ void gen_expr(expr_p expr, bool as_value)
 			break;
 		case TK_ARROW:
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "->s%d_%s ", expr->int_val, expr->str_val);
+			fprintf(fcode, "->s%d_m_%s ", expr->int_val, expr->str_val);
 			break;
 		case '.':
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "s%d_%s + ", expr->int_val, expr->str_val);
+			fprintf(fcode, "s%d_m_%s + ", expr->int_val, expr->str_val);
 			break;
 		case '[':
 			gen_expr(expr->children[0], FALSE);
@@ -4563,22 +4567,50 @@ void gen_expr(expr_p expr, bool as_value)
 			fprintf(fcode, "+ ");
 			break;
 		case '(':
-			for (int i = 1; i < expr->nr_children; i++)
-				gen_expr(expr->children[i], TRUE);
-			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "() ");
+			{
+				type_p func_type = expr->children[0]->type;
+				int nr_decls = func_type->nr_decls;
+				if (nr_decls > 0 && func_type->decls[nr_decls - 1] == NULL)
+				{
+					for (int i = 1; i < nr_decls; i++)
+						gen_expr(expr->children[i], TRUE);
+					int nr_var_args = expr->nr_children - 1 - nr_decls;
+					if (nr_var_args == 0)
+						fprintf(fcode, "0 ");
+					else
+					{
+						fprintf(fcode, "{ int %d __var_args ", nr_var_args);
+						for (int i = 0; i < nr_var_args; i++)
+						{
+							fprintf(fcode, "__var_args ");
+							if (i > 0)
+								fprintf(fcode, "%d + ", i * 4);
+							gen_expr(expr->children[nr_decls + i], TRUE);
+							fprintf(fcode, "= ; ");
+						}
+						fprintf(fcode, "__var_args } ");
+					}
+				}
+				else
+				{
+					for (int i = 1; i < expr->nr_children; i++)
+						gen_expr(expr->children[i], TRUE);
+				}
+				gen_expr(expr->children[0], FALSE);
+				fprintf(fcode, "() ");
+			}
 			break;
 		case OPER_POST_INC:
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "dup ?%s 1 + =%s 1 - ", expr_size_ind, expr_size_ind);
+			fprintf(fcode, "$ ?%s 1 + =%s 1 - ", expr_size_ind, expr_size_ind);
 			break;
 		case OPER_POST_DEC:
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "dup ?%s 1 - =%s 1 + ", expr_size_ind, expr_size_ind);
+			fprintf(fcode, "$ ?%s 1 - =%s 1 + ", expr_size_ind, expr_size_ind);
 			break;
 		case OPER_PRE_INC:
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "dup ?%s 1 + =%s ", expr_size_ind, expr_size_ind);
+			fprintf(fcode, "$ ?%s 1 + =%s ", expr_size_ind, expr_size_ind);
 			break;
 		case OPER_MIN:
 			fprintf(fcode, "0 ");
@@ -4594,13 +4626,13 @@ void gen_expr(expr_p expr, bool as_value)
 			break;
 		case TK_OR:
 			gen_expr(expr->children[0], TRUE);
-			fprintf(fcode, "or { ");
+			fprintf(fcode, "|| { ");
 			gen_expr(expr->children[1], TRUE);
 			fprintf(fcode, "} ");
 			break;
 		case TK_AND:
 			gen_expr(expr->children[0], TRUE);
-			fprintf(fcode, "and { ");
+			fprintf(fcode, "&& { ");
 			gen_expr(expr->children[1], TRUE);
 			fprintf(fcode, "} ");
 			break;
@@ -4626,42 +4658,6 @@ void gen_expr(expr_p expr, bool as_value)
 		fprintf(fcode, "? ");
 }
 
-void gen_initializer(expr_p expr, type_p type)
-{
-	if (expr->kind == 'l')
-	{
-		if (type->kind == TYPE_KIND_ARRAY)
-		{
-			for (int i = 0; i < expr->nr_children; i++)
-			{
-				if (i + 1 < expr->nr_children)
-					fprintf(fcode, "dup ");
-				gen_initializer(expr->children[i], type->members[0]);
-				if (i + 1 < expr->nr_children)
-					fprintf(fcode, "%u + ", type->members[0]->size);
-			}
-		}
-		else if (type->kind == TYPE_KIND_STRUCT)
-		{
-			for (int i = 0; i < expr->nr_children; i++)
-			{
-				if (i + 1 < expr->nr_children)
-					fprintf(fcode, "dup ");
-				gen_initializer(expr->children[i], type->decls[i]->type);
-				if (i + 1 < expr->nr_children)
-					fprintf(fcode, "%u + ", type->decls[i]->type->size);
-			}
-		}
-		else
-			printf("Error: unfit type for initializer");
-	}
-	else
-	{
-		gen_expr(expr, TRUE);
-		fprintf(fcode, "=%s pop\n", size_ind(expr));
-	}
-}
-
 void gen_stat_expr(expr_p expr)
 {
 	if (expr != NULL)
@@ -4671,6 +4667,65 @@ void gen_stat_expr(expr_p expr)
 		ignore_value_expr(expr);
 		gen_newline();
 	}
+}
+
+void gen_initializer(expr_p expr, type_p type)
+{
+	if (expr->kind == 'l')
+	{
+		if (type->kind == TYPE_KIND_ARRAY)
+		{
+			for (int i = 0; i < expr->nr_children; i++)
+			{
+				if (i + 1 < expr->nr_children)
+					fprintf(fcode, "$ ");
+				gen_initializer(expr->children[i], type->members[0]);
+				if (i + 1 < expr->nr_children)
+				{
+					gen_indent();
+					fprintf(fcode, "%u + ", type->members[0]->size);
+				}
+			}
+		}
+		else if (type->kind == TYPE_KIND_STRUCT)
+		{
+			for (int i = 0; i < expr->nr_children; i++)
+			{
+				if (i + 1 < expr->nr_children)
+					fprintf(fcode, "$ ");
+				gen_initializer(expr->children[i], type->decls[i]->type);
+				if (i + 1 < expr->nr_children)
+				{
+					gen_indent();
+					fprintf(fcode, "%u + ", type->decls[i]->type->size);
+				}
+			}
+		}
+		else
+			printf("Error: unfit type for initializer");
+	}
+	else
+	{
+		gen_expr(expr, TRUE);
+		fprintf(fcode, "=%s ;\n", size_ind(expr));
+	}
+}
+
+void gen_init_globals(void)
+{
+	fprintf(fcode, "void __init_globals__\n{\n");
+	indent++;
+
+	for (decl_p decl = cur_ident_decls; decl != NULL; decl = decl->prev)
+		if (decl->value != NULL)
+		{
+			gen_indent();
+			fprintf(fcode, "%s ", decl->name);
+			gen_initializer(decl->value, decl->type);
+		}
+	
+	indent--;
+	fprintf(fcode, "    return\n}\n");
 }
 
 // Main
@@ -4707,5 +4762,8 @@ int main(int argc, char *argv[])
 	if (!parse_file("stdlib.c", FALSE))
 		return 0;
 	parse_file(input_filename, FALSE);
+
+	gen_init_globals();
+
 	return 0;
 }

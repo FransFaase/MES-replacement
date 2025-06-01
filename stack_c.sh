@@ -1,18 +1,18 @@
 #!/bin/bash
-echo compile stack_c.cpp
-g++ -g stack_c.cpp -o stack_c1
+#echo compile stack_c.cpp
+#g++ -g stack_c.cpp -o stack_c
 echo stack_c
-./stack_c1 $1 >test.M1
+./stack_c $1 >test_c.M1
 echo blood-elf
-./blood-elf --file test.M1 --little-endian --output test.blood_elf
+./blood-elf --file test_c.M1 --little-endian --output test_c.blood_elf
 echo M1
-./M1 --file test.M1 --little-endian --architecture x86 --file test.blood_elf --output test.macro
+./M1 --file test_c.M1 --little-endian --architecture x86 --file test_c.blood_elf --output test_c.macro
 echo hex2
-./hex2 --file ./M2libc/x86/ELF-x86-debug.hex2 --file test.macro --output testsl --architecture x86 --base-address 0x8048000 --little-endian 
+./hex2 --file ./M2libc/x86/ELF-x86-debug.hex2 --file test_c.macro --output testsl_c --architecture x86 --base-address 0x8048000 --little-endian 
 echo objdump
-objdump -d testsl >testsl.txt
+objdump -d testsl_c >testsl_c.txt
 echo testsl
-./testsl
+./testsl_c
 echo Done!
 
 # starting M2-Planet build

@@ -25,6 +25,7 @@ DEFINE mov_[DWORD],eax A3
 DEFINE mov_[DWORD],ebx 891D
 DEFINE mov_[ecx],eax 8901
 DEFINE mov_[eax],ebx 8918
+DEFINE mov_[ebx],al 8803
 DEFINE mov_[ebx],eax 8903
 DEFINE mov_[ebp],eax 894500
 DEFINE mov_[eax],bl 8818
@@ -64,23 +65,23 @@ DEFINE NULL 00000000
 :ELF_text
 
 :_start
-	mov_eax, %45                                # the Syscall # for SYS_BRK
-	mov_ebx, %0                                 # Get current brk
-	int_80                                      # Let the kernel do the work
-	mov_[DWORD],eax &SYS_MALLOC                 # Set our malloc pointer
+    mov_eax, %45                                # the Syscall # for SYS_BRK
+    mov_ebx, %0                                 # Get current brk
+    int_80                                      # Let the kernel do the work
+    mov_[DWORD],eax &SYS_MALLOC                 # Set our malloc pointer
 
-	mov_eax, %10000
-	push_eax									# (sys_malloc assums address)
-	call %sys_malloc
-	mov_ebp,eax
-	
-	pop_eax
-	call %main
-	
-	# program completed Successfully
-	mov_ebx,eax                                 # All is well
-	mov_eax, %1                                 # put the exit syscall number in eax
-	int_80                                      # Call it a good day
+    mov_eax, %10000
+    push_eax                                    # (sys_malloc assums address)
+    call %sys_malloc
+    mov_ebp,eax
+    
+    pop_eax
+    call %main
+    
+    # program completed Successfully
+    mov_ebx,eax                                 # All is well
+    mov_eax, %1                                 # put the exit syscall number in eax
+    int_80                                      # Call it a good day
 
 # These sys_ function follow the same calling conventions
 # as all the other functions. To access the arguments on the stack
@@ -90,65 +91,65 @@ DEFINE NULL 00000000
 # needs to be pop as well.
 
 :sys_malloc
-	pop_edi
-	pop_eax
-	mov_ebx,[DWORD] &SYS_MALLOC                 # Using the current pointer
-	add_ebx,eax                                 # Request the number of desired bytes
-	mov_eax, %45                                # the Syscall # for SYS_BRK
-	int_80                                      # call the Kernel
-	mov_eax,[DWORD] &SYS_MALLOC                 # Return pointer
-	mov_[DWORD],ebx &SYS_MALLOC                 # Update pointer
-	push_edi
-	ret
+    pop_edi
+    pop_eax
+    mov_ebx,[DWORD] &SYS_MALLOC                 # Using the current pointer
+    add_ebx,eax                                 # Request the number of desired bytes
+    mov_eax, %45                                # the Syscall # for SYS_BRK
+    int_80                                      # call the Kernel
+    mov_eax,[DWORD] &SYS_MALLOC                 # Return pointer
+    mov_[DWORD],ebx &SYS_MALLOC                 # Update pointer
+    push_edi
+    ret
 
 :sys_open
-	pop_edi
-	pop_edx
-	pop_ecx
-	pop_ebx
-	mov_eax, %5
-	int_80
-	push_edi
-	ret
+    pop_edi
+    pop_edx
+    pop_ecx
+    pop_ebx
+    mov_eax, %5
+    int_80
+    push_edi
+    ret
 
 :sys_close
-	pop_edi
-	pop_eax
-	mov_ebx,eax
-	int_80
-	pop_eax
-	push_edi
-	ret
+    pop_edi
+    pop_eax
+    mov_ebx,eax
+    int_80
+    pop_eax
+    push_edi
+    ret
 
 :sys_fgetc
-	pop_edi
-	pop_eax
-	mov_ebx,eax                                 # Where are we reading from
-	lea_ecx,[ebp+DWORD] %4
-	mov_eax, %3                                 # the syscall number for read
-	mov_edx, %1                                 # set the size of chars we want
-	int_80                                      # call the Kernel
-	test_eax,eax
-	jle %sys_fgetc_else1
-	mov_eax,[ebp+DWORD] %4
-	and_eax, %255
-	jmp %sys_fgetc_done
+    pop_edi
+    pop_eax
+    mov_ebx,eax                                 # Where are we reading from
+    lea_ecx,[ebp+DWORD] %4
+    mov_eax, %3                                 # the syscall number for read
+    mov_edx, %1                                 # set the size of chars we want
+    int_80                                      # call the Kernel
+    test_eax,eax
+    jle %sys_fgetc_else1
+    mov_eax,[ebp+DWORD] %4
+    and_eax, %255
+    jmp %sys_fgetc_done
 :sys_fgetc_else1
-	mov_eax, %0
+    mov_eax, %0
 :sys_fgetc_done
-	push_edi
-	ret
+    push_edi
+    ret
 
 :sys_fputc
-	pop_edi
-	pop_eax
-	mov_ebx,eax
-	pop_eax
-	lea_ecx,[ebp+DWORD] %4
-	mov_[ecx],eax
-	mov_eax, %4                                 # the syscall number for write
-	mov_edx, %1                                 # set the size of chars we want
-	int_80                                      # call the Kernel
-	push_edi
-	ret
-	
+    pop_edi
+    pop_eax
+    mov_ebx,eax
+    pop_eax
+    lea_ecx,[ebp+DWORD] %4
+    mov_[ecx],eax
+    mov_eax, %4                                 # the syscall number for write
+    mov_edx, %1                                 # set the size of chars we want
+    int_80                                      # call the Kernel
+    push_edi
+    ret
+    

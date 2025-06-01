@@ -12,8 +12,11 @@ void *memmove(void *dest, const void *src, size_t n);
 void *memset(void *s, int c, size_t n);
 int memcmp(const void *s1, const void *s2, size_t n);
 
-size_t strlen(const char *s);
-char *strcpy(char *dest, const char *src);
+size_t strlen(const char *s) {}
+char *strcpy(char *dest, const char *src)
+{
+
+}
 char *strncpy(char *dest, const char *src, size_t n);
 char *strchr(const char *s, int c);
 char *strrchr(const char *s, int c);
@@ -40,12 +43,16 @@ long strtoll(const char *nptr, char **endptr, int base);
 long strtoull(const char *nptr, char **endptr, int base);
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
-int fputc(int c, FILE *stream);
+int fputc(int c, FILE *stream) {}
 int fputs(const char *s, FILE *stream);
 
-int printf(const char *format, ...);
-int fprintf(FILE *stream, const char *format, ...);
-int sprintf(char *str, const char *format, ...);
+int printf(const char *format, ...)
+{
+}
+int fprintf(FILE *stream, const char *format, ...)
+{
+}
+int sprintf(char *str, const char *format, ...) {}
 int snprintf(char *str, size_t size, const char *format, ...);
 int vsnprintf(char *str, size_t size, const char *format, va_list ap);
 
@@ -65,21 +72,21 @@ size_t read(int fd, void *buf, size_t count);
 
 off_t lseek(int fd, off_t offset, int whence);
 
-FILE *fopen(const char *pathname, const char *mode);
+FILE *fopen(const char *pathname, const char *mode) {}
 FILE *fdopen(int fd, const char *mode);
-int fclose(FILE *stream);
+int fclose(FILE *stream) {}
 int fflush(FILE *stream);
 int fseek(FILE *stream, long offset, int whence);
 long ftell(FILE *stream);
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
-int feof(FILE *stream);
-int fgetc(FILE *stream);
+int feof(FILE *stream) {}
+int fgetc(FILE *stream) {}
 
 
 double ldexp(double x, int exp);
 
 
-void *malloc(size_t size);
+void *malloc(size_t size) {}
 void free(void *ptr);
 void *realloc(void *ptr, size_t size);
 
@@ -147,3 +154,6 @@ int sscanf(const char *str, const char *format, ...);
 int atoi(const char *nptr);
 int remove(const char *pathname);
 int execvp(const char *file, char * argv[]);
+
+void __init_globals__(void);
+
