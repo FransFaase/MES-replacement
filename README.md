@@ -55,3 +55,9 @@ contains a version of `tcc_cc.c` that can parse the TCC sources and its own sour
 The [commit 9122a22a](https://github.com/FransFaase/MES-replacement/commit/9122a22a91ee4b4ff73144e0c675585320b4e69a)
 contains a version of `tcc_cc.c` that determines the type of all expressions.
 
+## WIP 2 june 2025: compiled first program
+
+The [commit 6ac84a5d](https://github.com/FransFaase/MES-replacement/commit/6ac84a5d1ab277e3eb8f661dc4062d244c60b69c)
+contains the version of `tcc_cc.c` with which the [`hello.c`](https://github.com/FransFaase/MES-replacement/blob/6ac84a5d1ab277e3eb8f661dc4062d244c60b69c/hello.c)
+program can be compiled to the stack_c language, and compiled to an ELF with the
+stack_c compiler and the life-bootstrap programs `blood-elf`, `M1` and `hex2`.
