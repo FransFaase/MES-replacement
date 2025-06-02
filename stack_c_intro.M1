@@ -13,6 +13,7 @@ DEFINE mov_eax,[DWORD] 8B05
 DEFINE mov_ebx,[DWORD] 8B1D
 DEFINE mov_eax,ebx 89D8
 DEFINE mov_eax,edx 89D0
+DEFINE mov_edx,eax 89C2
 DEFINE mov_ebx,eax 89C3
 DEFINE mov_ebp,eax 89C5
 DEFINE mov_al,[eax] 8A00
@@ -90,6 +91,16 @@ DEFINE NULL 00000000
 # address (which is stored in the eax register, the top of the stack)
 # needs to be pop as well.
 
+:sys_int80
+    pop_edi               # Save return address from the stack
+    pop_edx               # Get the arguments from the stack
+    pop_ecx
+    pop_ebx
+    pop_eax
+    int_80                # call the Kernel
+    push_edi              # restore return address to the stack
+    ret
+
 :sys_malloc
     pop_edi
     pop_eax
@@ -101,55 +112,7 @@ DEFINE NULL 00000000
     mov_[DWORD],ebx &SYS_MALLOC                 # Update pointer
     push_edi
     ret
+:SYS_MALLOC
+    NULL
 
-:sys_open
-    pop_edi
-    pop_edx
-    pop_ecx
-    pop_ebx
-    mov_eax, %5
-    int_80
-    push_edi
-    ret
-
-:sys_close
-    pop_edi
-    pop_eax
-    mov_ebx,eax
-    int_80
-    pop_eax
-    push_edi
-    ret
-
-:sys_fgetc
-    pop_edi
-    pop_eax
-    mov_ebx,eax                                 # Where are we reading from
-    lea_ecx,[ebp+DWORD] %4
-    mov_eax, %3                                 # the syscall number for read
-    mov_edx, %1                                 # set the size of chars we want
-    int_80                                      # call the Kernel
-    test_eax,eax
-    jle %sys_fgetc_else1
-    mov_eax,[ebp+DWORD] %4
-    and_eax, %255
-    jmp %sys_fgetc_done
-:sys_fgetc_else1
-    mov_eax, %0
-:sys_fgetc_done
-    push_edi
-    ret
-
-:sys_fputc
-    pop_edi
-    pop_eax
-    mov_ebx,eax
-    pop_eax
-    lea_ecx,[ebp+DWORD] %4
-    mov_[ecx],eax
-    mov_eax, %4                                 # the syscall number for write
-    mov_edx, %1                                 # set the size of chars we want
-    int_80                                      # call the Kernel
-    push_edi
-    ret
     

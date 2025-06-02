@@ -337,10 +337,7 @@ int main(int argc, char *argv[])
 	ferr = stderr;
 
 	// Add predefined system functions
-	add_function("sys_open");
-	add_function("sys_close");
-	add_function("sys_fgetc");
-	add_function("sys_fputc");
+	add_function("sys_int80");
 	add_function("sys_malloc");
 
 	fout = stdout;

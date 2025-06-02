@@ -4,9 +4,10 @@ typedef uint32_t time_t;
 typedef uint32_t suseconds_t;
 
 const FILE *stdin = 0;
-const FILE *stderr = 1;
-const FILE *stdout = 2;
+const FILE *stdout = 1;
+const FILE *stderr = 2;
 
+#if 0
 void *memcpy(void *dest, const void *src, size_t n);
 void *memmove(void *dest, const void *src, size_t n);
 void *memset(void *s, int c, size_t n);
@@ -43,7 +44,17 @@ long strtoll(const char *nptr, char **endptr, int base);
 long strtoull(const char *nptr, char **endptr, int base);
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
-int fputc(int c, FILE *stream) {}
+#endif
+
+int sys_int80(int a, int b, int c, int d);
+
+int fputc(int c, FILE *stream)
+{
+	int buffer[1];
+	buffer[0] = c;
+	return sys_int80(4, stream, buffer, 1);
+}
+#if 0
 int fputs(const char *s, FILE *stream);
 
 int printf(const char *format, ...)
@@ -116,8 +127,6 @@ struct timezone {
 int gettimeofday(struct timeval *tv, struct timezone *tz);
 
 int errno;
-int stdout = 2;
-int stderr = 3;
 
 #define NULL 0
 
@@ -157,3 +166,4 @@ int execvp(const char *file, char * argv[]);
 
 void __init_globals__(void);
 
+#endif

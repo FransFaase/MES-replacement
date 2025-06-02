@@ -4654,7 +4654,10 @@ void gen_expr(expr_p expr, bool as_value)
 	}
 	if (   as_value
 		&& (   expr->kind == 'i'
-			|| expr->kind == TK_ARROW))
+			|| expr->kind == TK_ARROW
+			|| expr->kind == '.'
+			|| expr->kind == '[')
+		&& expr->type->kind != TYPE_KIND_ARRAY)
 		fprintf(fcode, "? ");
 }
 
