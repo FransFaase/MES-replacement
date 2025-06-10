@@ -15,6 +15,7 @@ DEFINE mov_eax,ebx 89D8
 DEFINE mov_eax,edx 89D0
 DEFINE mov_edx,eax 89C2
 DEFINE mov_ebx,eax 89C3
+DEFINE mov_ecx,eax 89C1
 DEFINE mov_ebp,eax 89C5
 DEFINE mov_al,[eax] 8A00
 DEFINE mov_eax,[eax] 8B00
@@ -34,6 +35,8 @@ DEFINE add_eax, 81C0
 DEFINE add_eax,ebx 01D8
 DEFINE add_ebx,eax 01C3
 DEFINE sub_ebx,eax 29C3
+DEFINE shl_eax,cl D3E0
+DEFINE shr_eax,cl D3E8
 DEFINE cdq 99
 DEFINE imul_eax,ebx 0FAFC3
 DEFINE idiv_ebx F7FB

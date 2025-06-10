@@ -2095,7 +2095,6 @@ typedef enum
 	BT_JMP_BUF  = 34,
 	BT_FILE     = 35,
 	BT_TIME_T   = 36,
-	BT_VA_LIST  = 37,
 } base_type_e;
 
 typedef enum
@@ -2191,7 +2190,6 @@ type_p base_type_double = NULL;
 type_p base_type_jmp_buf = NULL;
 type_p base_type_file = NULL;
 type_p base_type_time_t = NULL;
-type_p base_type_va_list = NULL;
 type_p base_type_bool = NULL;
 type_p type_char_ptr = NULL;
 
@@ -2228,7 +2226,6 @@ void define_base_types(void)
 	base_type_jmp_buf = new_base_type(BT_JMP_BUF);
 	base_type_file = new_base_type(BT_FILE);
 	base_type_time_t = new_base_type(BT_TIME_T);
-	base_type_va_list = new_base_type(BT_VA_LIST);
 	base_type_bool = new_base_type(BT_U32);
 	type_char_ptr = new_type(TYPE_KIND_POINTER, 4, 1);
 	type_char_ptr->members[0] = base_type_S8;
@@ -2695,7 +2692,7 @@ expr_p parse_postfix_expr(void)
 			}
 			if (!accept_term(')'))
 				FAIL_NULL
-			expr = new_expr('(', 1 + nr_children);
+			expr = new_expr('(', nr_children);
 			for (int i = 0; i < nr_children; i++)
 				expr->children[i] = children[i];
 			expr->type = expr_type_member(subj_expr, 0);
@@ -4306,7 +4303,6 @@ void add_predefined_types(void)
 	add_base_type("ssize_t", base_type_U32);
 	add_base_type("jmp_buf", base_type_jmp_buf);
 	add_base_type("FILE", base_type_file);
-	add_base_type("va_list", base_type_va_list);
 
 }
 
@@ -4368,13 +4364,21 @@ void gen_struct_or_union_member(decl_p decl)
 	fprintf(fcode, "const s%d_m_%s %d\n", struct_union_nr, decl->name, decl->pos);
 }
 
+void gen_initializer(expr_p expr, type_p type);
+
 void gen_variable_decl(decl_p decl)
 {
 	gen_indent();
 	fprintf(fcode, "int ");
 	if (decl->type->size > 4)
 		fprintf(fcode, "%d ", (decl->type->size + 3) / 4);
-	fprintf(fcode, "%s\n", decl->name);
+	fprintf(fcode, "%s", decl->name);
+	if (inside_function && decl->value != 0)
+	{
+		fprintf(fcode, " %s ", decl->name);
+		gen_initializer(decl->value, decl->type);
+	}
+	fprintf(fcode, "\n");
 }
 
 void gen_function_start(decl_p decl)
@@ -4408,12 +4412,14 @@ void gen_function_start(decl_p decl)
 		gen_indent();
 		fprintf(fcode, "__init_globals__ ()\n");
 	}
+	inside_function = TRUE;
 }
 
 void gen_function_end(void)
 {
+	inside_function = FALSE;
 	indent--;
-	fprintf(fcode, "}\n");
+	fprintf(fcode, "\treturn\n}\n");
 }
 
 void gen_stats_open(void)
@@ -4567,6 +4573,12 @@ void gen_expr(expr_p expr, bool as_value)
 			fprintf(fcode, "+ ");
 			break;
 		case '(':
+			if (   expr->children[0]->kind == 'i' && strcmp(expr->children[0]->str_val, "va_start") == 0
+				&& expr->nr_children > 1 && expr->children[1]->kind == 'i')
+			{
+				fprintf(fcode, "%s __var_args ? =", expr->children[1]->str_val);
+			}
+			else
 			{
 				type_p func_type = expr->children[0]->type;
 				int nr_decls = func_type->nr_decls;
@@ -4574,7 +4586,7 @@ void gen_expr(expr_p expr, bool as_value)
 				{
 					for (int i = 1; i < nr_decls; i++)
 						gen_expr(expr->children[i], TRUE);
-					int nr_var_args = expr->nr_children - 1 - nr_decls;
+					int nr_var_args = expr->nr_children - nr_decls;
 					if (nr_var_args == 0)
 						fprintf(fcode, "0 ");
 					else
@@ -4622,7 +4634,7 @@ void gen_expr(expr_p expr, bool as_value)
 			fprintf(fcode, "?%s ", expr_size_ind);
 			break;
 		case OPER_ADDR:
-			gen_expr(expr->children[0], TRUE);
+			gen_expr(expr->children[0], FALSE);
 			break;
 		case TK_OR:
 			gen_expr(expr->children[0], TRUE);
@@ -4672,6 +4684,27 @@ void gen_stat_expr(expr_p expr)
 	}
 }
 
+void print_expr(FILE *f, expr_p expr)
+{
+	if (expr == NULL)
+	{
+		fprintf(fcode, "NULL");
+		return;
+	}
+	if (' ' < expr->kind && expr->kind < 127)
+		fprintf(f, "%c(", expr->kind);
+	else
+		fprintf(f, "%d(", expr->kind);
+	for (int i = 0; i < expr->nr_children; i++)
+	{
+		if (i > 0)
+			fprintf(f, ", ");
+		print_expr(f, expr->children[i]);
+	}
+	fprintf(f, ")");
+}
+
+
 void gen_initializer(expr_p expr, type_p type)
 {
 	if (expr->kind == 'l')
@@ -4711,6 +4744,7 @@ void gen_initializer(expr_p expr, type_p type)
 	{
 		gen_expr(expr, TRUE);
 		fprintf(fcode, "=%s ;\n", size_ind(expr));
+
 	}
 }
 

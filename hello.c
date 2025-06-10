@@ -2,7 +2,6 @@
 
 int main(int argc, char *argv[])
 {
-    fputc('H', stdout);
-    fputc('\n', stdout);
+	fputs("Hello World!\n", stdout);
     return 0;
 }

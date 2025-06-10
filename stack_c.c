@@ -763,6 +763,14 @@ int main(int argc, char *argv[])
 			{
 				fprintf(fout, "\tpop_ebx               # >=sfv\n\tcmp_eax_ebx\n\tsetge_al\n\tmovzx_eax,al\n");
 			}
+			else if (strcmp(token, "<<") == 0)
+			{
+				fprintf(fout, "\tmov_ecx,eax           # <<\n\tpop_eax\n\tshl_eax,cl\n");
+			}
+			else if (strcmp(token, ">>") == 0)
+			{
+				fprintf(fout, "\tmov_ecx,eax           # <<\n\tpop_eax\n\tshr_eax,cl\n");
+			}
 			else if (strcmp(token, "&&") == 0)
 			{
 				get_token();
