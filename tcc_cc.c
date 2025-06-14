@@ -2152,7 +2152,7 @@ bool type_is_integer(type_p type)
 
 bool type_is_signed_integer(type_p type)
 {
-	return type != NULL && type->kind == TYPE_KIND_BASE && (type->base_type & 2) == 2;
+	return type != NULL && type->kind == TYPE_KIND_BASE && (type->base_type & 3) == 3;
 }
 
 bool type_is_pointer(type_p type)
@@ -2231,6 +2231,19 @@ void define_base_types(void)
 	type_char_ptr->members[0] = base_type_S8;
 }
 
+type_p base_signed_type(type_p int_type)
+{
+	if (int_type == base_type_U8)
+		return base_type_S8;
+	if (int_type == base_type_U16)
+		return base_type_S16;
+	if (int_type == base_type_U32)
+		return base_type_S32;
+	if (int_type == base_type_U64)
+		return base_type_S64;
+	return int_type;
+}
+
 // Expressions
 
 #define LOCATION_IN_EXPR 
@@ -2238,11 +2251,11 @@ void define_base_types(void)
 #define OPER_POST_INC    2000
 #define OPER_POST_DEC    2001
 #define OPER_PRE_INC     2002
-#define OPER_PRE_DEC     2002
-#define OPER_PLUS        2003
-#define OPER_MIN         2004
-#define OPER_STAR        2005
-#define OPER_ADDR        2006
+#define OPER_PRE_DEC     2003
+#define OPER_PLUS        2004
+#define OPER_MIN         2005
+#define OPER_STAR        2006
+#define OPER_ADDR        2007
 
 typedef struct expr_s *expr_p;
 struct expr_s
@@ -2327,6 +2340,36 @@ expr_p new_expr_int_value(int value)
 	expr->int_val = value;
 	expr->type = base_type_S32;
 	return expr;
+}
+
+bool expr_is_pointer_size_lt_1(expr_p expr)
+{
+	return type_is_pointer(expr->type) && expr->type->members[0]->size > 1;
+}
+
+int expr_inc_dec_value(expr_p expr)
+{
+	return type_is_pointer(expr->type) ? expr->type->members[0]->size : 1;
+}
+
+void expr_print(FILE *f, expr_p expr)
+{
+	if (expr == NULL)
+	{
+		fprintf(f, "NULL");
+		return;
+	}
+	if (' ' < expr->kind && expr->kind < 127)
+		fprintf(f, "%c(", expr->kind);
+	else
+		fprintf(f, "%d(", expr->kind);
+	for (int i = 0; i < expr->nr_children; i++)
+	{
+		if (i > 0)
+			fprintf(f, ", ");
+		expr_print(f, expr->children[i]);
+	}
+	fprintf(f, ")");
 }
 
 // Declarations
@@ -2811,10 +2854,15 @@ expr_p parse_unary_expr(void)
 		expr_p expr = parse_unary_expr();
 		if (expr == NULL)
 			FAIL_NULL
+		if (expr->kind == '0')
+		{
+			expr_p neg_num = new_expr_int_value(-expr->int_val);
+			neg_num->type = base_signed_type(expr->type);
+			return neg_num; 
+		}
 		expr_p pre_oper_expr = new_expr(OPER_MIN, 1);
 		pre_oper_expr->children[0] = expr;
-		if (expr->type != NULL)
-			pre_oper_expr->type = new_base_type(expr->type->base_type | 2);
+		pre_oper_expr->type = expr->type;
 		return pre_oper_expr;
 	}
 	if (accept_term('~'))
@@ -3298,6 +3346,7 @@ expr_p parse_assignment_expr(void)
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
 			expr->type = lhs->type;
+			//fprintf(fcode, "# %s %d: type of = is %d\n", token_it->filename, token_it->line, expr->type->base_type);
 		}
 		else
 			break;
@@ -3463,6 +3512,7 @@ bool parse_declaration(bool is_param)
 						inside_function = FALSE;
 						return TRUE;
 					}
+					fprintf(fcode, "void %s ;\n", decl->name);
 					cur_ident_decls = save_ident_decls;
 					break;
 				}
@@ -4502,22 +4552,43 @@ void gen_expr(expr_p expr, bool as_value)
 		case '^':
 		case '&':
 		case '|':
-		case '=':
 		case TK_NE:
 		case TK_SHL:
 		case TK_SHR:
 		case TK_EQ:
-			gen_expr(expr->children[0], expr->kind != '=');
+			gen_expr(expr->children[0], TRUE);
 			gen_expr(expr->children[1], TRUE);
 			switch (expr->kind)
 			{
-				case '=': fprintf(fcode, "= "); break;
+				case '+':
+					if (expr_is_pointer_size_lt_1(expr->children[0]))
+						fprintf(fcode, "%d * ", expr->children[0]->type->members[0]->size);
+					else if (expr_is_pointer_size_lt_1(expr->children[1]))
+						fprintf(fcode, ">< %d * ", expr->children[1]->type->members[0]->size);
+					fprintf(fcode, "+ ");
+					break;
+				case '-':
+					if (expr_is_pointer_size_lt_1(expr->children[0]))
+					{
+						if (expr_is_pointer_size_lt_1(expr->children[1]))
+							fprintf(fcode, "- %d / ", expr->children[0]->type->members[0]->size);
+						else
+							fprintf(fcode, "%d * -", expr->children[0]->type->members[0]->size);
+					}
+					else
+						fprintf(fcode, "- ");
+					break;
 				case TK_SHL: fprintf(fcode, "<< "); break;
 				case TK_SHR: fprintf(fcode, ">> "); break;
 				case TK_EQ: fprintf(fcode, "== "); break;
 				case TK_NE: fprintf(fcode, "!= "); break;
 				default: fprintf(fcode, "%c ", expr->kind); break;
 			}
+			break;
+		case '=':
+			gen_expr(expr->children[0], FALSE);
+			gen_expr(expr->children[1], TRUE);
+			fprintf(fcode, "=%s ", expr_size_ind);
 			break;
 		case '<':
 		case '>':
@@ -4549,6 +4620,9 @@ void gen_expr(expr_p expr, bool as_value)
 			gen_expr(expr->children[0], FALSE);
 			fprintf(fcode, "$ ");
 			gen_expr(expr->children[1], TRUE);
+			if (   (expr->kind == TK_ADD_ASS || expr->kind == TK_SUB_ASS)
+				&& expr_is_pointer_size_lt_1(expr->children[0]))
+				fprintf(fcode, "%d * ", expr->children[0]->type->members[0]->size);
 			switch (expr->kind)
 			{
 				case TK_SHL: fprintf(fcode, "<<"); break;
@@ -4582,6 +4656,7 @@ void gen_expr(expr_p expr, bool as_value)
 			{
 				type_p func_type = expr->children[0]->type;
 				int nr_decls = func_type->nr_decls;
+				bool close_bracket = FALSE;
 				if (nr_decls > 0 && func_type->decls[nr_decls - 1] == NULL)
 				{
 					for (int i = 1; i < nr_decls; i++)
@@ -4600,7 +4675,8 @@ void gen_expr(expr_p expr, bool as_value)
 							gen_expr(expr->children[nr_decls + i], TRUE);
 							fprintf(fcode, "= ; ");
 						}
-						fprintf(fcode, "__var_args } ");
+						fprintf(fcode, "__var_args ");
+						close_bracket = TRUE;
 					}
 				}
 				else
@@ -4610,19 +4686,31 @@ void gen_expr(expr_p expr, bool as_value)
 				}
 				gen_expr(expr->children[0], FALSE);
 				fprintf(fcode, "() ");
+				if (close_bracket)
+					fprintf(fcode, "} ");
 			}
 			break;
 		case OPER_POST_INC:
+		{
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "$ ?%s 1 + =%s 1 - ", expr_size_ind, expr_size_ind);
+			int size = expr_inc_dec_value(expr->children[0]);
+			fprintf(fcode, "$ ?%s %d + =%s %d - ", expr_size_ind, size, expr_size_ind, size);
 			break;
+		}
 		case OPER_POST_DEC:
+		{
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "$ ?%s 1 - =%s 1 + ", expr_size_ind, expr_size_ind);
+			int size = expr_inc_dec_value(expr->children[0]);
+			fprintf(fcode, "$ ?%s %d - =%s %d + ", expr_size_ind, size, expr_size_ind, size);
 			break;
+		}
 		case OPER_PRE_INC:
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "$ ?%s 1 + =%s ", expr_size_ind, expr_size_ind);
+			fprintf(fcode, "$ ?%s %d + =%s ", expr_size_ind, expr_inc_dec_value(expr->children[0]), expr_size_ind);
+			break;
+		case OPER_PRE_DEC:
+			gen_expr(expr->children[0], FALSE);
+			fprintf(fcode, "$ ?%s %d - =%s ", expr_size_ind, expr_inc_dec_value(expr->children[0]), expr_size_ind);
 			break;
 		case OPER_MIN:
 			fprintf(fcode, "0 ");
@@ -4631,7 +4719,7 @@ void gen_expr(expr_p expr, bool as_value)
 			break;
 		case OPER_STAR:
 			gen_expr(expr->children[0], TRUE);
-			fprintf(fcode, "?%s ", expr_size_ind);
+			//fprintf(fcode, "?%s ", expr_size_ind);
 			break;
 		case OPER_ADDR:
 			gen_expr(expr->children[0], FALSE);
@@ -4668,9 +4756,10 @@ void gen_expr(expr_p expr, bool as_value)
 		&& (   expr->kind == 'i'
 			|| expr->kind == TK_ARROW
 			|| expr->kind == '.'
-			|| expr->kind == '[')
+			|| expr->kind == '['
+			|| expr->kind == OPER_STAR)
 		&& expr->type->kind != TYPE_KIND_ARRAY)
-		fprintf(fcode, "? ");
+		fprintf(fcode, "?%s ", expr_size_ind);
 }
 
 void gen_stat_expr(expr_p expr)
@@ -4683,27 +4772,6 @@ void gen_stat_expr(expr_p expr)
 		gen_newline();
 	}
 }
-
-void print_expr(FILE *f, expr_p expr)
-{
-	if (expr == NULL)
-	{
-		fprintf(fcode, "NULL");
-		return;
-	}
-	if (' ' < expr->kind && expr->kind < 127)
-		fprintf(f, "%c(", expr->kind);
-	else
-		fprintf(f, "%d(", expr->kind);
-	for (int i = 0; i < expr->nr_children; i++)
-	{
-		if (i > 0)
-			fprintf(f, ", ");
-		print_expr(f, expr->children[i]);
-	}
-	fprintf(f, ")");
-}
-
 
 void gen_initializer(expr_p expr, type_p type)
 {
@@ -4743,8 +4811,7 @@ void gen_initializer(expr_p expr, type_p type)
 	else
 	{
 		gen_expr(expr, TRUE);
-		fprintf(fcode, "=%s ;\n", size_ind(expr));
-
+		fprintf(fcode, "=%s ;\n", type != NULL && type->size == 1 ? "1" : "");
 	}
 }
 

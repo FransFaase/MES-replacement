@@ -552,7 +552,9 @@ int main(int argc, char *argv[])
 		else if (sym == '{')
 		{
 			nesting_type[nesting_depth] = ' ';
-			nesting_nr_vars[nesting_depth++] = nr_idents;
+			nesting_nr_vars[nesting_depth] = nr_idents;
+			nesting_pos[nesting_depth] = pos;
+			nesting_depth++;
 		}
 		else if (sym == '}')
 		{
@@ -605,11 +607,11 @@ int main(int argc, char *argv[])
 		else if (sym == 'R')
 		{
 			fprintf(fout, "\tmov_ebx,[ebp]         # return\n\tpush_ebx\n\tret\n");
-		}	
+		}
 		else if (sym == ';')
 		{
 			fprintf(fout, "\tpop_eax               # ;\n");
-		}	
+		}
 		else if (sym == '$')
 		{
 			fprintf(fout, "\tpush_eax              # $ (dup)\n");
@@ -831,6 +833,10 @@ int main(int argc, char *argv[])
 				{
 					fprintf(ferr, "ERROR %d: Ident %s is not defined\n", cur_line, token);
 				}
+			}
+			else if (strcmp(token, "><") == 0)
+			{
+				fprintf(fout, "\tmov_ebx,eax          # >< swap\n\tpop_eax\n\tpush_ebx\n");
 			}
 			else
 			{

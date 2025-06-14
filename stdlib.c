@@ -104,7 +104,7 @@ typedef int *va_list;
 
 int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 {
-	char buffer[10];
+	char buffer[20];
 	int l = 0;
 	char *s;
 	int cnt = 0;
@@ -161,13 +161,13 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 					else
 					{
 						if (v < 0) v = -v;
-						l = 10;
-						for (; v != 0; v /= 10)
+						l = 20;
+						for (; v > 0; v = v / 10)
 							buffer[--l] = '0' + v % 10;
 						if (*args < 0)
 							buffer[--l] = '-';
 						s = buffer + l;
-						l = 10 - l;
+						l = 20 - l;
 					}
 					args++;
 				}
@@ -203,14 +203,19 @@ int printf(const char *format, ...)
 	__sys_printf(stdout, 0, -1, format, ap);
 }
 
-#if 0
 int sprintf(char *str, const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
 	__sys_printf(0, str, -1, format, ap);
 }
-int snprintf(char *str, size_t size, const char *format, ...);
+int snprintf(char *str, size_t size, const char *format, ...)
+{
+	va_list ap;
+	va_start(ap, format);
+	__sys_printf(0, str, size, format, ap);
+}
+#if 0
 int vsnprintf(char *str, size_t size, const char *format, va_list ap);
 
 #endif
