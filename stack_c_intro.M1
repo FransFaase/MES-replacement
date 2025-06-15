@@ -15,6 +15,7 @@ DEFINE mov_eax,ebx 89D8
 DEFINE mov_eax,edx 89D0
 DEFINE mov_edx,eax 89C2
 DEFINE mov_ebx,eax 89C3
+DEFINE mov_ebx,esp 89E3
 DEFINE mov_ecx,eax 89C1
 DEFINE mov_ebp,eax 89C5
 DEFINE mov_al,[eax] 8A00
@@ -74,12 +75,21 @@ DEFINE NULL 00000000
     int_80                                      # Let the kernel do the work
     mov_[DWORD],eax &SYS_MALLOC                 # Set our malloc pointer
 
+    # allocate memory for the second stack
     mov_eax, %10000
     push_eax                                    # (sys_malloc assums address)
     call %sys_malloc
     mov_ebp,eax
     
+    # setup argc and argv for the main function
+    mov_edx,eax
     pop_eax
+    mov_ebx,esp  #89E3
+    push_eax
+    push_ebx
+    mov_eax,edx
+
+    #call main
     call %main
     
     # program completed Successfully
@@ -92,7 +102,7 @@ DEFINE NULL 00000000
 # the return address is stored in the edi address (which is only possible
 # because these functions do not call other function) and the function
 # address (which is stored in the eax register, the top of the stack)
-# needs to be pop as well.
+# needs to be popped as well.
 
 :sys_int80
     pop_edi               # Save return address from the stack

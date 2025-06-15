@@ -641,13 +641,13 @@ int main(int argc, char *argv[])
 				//	fprintf(fout, "\tvalue %d", idents[i].value);
 				//fprintf(fout, "\n");
 				if (idents[i].type == 'G')
-					fprintf(fout, "\tpush_eax              # global\n\tmov_eax, &%s\n", token);
+					fprintf(fout, "\tpush_eax              # %s (global)\n\tmov_eax, &%s\n", token, token);
 				else if (idents[i].type == 'F')
-					fprintf(fout, "\tpush_eax              # function\n\tmov_eax, &%s\n", token);
+					fprintf(fout, "\tpush_eax              # %s (function)\n\tmov_eax, &%s\n", token, token);
 				else if (idents[i].type == 'C')
-					fprintf(fout, "\tpush_eax              # const\n\tmov_eax, %%%d\n", idents[i].value);
+					fprintf(fout, "\tpush_eax              # %d (const %s)\n\tmov_eax, %%%d\n", idents[i].value, token, idents[i].value);
 				else if (idents[i].type == 'L')
-					fprintf(fout, "\tpush_eax              # local %s\n\tlea_eax,[ebp+DWORD] %%%d\n", token, 4 * idents[i].pos);
+					fprintf(fout, "\tpush_eax              # %s (local)\n\tlea_eax,[ebp+DWORD] %%%d\n", token, 4 * idents[i].pos);
 			}
 			else
 			{
@@ -656,18 +656,21 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == '0')
 		{
-			fprintf(fout, "\tpush_eax              # push %d\n\tmov_eax, %%%d\n", int_value, int_value);
+			fprintf(fout, "\tpush_eax              # %d\n\tmov_eax, %%%d\n", int_value, int_value);
 		}
 		else if (sym == '"')
 		{
 			int nr = nr_for_string(token);
-			fprintf(fout, "\tpush_eax              # push string '");
+			fprintf(fout, "\tpush_eax              # '");
 			save_print_string(fout, token);
 			fprintf(fout, "'\n\tmov_eax, &string_%d\n", nr);
 		}
 		else if (sym == '\'')
 		{
-			fprintf(fout, "\tpush_eax              # push char\n\tmov_eax, %%%d\n", token[0]);
+			if (' ' < token[0] && token[0] < 127)
+				fprintf(fout, "\tpush_eax              # '%c'\n\tmov_eax, %%%d\n", token[0], token[0]);
+			else
+				fprintf(fout, "\tpush_eax              # %d\n\tmov_eax, %%%d\n", token[0], token[0]);
 		}
 		else if (sym == '?')
 		{

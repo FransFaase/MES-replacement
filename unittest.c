@@ -32,6 +32,10 @@ int main (int argc, char *argv[])
 	snprintf(buffer, 30, "(%d)", 123);
 	is_true(strcmp(buffer, "(123)") == 0, "sprintf 123");
 	is_true(strcmp("A","A") == 0, "A = A");
-	
+	char *mode = "r";
+	is_true(mode[0] == 'r', "mode[0] = r");
+	printf("argc = %d\n", argc);
+	for (int i = 0; i < argc; i++)
+		printf("%d %s\n", i, argv[i]);
 	return 1;
 }

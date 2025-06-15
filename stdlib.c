@@ -13,12 +13,11 @@ typedef uint32_t suseconds_t;
 typedef struct 
 {
 	uint32_t fh;
-	uint32_t pos;
-	uint32_t length;
+	uint32_t at_eof;
 } FILE;
-FILE __sys_stdin = { 0, 0, 0 };
-FILE __sys_stdout = { 1, 0, 0 };
-FILE __sys_stderr = { 2, 0, 0 };
+FILE __sys_stdin = { 0, 0 };
+FILE __sys_stdout = { 1, 0 };
+FILE __sys_stderr = { 2, 0 };
 
 const FILE *stdin = &__sys_stdin;
 const FILE *stdout = &__sys_stdout;
@@ -40,9 +39,11 @@ size_t strlen(const char *s)
 }
 char *strcpy(char *dest, const char *src)
 {
+	char *result = dest;
 	while (*src != '\0')
 		*dest++ = *src++;
 	*dest = '\0';
+	return result;
 }
 #if 0
 char *strncpy(char *dest, const char *src, size_t n);
@@ -188,32 +189,31 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 
 void va_start(va_list ap, ...);
 
-#if 0
 int fprintf(FILE *stream, const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
-	__sys_printf(stream, 0, -1, format, ap);
+	return __sys_printf(stream, 0, -1, format, ap);
 }
-#endif
+
 int printf(const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
-	__sys_printf(stdout, 0, -1, format, ap);
+	return __sys_printf(stdout, 0, -1, format, ap);
 }
 
 int sprintf(char *str, const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
-	__sys_printf(0, str, -1, format, ap);
+	return __sys_printf(0, str, -1, format, ap);
 }
 int snprintf(char *str, size_t size, const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
-	__sys_printf(0, str, size, format, ap);
+	return __sys_printf(0, str, size, format, ap);
 }
 #if 0
 int vsnprintf(char *str, size_t size, const char *format, va_list ap);
@@ -243,24 +243,25 @@ off_t lseek(int fd, off_t offset, int whence)
 FILE *fopen(const char *pathname, const char *mode)
 {
 	int open_mode = 0;
-	if (mode[0] == 'a' && mode[1] == '\0')
+	if (mode[0] == 'r' && mode[1] == '\0')
 		open_mode = O_RDONLY;
-	else if (mode[0] == 'w' && mode == '\0')
+	else if (mode[0] == 'w' && mode[1] == '\0')
 		open_mode = O_WRONLY;
 	else
+	{
+		printf("Mode %s should be 'r' or 'w'\n", mode);
 		return 0;
+	}
 	int fh = sys_int80(5, pathname, open_mode, 0);
 	if (fh < 0)
+	{
+		printf("fopen %s %s returned %d\n", pathname, mode, fh);
 		return 0;
+	}
 	FILE *f = (FILE*)malloc(sizeof(FILE));
 	f->fh = fh;
-	f->pos = 0;
-	f->length = 0;
-	if (open_mode == O_RDONLY)
-	{
-		f->length = lseek(fh, 0, SEEK_END);
-		lseek(fh, 0, SEEK_SET);
-	}
+	f->at_eof = 0;
+	return f;
 }
 #if 0
 FILE *fdopen(int fd, const char *mode);
@@ -285,17 +286,19 @@ off_t lseek(int fd, off_t offset, int whence)
 }
 int feof(FILE *stream)
 {
-	return stream->pos >= stream->length;
+	return stream->at_eof;
 }
 int fgetc(FILE *stream)
 {
-	if (stream->pos >= stream->length)
+	if (stream->at_eof)
 		return -1;
 	char buffer[0];
 	int ret = sys_int80(3, stream->fh, buffer, 1);
-	if (ret == 0)
+	if (ret <= 0)
+	{
+		stream->at_eof = 1;
 		return -1;
-	stream->pos++;
+	}
 	return buffer[0];
 }
 #if 0

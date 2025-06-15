@@ -4640,7 +4640,7 @@ void gen_expr(expr_p expr, bool as_value)
 			fprintf(fcode, "s%d_m_%s + ", expr->int_val, expr->str_val);
 			break;
 		case '[':
-			gen_expr(expr->children[0], FALSE);
+			gen_expr(expr->children[0], TRUE);
 			gen_expr(expr->children[1], TRUE);
 			if (expr->type->size > 1)
 				fprintf(fcode, "%d * ", expr->type->size);
