@@ -349,18 +349,6 @@ void line_splice_iterator_next(char_iterator_p char_it)
 		it->base.ch = 0;
 		return;
 	}
-	if (it->_a == ' ' || it->_a == '\t')
-	{
-		it->base.line = it->_source_it->line;
-		it->base.column = it->_source_it->column;
-		while (it->_a == ' ' || it->_a == '\t')
-		{
-			_source_it_next(it->_source_it);
-			it->_a = it->_source_it->ch;
-		}
-		it->base.ch = ' ';
-		return;
-	}
 	it->base.ch = it->_a;
 	it->base.filename = it->_source_it->filename;
 	it->base.line = it->_source_it->line;
@@ -2024,6 +2012,8 @@ void output_preprocessor(const char *filename)
 					fhputs("\\n", fouth);
 				else if (ch == '\r')
 					fhputs("\\r", fouth);
+				else if (ch == '\t')
+					fhputs("\\t", fouth);
 				else if (ch == '\0')
 					fhputs("\\0", fouth);
 				else if (' ' <= ch && ch < 127)
