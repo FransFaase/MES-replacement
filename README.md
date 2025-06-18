@@ -61,3 +61,10 @@ The [commit 6ac84a5d](https://github.com/FransFaase/MES-replacement/commit/6ac84
 contains the version of `tcc_cc.c` with which the [`hello.c`](https://github.com/FransFaase/MES-replacement/blob/6ac84a5d1ab277e3eb8f661dc4062d244c60b69c/hello.c)
 program can be compiled to the stack_c language, and compiled to an ELF with the
 stack_c compiler and the life-bootstrap programs `blood-elf`, `M1` and `hex2`.
+
+## WIP 18 june 2025: compile stack_c.c
+
+The [commit 5808d49c](https://github.com/FransFaase/MES-replacement/commit/5808d49c14bd2e1b0a997be58cdd04f4a9ef713c)
+fixes some bugs, such that compiling `stack_c.c` with the `tcc_cc` compiler, the resulting program produces the
+same output when executed on the output of `tcc_cc`.
+
