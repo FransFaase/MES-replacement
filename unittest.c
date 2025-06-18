@@ -1,9 +1,12 @@
 
+int result = 0;
+
 void is_true(int val, const char *testname)
 {
 	if (!val)
 	{
 		printf("Failed: %s\n", testname);
+		result = 1;
 	}
 }
 
@@ -12,6 +15,7 @@ void is_false(int val, const char *testname)
 	if (val)
 	{
 		printf("Failed: %s\n", testname);
+		result = 1;
 	}
 }
 
@@ -44,5 +48,5 @@ int main (int argc, char *argv[])
 	is_true(buffer[0] == '\\', "b first is \\");
 	is_true(buffer[1] == 'n', "b second is n");
 	is_true(strcmp(buffer, "\\n") == 0, "sprintf \\\\n");
-	return 1;
+	return result;
 }

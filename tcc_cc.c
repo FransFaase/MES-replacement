@@ -2495,7 +2495,7 @@ int expr_eval(expr_p expr)
 		}
 	}
 	printf("%s Error: expr_eval\n", expr_pos(expr));
-	exit(0);
+	exit(1);
 	return 0;
 }
 
@@ -2644,7 +2644,7 @@ expr_p parse_primary_expr(void)
 		if (len >= MAX_CONST_STRLEN - 1)
 		{
 			printf("MAX_CONST_STRLEN < %d\n", len + 1);
-			exit(0);
+			exit(1);
 		}
 		strbuf[len++] = '\0';
 		expr_p expr = new_expr('"', 0);
@@ -4168,7 +4168,7 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 					gen_indent();
 					if (i > 0)
 					{
-						fprintf(fcode, "or { ");
+						fprintf(fcode, "|| { ");
 					}
 					gen_expr(switch_expr, TRUE);
 					fprintf(fcode, "%u == ", case_labels[i]);
@@ -4176,7 +4176,7 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 						fprintf(fcode, "\n");
 				}
 				for (int i = 1; i < nr_case_labels; i++)
-					fprintf(fcode, "}");
+					fprintf(fcode, "} ");
 				if (nr_case_labels > 1)
 					fprintf(fcode, " ");
 			}
@@ -4857,13 +4857,15 @@ int main(int argc, char *argv[])
 
 	if (only_preprocess)
 	{
-		parse_file(input_filename, TRUE);
+		if (!parse_file(input_filename, TRUE))
+			return 1;
 		return 0;
 	}
 
 	if (!parse_file("stdlib.c", FALSE))
-		return 0;
-	parse_file(input_filename, FALSE);
+		return 1;
+	if (!parse_file(input_filename, FALSE))
+		return 1;
 
 	gen_init_globals();
 

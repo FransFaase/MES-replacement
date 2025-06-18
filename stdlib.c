@@ -3,7 +3,12 @@
 int sys_int80(int a, int b, int c, int d); // https://faculty.nps.edu/cseagle/assembly/sys_call.html
 int sys_malloc(size_t size);
 
+void exit(int result)
+{
+	sys_int80(1, result, 0, 0);
+}
 
+#define NULL 0
 
 typedef uint32_t size;
 typedef uint32_t off_t;
@@ -23,8 +28,13 @@ const FILE *stdin = &__sys_stdin;
 const FILE *stdout = &__sys_stdout;
 const FILE *stderr = &__sys_stderr;
 
+void *memcpy(void *dest, const void *src, size_t n)
+{
+	for (int i = 0; i < n; i++)
+		dest[i] = src[i];
+	return dest;
+}
 #if 0
-void *memcpy(void *dest, const void *src, size_t n);
 void *memmove(void *dest, const void *src, size_t n);
 void *memset(void *s, int c, size_t n);
 int memcmp(const void *s1, const void *s2, size_t n);
@@ -179,6 +189,13 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 				{
 					buffer[0] = *args;
 				}
+				else
+				{
+					fputs("__sys_printf %", stderr);
+					fputc(*format, stderr);
+					fputs("\n", stderr);
+					exit(1);
+				}
 			}
 			else
 			{
@@ -235,13 +252,21 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap);
 #define SEEK_CUR 1
 #define SEEK_END 2
 
-#if 0
-int open(const char *, int, ...);
-int close(int fd);
+int open(const char *filename, int flag, int mode)
+{
+	return sys_int80(5, filename, flag, mode);
+}
 
-size_t read(int fd, void *buf, size_t count);
+int close(int fd)
+{
+	return sys_int80(6, fd, 0, 0);
+}
 
-#endif
+size_t read(int fd, void *buf, size_t count)
+{
+	return sys_int80(3, fd, buf, count);
+}
+
 off_t lseek(int fd, off_t offset, int whence)
 {
 	return sys_int80(19, fd, offset, whence);
@@ -349,13 +374,21 @@ const int LINE_MACRO_OUTPUT_FORMAT_STD = 2;
 const int LINE_MACRO_OUTPUT_FORMAT_P10 = 11;
 
 // for tcc_cc.c
-
-int write(int fd, char* buf, unsigned count);
-int fileno(FILE *stream);
+#endif
+int write(int fd, char* buf, unsigned count)
+{
+	return sys_int80(4, fd, buf, count);
+}
+int fileno(FILE *stream)
+{
+	return stream->fh;
+}
 
 #define __LINE__ 0
 #define __file__ ""
 #define __func__ ""
+
+#if 0
 
 char *getcwd(char *buf, size_t size);
 char *getenv(const char *name);
@@ -368,7 +401,6 @@ void longjmp(jmp_buf env, int val);
 
 int unlink(const char *pathname);
 
-void exit(void);
 
 int sscanf(const char *str, const char *format, ...);
 int atoi(const char *nptr);
