@@ -3307,7 +3307,7 @@ expr_p parse_conditional_expr(void)
 		expr_p else_expr = parse_conditional_expr();
 		if (else_expr == NULL)
 			FAIL_NULL
-		expr = new_expr(TK_OR, 3);
+		expr = new_expr('?', 3);
 		expr->children[0] = cond_expr;
 		expr->children[1] = then_expr;
 		expr->children[2] = else_expr;
@@ -4608,7 +4608,7 @@ void gen_expr(expr_p expr, bool as_value)
 		case TK_BAND_ASS:
 		case TK_BOR_ASS: 
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "$ ");
+			fprintf(fcode, "$ ? ");
 			gen_expr(expr->children[1], TRUE);
 			if (   (expr->kind == TK_ADD_ASS || expr->kind == TK_SUB_ASS)
 				&& expr_is_pointer_size_lt_1(expr->children[0]))
@@ -4724,6 +4724,14 @@ void gen_expr(expr_p expr, bool as_value)
 			gen_expr(expr->children[0], TRUE);
 			fprintf(fcode, "&& { ");
 			gen_expr(expr->children[1], TRUE);
+			fprintf(fcode, "} ");
+			break;
+		case '?':
+			gen_expr(expr->children[0], TRUE);
+			fprintf(fcode, "if { ");
+			gen_expr(expr->children[1], TRUE);
+			fprintf(fcode, "} else { ");
+			gen_expr(expr->children[2], TRUE);
 			fprintf(fcode, "} ");
 			break;
 		case 'l':

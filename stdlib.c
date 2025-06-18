@@ -132,19 +132,7 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 				break;
 			s = buffer;
 			l = 1;
-			if (*format == '\\')
-			{
-				format++;
-				if (*format == 'n')
-					buffer[0] = '\n';
-				else if (*format == 'r')
-					buffer[0] = '\r';
-				else if (*format == 't')
-					buffer[0] = '\t';
-				else
-					buffer[0] = *format;
-			}
-			else if (*format == '%')
+			if (*format == '%')
 			{
 				format++;
 				if (*format == '%')
@@ -171,6 +159,25 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 						l = 20 - l;
 					}
 					args++;
+				}
+				else if (*format == 'u')
+				{
+					unsigned int v = *args;
+					if (v == 0)
+						buffer[0] = '0';
+					else
+					{
+						l = 20;
+						for (; v > 0; v = v / 10)
+							buffer[--l] = '0' + v % 10;
+						s = buffer + l;
+						l = 20 - l;
+					}
+					args++;
+				}
+				else if (*format == 'c')
+				{
+					buffer[0] = *args;
 				}
 			}
 			else

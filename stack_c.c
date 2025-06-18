@@ -297,6 +297,8 @@ void save_print_string(FILE *fout, const char *s)
 			fprintf(fout, "\\n");
 		else if (*s == '\t')
 			fprintf(fout, "\\t");
+		else if (*s == '\\' || *s == '"')
+			fprintf(fout, "\\%c", *s);
 		else if (*s < ' ')
 			fprintf(fout, "?");
 		else
@@ -532,7 +534,7 @@ int main(int argc, char *argv[])
 				fprintf(ferr, "ERROR %d: expecting '{' after 'if'\n", cur_line);
 				return 0;
 			}
-			fprintf(fout, "\ttest_eax,eax           # then\n\tpop_eax\n\tje %%_%s_else%d\n", function_name, id);
+			fprintf(fout, "\ttest_eax,eax          # if\n\tpop_eax\n\tje %%_%s_else%d\n", function_name, id);
 			if (nesting_depth >= MAX_NESTING)
 			{
 				fprintf(ferr, "ERROR %d: Nesting deeper than %d\n", cur_line, MAX_NESTING);
