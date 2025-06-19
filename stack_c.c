@@ -13,6 +13,10 @@
 	- first location of variable stack used for return address function
 Notes:
 - http://www.unixwiz.net/techtips/x86-jumps.html
+- http://ref.x86asm.net/geek.html
+- https://www.felixcloutier.com/x86/
+- https://faculty.nps.edu/cseagle/assembly/sys_call.html
+
 */
 
 #include <stdio.h>
@@ -698,6 +702,18 @@ int main(int argc, char *argv[])
 		else if (sym == '*')
 		{
 			fprintf(fout, "\tpop_ebx               # *\n\timul_eax,ebx\n");
+		}
+		else if (sym == '&')
+		{
+			fprintf(fout, "\tpop_ebx               # &\n\tand_eax,ebx\n");
+		}
+		else if (sym == '|')
+		{
+			fprintf(fout, "\tpop_ebx               # |\n\tor_eax,ebx\n");
+		}
+		else if (sym == '~')
+		{
+			fprintf(fout, "\tnot_eax               # ~\n");
 		}
 		else if (sym == '/')
 		{

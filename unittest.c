@@ -48,5 +48,7 @@ int main (int argc, char *argv[])
 	is_true(buffer[0] == '\\', "b first is \\");
 	is_true(buffer[1] == 'n', "b second is n");
 	is_true(strcmp(buffer, "\\n") == 0, "sprintf \\\\n");
+	is_true((5 & 3) == 1, "(5 & 3) == 1");
+	is_true((5 | 3) == 7, "(5 | 3) == 7");
 	return result;
 }

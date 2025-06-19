@@ -2488,7 +2488,8 @@ int expr_eval(expr_p expr)
 		case 'i':
 		{
 			decl_p expr_decl = find_decl(DK_IDENT, expr->str_val);
-			if (expr_decl->storage_type == ST_CONST)
+			if (   expr_decl->storage_type == ST_CONST
+				&& type_is_integer(expr_decl->value->type))
 				return expr_decl->value->int_val;
 			printf("Error: storage type of %s = %d\n", expr->str_val, expr_decl->storage_type);
 			break;
@@ -3817,6 +3818,8 @@ type_p parse_struct_or_union_specifier(decl_kind_e decl_kind)
 	//	} OPTN ADD_CHILD TREE("record_field")
 */
 
+void gen_enum_decl(decl_p decl);
+
 type_p parse_enum_specifier(void)
 {
 	type_p type = NULL;
@@ -3848,6 +3851,7 @@ type_p parse_enum_specifier(void)
 			}
 			const_decl->value = new_expr_int_value(next_enum_val);
 			const_decl->storage_type = ST_CONST;
+			gen_enum_decl(const_decl);
 			next_enum_val++;
 			if (!accept_term(','))
 				break;
@@ -4396,6 +4400,11 @@ int struct_union_nr = 0;
 void gen_start_struct_or_union(void)
 {
 	struct_union_nr++;
+}
+
+void gen_enum_decl(decl_p decl)
+{
+	fprintf(fcode, "int %s\n", decl->name);
 }
 
 void gen_struct_or_union_member(decl_p decl)
