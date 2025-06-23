@@ -293,13 +293,13 @@ FILE *fopen(const char *pathname, const char *mode)
 	if (mode[0] == 'r' && mode[1] == '\0')
 		open_mode = O_RDONLY;
 	else if (mode[0] == 'w' && mode[1] == '\0')
-		open_mode = O_WRONLY;
+		open_mode = O_WRONLY | O_CREAT | O_TRUNC;
 	else
 	{
 		printf("Mode %s should be 'r' or 'w'\n", mode);
 		return 0;
 	}
-	int fh = sys_int80(5, pathname, open_mode, 0);
+	int fh = sys_int80(5, pathname, open_mode, 0777);
 	if (fh < 0)
 	{
 		printf("fopen %s %s returned %d\n", pathname, mode, fh);
