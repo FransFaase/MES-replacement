@@ -185,6 +185,21 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 					}
 					args++;
 				}
+				else if (*format == 'x' || *format == 'p')
+				{
+					unsigned int v = *args;
+					if (v == 0)
+						buffer[0] = '0';
+					else
+					{
+						l = 20;
+						for (; v != 0; v >>= 4)
+							buffer[--l] = ((v & 0xf) < 10 ? '0' : ('a' - 10)) + (v & 0xf);
+						s = buffer + l;
+						l = 20 - l;
+					}
+					args++;
+				}
 				else if (*format == 'c')
 				{
 					buffer[0] = *args;
