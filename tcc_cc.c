@@ -4546,8 +4546,6 @@ void gen_expr(expr_p expr, bool as_value)
 		case '+':
 		case '-':
 		case '*':
-		case '/':
-		case '%':
 		case '^':
 		case '&':
 		case '|':
@@ -4589,6 +4587,8 @@ void gen_expr(expr_p expr, bool as_value)
 			gen_expr(expr->children[1], TRUE);
 			fprintf(fcode, "=%s ", expr_size_ind);
 			break;
+		case '/':
+		case '%':
 		case '<':
 		case '>':
 		case TK_LE:
@@ -4628,6 +4628,10 @@ void gen_expr(expr_p expr, bool as_value)
 				case TK_SHR: fprintf(fcode, ">>"); break;
 				default: fprintf(fcode, "%c", expr->kind - TK_ASS); break;
 			}
+			if (   (expr->kind == TK_DIV_ASS || expr->kind == TK_MOD_ASS)
+			    && (   type_is_signed_integer(expr->children[0]->type)
+					|| type_is_signed_integer(expr->children[1]->type)))
+				fprintf(fcode, "s");
 			fprintf(fcode, " =%s ", expr_size_ind);
 			break;
 		case TK_ARROW:

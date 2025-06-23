@@ -39,7 +39,8 @@ DEFINE sub_ebx,eax 29C3
 DEFINE shl_eax,cl D3E0
 DEFINE shr_eax,cl D3E8
 DEFINE cdq 99
-DEFINE imul_eax,ebx 0FAFC3
+DEFINE mul_ebx F7E3
+DEFINE div_ebx F7F3
 DEFINE idiv_ebx F7FB
 DEFINE and_eax, 25
 DEFINE and_eax,ebx 21D8

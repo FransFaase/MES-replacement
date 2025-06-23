@@ -50,5 +50,13 @@ int main (int argc, char *argv[])
 	is_true(strcmp(buffer, "\\n") == 0, "sprintf \\\\n");
 	is_true((5 & 3) == 1, "(5 & 3) == 1");
 	is_true((5 | 3) == 7, "(5 | 3) == 7");
+	is_true(-2 * 3 == -6, "-2 * 3 == -6");
+	is_true(2 * -3 == -6, "2 * -3 == -6");
+	is_true(-2 * -3 == 6, "-2 * -3 == 6");
+	is_true(4 / 2 == 2, "4 / 2 == 2");
+	is_true(-4 / 2 == -2, "-4 / 2 == -2");
+	is_true(4 / -2 == -2, "4 / -2 == -2");
+	is_true(-4 / -2 == 2, "-4 / -2 == 2");
+	unsigned int negu = -1;
 	return result;
 }

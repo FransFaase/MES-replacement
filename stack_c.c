@@ -701,7 +701,7 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == '*')
 		{
-			fprintf(fout, "\tpop_ebx               # *\n\timul_eax,ebx\n");
+			fprintf(fout, "\tpop_ebx               # *\n\tmul_ebx\n");
 		}
 		else if (sym == '&')
 		{
@@ -717,11 +717,11 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == '/')
 		{
-			fprintf(fout, "\tmov_ebx,eax           # /\n\tpop_eax\n\tcdq\n\tidiv_ebx\n");
+			fprintf(fout, "\tmov_ebx,eax           # /\n\tpop_eax\n\tcdq\n\tdiv_ebx\n");
 		}
 		else if (sym == '%')
 		{
-			fprintf(fout, "\tmov_ebx,eax           # %%\n\tpop_eax\n\tcdq\n\tidiv_ebx\n\tmov_eax,edx");
+			fprintf(fout, "\tmov_ebx,eax           # %%\n\tpop_eax\n\tcdq\n\tdiv_ebx\n\tmov_eax,edx\n");
 		}
 		else if (sym == '<')
 		{
@@ -758,6 +758,14 @@ int main(int argc, char *argv[])
 				//int nr = pos - nesting_nr_vars[0] + 1;
 				//printf(" call at %d offset %d\n", pos, nr);
 				fprintf(fout, "\tadd_ebp, %%%d         # ()\n\tcall_eax\n\tsub_ebp, %%%d\n", 4 * pos, 4 * pos);
+			}
+			else if (strcmp(token, "/s") == 0)
+			{
+				fprintf(fout, "\tmov_ebx,eax           # /s\n\tpop_eax\n\tcdq\n\tidiv_ebx\n");
+			}
+			else if (strcmp(token, "%s") == 0)
+			{
+				fprintf(fout, "\tmov_ebx,eax           # %%s\n\tpop_eax\n\tcdq\n\tidiv_ebx\n\tmov_eax,edx");
 			}
 			else if (strcmp(token, "==") == 0)
 			{
