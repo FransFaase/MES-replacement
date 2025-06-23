@@ -4,11 +4,6 @@
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
 
-#ifndef __GNUC__
-#define __GNUC__
-#endif
-#ifdef __GNUC__
-
 #include <stdio.h>
 #include <malloc.h>
 #include <fcntl.h>
@@ -16,179 +11,9 @@
 #include <string.h>
 #include <stdlib.h>
 
-char fhgetc(int f)
-{
-	char ch[1];
-	int i = read(f, ch, 1);
-	/*
-	if (i == 0)
-		printf("<EOF>\n");
-	else if (' ' <= ch[0] && ch[0] < 127)
-		printf("%c", ch[0]);
-	else if (ch[0] == '\n')
-		printf("\\n\n");
-	else
-		printf("\\%o", ch[0]);
-	*/
-	if (i == 0)
-		return 0;
-	return ch[0];
-}
-
-void fhputc(char s, int f)
-{
-	char buffer[2];
-	buffer[0] = s;
-	write(f, buffer, 1);
-}
-
-//void fhputs(char* s, int f)
-//{
-//	size_t len = strlen(s);
-//	write(f, s, len);
-//}
-
-#else
-
-int open(char* name, int flag, int mode)
-{
-	asm("lea_ebx,[esp+DWORD] %12"
-	    "mov_ebx,[ebx]"
-	    "lea_ecx,[esp+DWORD] %8"
-	    "mov_ecx,[ecx]"
-	    "lea_edx,[esp+DWORD] %4"
-	    "mov_edx,[edx]"
-	    "mov_eax, %5"
-	    "int !0x80");
-}
-
-int close(int fh)
-{
-	asm("lea_ebx,[esp+DWORD] %4"
-	    "mov_ebx,[ebx]"
-	    "mov_eax, %6"
-	    "int !0x80");
-}
-
-int fhgetc(int fh)
-{
-	asm("mov_eax, %3"
-	    "lea_ebx,[esp+DWORD] %4"
-	    "mov_ebx,[ebx]"
-	    "push_ebx"
-	    "mov_ecx,esp"
-	    "mov_edx, %1"
-	    "int !0x80"
-	    "test_eax,eax"
-	    "pop_eax"
-	    "jne %FUNCTION_fgetc_Done"
-	    "mov_eax, %0"
-	    ":FUNCTION_fgetc_Done");
-}
-
-void fhputc(char s, int f)
-{
-	asm("mov_eax, %4"
-	    "lea_ebx,[esp+DWORD] %4"
-	    "mov_ebx,[ebx]"
-	    "lea_ecx,[esp+DWORD] %8"
-	    "mov_edx, %1"
-	    "int !0x80");
-}
-
-#endif
-
-void fhputs(char* s, int f)
-{
-	while(0 != s[0])
-	{
-		fhputc(s[0], f);
-		s = s + 1;
-	}
-}
-
-void fhput_int(int i, int fh)
-{
-	if (i == 0)
-		return;
-	fhput_int(i / 10, fh);
-	fhputc('0' + (i % 10), fh);
-}
-
-void fhput_hex(int i, int fh)
-{
-	int v;
-	if (i == 0)
-	{
-		fhputs("0x", fh);
-		return;
-	}
-	if (i < 0)
-	{
-		fhputs("-", fh);
-		i = 0 - i;
-	}
-	fhput_hex(i / 16, fh);
-	v = i % 16;
-	if (v < 10)
-		fhputc('0' + v, fh);
-	else
-		fhputc('a' + v - 10, fh);
-}
-
-
 // ----- Malloc ----
 
-#ifdef __GNUC__
-
-void *_malloc(size_t size)
-{
-	//printf("malloc %ld ", size);
-	//fflush(stdout);
-	void* r = malloc(size);
-	//printf("%p\n", r);
-	return r;
-}
-
-
-#else
-
-#define NULL 0
-
-int brk(void *addr)
-{
-	asm("mov_eax,[esp+DWORD] %4"
-	    "push_eax"
-	    "mov_eax, %45"
-	    "pop_ebx"
-	    "int !0x80");
-}
-
-long _malloc_ptr;
-long _brk_ptr;
-
-void* _malloc(int size)
-{
-	if(NULL == _brk_ptr)
-	{
-		_brk_ptr = brk(0);
-		_malloc_ptr = _brk_ptr;
-	}
-
-	if(_brk_ptr < _malloc_ptr + size)
-	{
-		_brk_ptr = brk(_malloc_ptr + size);
-		if(-1 == _brk_ptr) return 0;
-	}
-
-	long old_malloc = _malloc_ptr;
-	_malloc_ptr = _malloc_ptr + size;
-	fhputs("malloc ", STDOUT_FILENO);
-	fhput_hex(old_malloc, STDOUT_FILENO);
-	fhputs("\n", STDOUT_FILENO);
-	return old_malloc;
-}
-#endif
+#define _malloc malloc
 
 // ----- bool -----
 
@@ -277,7 +102,7 @@ struct char_iterator_s
 struct file_iterator_s
 {
 	char_iterator_t base;
-	int _f;
+	FILE* _f;
 };
 typedef struct file_iterator_s file_iterator_t;
 typedef struct file_iterator_s* file_iterator_p;
@@ -285,7 +110,6 @@ typedef struct file_iterator_s* file_iterator_p;
 void file_iterator_next(char_iterator_p char_it)
 {
 	file_iterator_p it = (file_iterator_p)char_it;
-	//fhputs("file_iterator_next: '", STDOUT_FILENO);
 	if (it->base.ch == 0)
 	{
 		return;
@@ -296,29 +120,29 @@ void file_iterator_next(char_iterator_p char_it)
 		it->base.column = 0;
 	}
 	it->base.column = it->base.column + 1;
-	it->base.ch = fhgetc(it->_f);
-	if (it->base.ch == 0)
+	if (it->_f == NULL)
 	{
-		if (it->_f >= 0)
+		it->base.ch = 0;
+		return;
+	}		
+	it->base.ch = fgetc(it->_f);
+	if (feof(it->_f))
 		{
-			close(it->_f);
-			it->_f = -1;
-		}
+		fclose(it->_f);
+		it->_f = NULL;
 	}
 	else if (it->base.ch == '\r')
 	{
 		file_iterator_next(char_it);
 	}
-	//fhputc(it->base.ch, STDOUT_FILENO);
-	//fhputs("'\n", STDOUT_FILENO);
 }
 
 file_iterator_p new_file_iterator(const char* fn)
 {
 	file_iterator_p it = _malloc(sizeof(struct file_iterator_s));
-	it->_f = open(fn, 0, 0);
+	it->_f = fopen(fn, "r");
 	it->base.ch = '\n';
-	if (it->_f < 0)
+	if (it->_f == 0)
 	{
 		it->base.ch = 0;
 	}
@@ -355,8 +179,6 @@ void line_splice_iterator_next(char_iterator_p char_it)
 	it->base.column = it->_source_it->column;
 	_source_it_next(it->_source_it);
 	it->_a = it->_source_it->ch;
-	//fhputc(it->_a, STDOUT_FILENO);
-	//fhputs("\n\n", STDOUT_FILENO);
 	while (it->base.ch == '\\' && it->_a == '\n')
 	{
 		_source_it_next(it->_source_it);
@@ -413,7 +235,6 @@ void comment_strip_iterator_next(char_iterator_p char_it)
         default:
     }
     s0:
-    //fhputs("s0:\n", STDOUT_FILENO);
     if (it->_a == '\0')
     {
         it->base.ch = '\0';
@@ -526,12 +347,10 @@ void comment_strip_iterator_next(char_iterator_p char_it)
         it->_state = 0;
         goto s0;
     }
-	//fhputs("comment_strip_iterator_next)\n", STDOUT_FILENO);
 }
 
 comment_strip_iterator_p new_comment_strip_iterator(char_iterator_p source_it)
 {
-	//fhputs("new_comment_strip_iterator(\n", STDOUT_FILENO);
 	comment_strip_iterator_p it = _malloc(sizeof(struct comment_strip_iterator_s));
 	it->_source_it = source_it;
 	it->base.filename = source_it->filename;
@@ -539,7 +358,6 @@ comment_strip_iterator_p new_comment_strip_iterator(char_iterator_p source_it)
 	it->_a = source_it->ch;
 	it->_state = 0;	
 	comment_strip_iterator_next(&it->base);
-	//fhputs("new_comment_strip_iterator)\n", STDOUT_FILENO);
 	return it;
 }
 
@@ -556,7 +374,6 @@ typedef struct include_iterator_s* include_iterator_p;
 void include_iterator_next(char_iterator_p char_it)
 {
 	include_iterator_p it = (include_iterator_p)char_it;
-	//fhputs("include_iterator_next(\n", STDOUT_FILENO);
 	//printf("include_iterator_next %d\n", it->_source_it->ch);
 	char_next_p _source_it_next; _source_it_next = it->_source_it->next;
 	_source_it_next(it->_source_it);
@@ -579,9 +396,6 @@ void include_iterator_next(char_iterator_p char_it)
 	it->base.line = it->_source_it->line;
 	it->base.column = it->_source_it->column;
 	//printf(it->base.ch < ' ' ? "= %d\n" : "= '%c'\n", it->base.ch);
-	//fhputs("include_iterator_next: '", STDOUT_FILENO);
-	//fhputc(it->base.ch, STDOUT_FILENO);
-	//fhputs("'\n", STDOUT_FILENO);
 }			
 
 void include_iterator_add(include_iterator_p it, char_iterator_p include_it)
@@ -599,7 +413,6 @@ void include_iterator_add(include_iterator_p it, char_iterator_p include_it)
 
 include_iterator_p new_include_iterator(char_iterator_p include_it)
 {
-	//fhputs("new_include_iterator(\n", STDOUT_FILENO);
 	include_iterator_p it = _malloc(sizeof(struct include_iterator_s));
 	it->base.filename = include_it->filename;
 	it->base.line = include_it->line;
@@ -608,7 +421,6 @@ include_iterator_p new_include_iterator(char_iterator_p include_it)
 	it->base.next = include_iterator_next;
 	it->_source_it = include_it;
 	it->_nr_parents = 0;
-	//fhputs("new_include_iterator)\n", STDOUT_FILENO);
 	return it;
 }
 
@@ -773,7 +585,6 @@ char tokenizer_parse_char_literal(tokenizer_p tokenizer)
 token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 {
 	tokenizer_p tokenizer = (tokenizer_p)token_it;
-	//fhputs("tokenizer_next(\n", STDOUT_FILENO);
 	tokenizer_skip_white_space(tokenizer, skip_nl);
 	char_iterator_p it = tokenizer->_char_iterator;
 	char_next_p it_next; it_next = it->next;
@@ -1080,11 +891,6 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 	done: token_it->token[i] = '\0';
 	if (opt_trace_parser)
 		printf("tokenizer_next %d '%s'\n", token_it->kind, token_it->token);
-	//fhputs("tokenizer_next) ", STDOUT_FILENO);
-	//fhput_int(token_it->kind, STDOUT_FILENO);
-	//fhputs(" '", STDOUT_FILENO);
-	//fhputs(token_it->token, STDOUT_FILENO);
-	//fhputs("'\n", STDOUT_FILENO);
 	//printf("tokenizer result %d '%s' %d\n", token_it->kind, token_it->token, token_it->length);
 	return token_it;
 }
@@ -1146,13 +952,11 @@ int token_it_int_value(token_iterator_p it)
 
 tokenizer_p new_tokenizer(char_iterator_p char_iterator)
 {
-	//fhputs("new_tokenizer(\n", STDOUT_FILENO);
 	tokenizer_p tokenizer = _malloc(sizeof(struct tokenizer_s));
 	tokenizer->_char_iterator = char_iterator;
 	tokenizer->base.token = _malloc(6000);
 	tokenizer->base.filename = NULL;
 	tokenizer->base.next = tokenizer_next;
-	//fhputs("new_tokenizer)\n", STDOUT_FILENO);
 	return tokenizer;
 }
 
@@ -1285,12 +1089,8 @@ void del_env(char* name)
 	}
 }
 
-#ifdef __GNUC__
 typedef struct conditional_iterator_s* conditional_iterator_p;
 typedef int (*parse_expr_function_p)(conditional_iterator_p it);
-#else
-#define parse_expr_function_p FUNCTION
-#endif
 
 struct conditional_iterator_s
 {
@@ -1303,11 +1103,6 @@ struct conditional_iterator_s
 	bool _if_done[40];
 	int _if_level;
 };
-#ifndef __GNUC__
-typedef struct conditional_iterator_s* conditional_iterator_p;
-#endif
-
-//FUNCTION conditional_iterator_rec_parse_or_expr;
 
 int conditional_iterator_parse_primary(conditional_iterator_p it)
 {
@@ -1662,9 +1457,6 @@ token_iterator_p conditional_iterator_next(token_iterator_p token_it, bool dummy
 
 conditional_iterator_p new_conditional_iterator(include_iterator_p source_it, token_iterator_p token_it)
 {
-	//fhputs("new_conditional_iterator(\n", STDOUT_FILENO);
-	//printf("new_conditional_iterator\n");
-	//token_next_p token_it_next = token_it->next;
 	conditional_iterator_p it = _malloc(sizeof(struct conditional_iterator_s));
 	it->_source_it = source_it;
 	it->_token_it = token_it;
@@ -1676,7 +1468,6 @@ conditional_iterator_p new_conditional_iterator(include_iterator_p source_it, to
 	{
 		include_path = _malloc(100);
 	}
-	//fhputs("new_conditional_iterator)\n", STDOUT_FILENO);
 	return it;
 }
 
@@ -1977,8 +1768,6 @@ void output_preprocessor(const char *filename)
 	FILE *fout = fopen(filename, "w");
 	if (fout == NULL)
 		return;
-	int fouth = fileno(fout);
-	
 	token_it = token_it->next(token_it, TRUE);
 	
 	char *prev_file = 0;
@@ -1987,78 +1776,75 @@ void output_preprocessor(const char *filename)
 	{
 		if (token_it->filename != prev_file || token_it->line != prev_line)
 		{
-			fhputs("\n", fouth);
-			fhputs(token_it->filename, fouth);
-			fhputs(": ", fouth);
-			fhput_int(token_it->line, fouth);
+			fprintf(fout, "\n%s: %d", token_it->filename, token_it->line);
 			for (int i = 0; i < token_it->column; i++)
-				fhputc(' ', fouth);
+				fputc(' ', fout);
 			prev_file = token_it->filename;
 			prev_line = token_it->line;
 		}
-		fhputc(' ', fouth);
+		fputc(' ', fout);
 		if (token_it->kind == 'i')
 		{
-			fhputs(token_it->token, fouth);
+			fputs(token_it->token, fout);
 		}
 		else if (token_it->kind == '"' || token_it->kind == '\'')
 		{
 			char strsep = token_it->kind;
-			fhputc(strsep, fouth);
+			fputc(strsep, fout);
 			for (int i = 0; i < token_it->length ; i = i + 1)
 			{
 				char ch = token_it->token[i];
 				if (ch == '\n')
-					fhputs("\\n", fouth);
+					fputs("\\n", fout);
 				else if (ch == '\r')
-					fhputs("\\r", fouth);
+					fputs("\\r", fout);
 				else if (ch == '\t')
-					fhputs("\\t", fouth);
+					fputs("\\t", fout);
 				else if (ch == '\0')
-					fhputs("\\0", fouth);
+					fputs("\\0", fout);
 				else if (' ' <= ch && ch < 127)
-					fhputc(ch, fouth);
+					fputc(ch, fout);
 				else
 				{
-					fhputs("\\", fouth);
-					fhputc(ch, fouth);
+					fputs("\\", fout);
+					fputc(ch, fout);
 				}
 			}
-			fhputc(strsep, fouth);
+			fputc(strsep, fout);
 		}
 		else if (token_it->kind == '0')
 		{
-			fhputs(token_it->token, fouth);
+			fputs(token_it->token, fout);
 		}
 		else if (token_it->kind < 127)
 		{
-			fhputc(token_it->kind, fouth);
+			fputc(token_it->kind, fout);
 		}
 		else if (token_it->kind >= TK_KEYWORD)
-			fhputs(token_it->token, fouth);
-		else if (token_it->kind == TK_D_HASH) 	fhputs("##", fouth);
-		else if (token_it->kind == TK_EQ) 		fhputs("==", fouth);
-		else if (token_it->kind == TK_NE)		fhputs("!=", fouth);
-		else if (token_it->kind == TK_LE)		fhputs("<=", fouth);
-		else if (token_it->kind == TK_GE)		fhputs(">=", fouth);
-		else if (token_it->kind == TK_INC)		fhputs("++", fouth);
-		else if (token_it->kind == TK_DEC)		fhputs("--", fouth);
-		else if (token_it->kind == TK_ARROW)	fhputs("->", fouth);
-		else if (token_it->kind == TK_MUL_ASS)	fhputs("*=", fouth);
-		else if (token_it->kind == TK_DIV_ASS)	fhputs("/=", fouth);
-		else if (token_it->kind == TK_MOD_ASS)	fhputs("%%=", fouth);
-		else if (token_it->kind == TK_ADD_ASS)	fhputs("+=", fouth);
-		else if (token_it->kind == TK_SUB_ASS)	fhputs("-=", fouth);
-		else if (token_it->kind == TK_SHL_ASS)	fhputs("<<=", fouth);
-		else if (token_it->kind == TK_SHR_ASS)	fhputs(">>=", fouth);
-		else if (token_it->kind == TK_XOR_ASS)	fhputs("^=", fouth);
-		else if (token_it->kind == TK_BAND_ASS)	fhputs("&=", fouth);
-		else if (token_it->kind == TK_BOR_ASS)	fhputs("|=", fouth);
-		else if (token_it->kind == TK_SHL)		fhputs("<<", fouth);
-		else if (token_it->kind == TK_SHR)		fhputs(">>", fouth);
-		else if (token_it->kind == TK_AND)		fhputs("&&", fouth);
-		else if (token_it->kind == TK_OR)		fhputs("||", fouth);
-		else fhputs("????", fouth);
+			fputs(token_it->token, fout);
+		else if (token_it->kind == TK_D_HASH) 	fputs("##", fout);
+		else if (token_it->kind == TK_EQ) 		fputs("==", fout);
+		else if (token_it->kind == TK_NE)		fputs("!=", fout);
+		else if (token_it->kind == TK_LE)		fputs("<=", fout);
+		else if (token_it->kind == TK_GE)		fputs(">=", fout);
+		else if (token_it->kind == TK_INC)		fputs("++", fout);
+		else if (token_it->kind == TK_DEC)		fputs("--", fout);
+		else if (token_it->kind == TK_ARROW)	fputs("->", fout);
+		else if (token_it->kind == TK_MUL_ASS)	fputs("*=", fout);
+		else if (token_it->kind == TK_DIV_ASS)	fputs("/=", fout);
+		else if (token_it->kind == TK_MOD_ASS)	fputs("%%=", fout);
+		else if (token_it->kind == TK_ADD_ASS)	fputs("+=", fout);
+		else if (token_it->kind == TK_SUB_ASS)	fputs("-=", fout);
+		else if (token_it->kind == TK_SHL_ASS)	fputs("<<=", fout);
+		else if (token_it->kind == TK_SHR_ASS)	fputs(">>=", fout);
+		else if (token_it->kind == TK_XOR_ASS)	fputs("^=", fout);
+		else if (token_it->kind == TK_BAND_ASS)	fputs("&=", fout);
+		else if (token_it->kind == TK_BOR_ASS)	fputs("|=", fout);
+		else if (token_it->kind == TK_SHL)		fputs("<<", fout);
+		else if (token_it->kind == TK_SHR)		fputs(">>", fout);
+		else if (token_it->kind == TK_AND)		fputs("&&", fout);
+		else if (token_it->kind == TK_OR)		fputs("||", fout);
+		else fputs("????", fout);
 
 		token_it = token_it->next(token_it, TRUE);
 	}
