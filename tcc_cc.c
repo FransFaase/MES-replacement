@@ -2608,15 +2608,10 @@ expr_p parse_primary_expr(void)
 		store_pos_for_expr();
 		expr_p expr = new_expr_int_value(token_it_int_value(token_it));
 		int nr_L = 0;
-		bool has_U = FALSE;
 		for (char *s = token_it->token; *s != '\0'; s++)
 			if (*s == 'L')
 				nr_L++;
-			else if (*s == 'U')
-				has_U = TRUE;
-		expr->type =   has_U
-					 ? (nr_L > 1 ? base_type_U64 : base_type_U32)
-					 : (nr_L > 1 ? base_type_S64 : base_type_S32);
+		expr->type = nr_L > 1 ? base_type_U64 : base_type_U32;
 		next_token();
 		return expr;
 	}
