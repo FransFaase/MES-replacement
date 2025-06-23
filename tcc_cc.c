@@ -4624,8 +4624,8 @@ void gen_expr(expr_p expr, bool as_value)
 				fprintf(fcode, "%d * ", expr->children[0]->type->members[0]->size);
 			switch (expr->kind)
 			{
-				case TK_SHL: fprintf(fcode, "<<"); break;
-				case TK_SHR: fprintf(fcode, ">>"); break;
+				case TK_SHL_ASS: fprintf(fcode, "<<"); break;
+				case TK_SHR_ASS: fprintf(fcode, ">>"); break;
 				default: fprintf(fcode, "%c", expr->kind - TK_ASS); break;
 			}
 			if (   (expr->kind == TK_DIV_ASS || expr->kind == TK_MOD_ASS)

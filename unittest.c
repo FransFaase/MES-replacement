@@ -29,6 +29,9 @@ int main (int argc, char *argv[])
 	is_true(1 == 1, "1 == 1");
 	is_true(1 << 2 == 4, "1 << 2 == 4");
 	is_true(4 >> 2 == 1, "4 >> 2 == 1");
+	int a = 8;
+	a >>= 2;
+	is_true(a == 2, "int a = 8; a >>= 2; a == 2");
 	is_true(4 / 2 == 2, "4 / 2 == 2");
 	is_true(44 / 10 == 4, "44 / 10 == 4");
 	is_true(1 / 10 == 0, "1 / 10 == 0");
