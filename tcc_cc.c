@@ -4847,21 +4847,29 @@ void gen_init_globals(void)
 
 int main(int argc, char *argv[])
 {
-	fcode = fopen("output.sl", "w");
-
-	define_base_types();
-	add_predefined_types();
-
-	bool only_preprocess = FALSE;
+	fcode = stdout;
 	char *input_filename = "tcc_sources/tcc.c";
-	for (int i = 1; i < argc; i++)
+	bool only_preprocess = FALSE;
+
+	for (int i = 0; i < argc; i++)
 		if (strcmp(argv[i], "-E") == 0)
 			only_preprocess = TRUE;
 		else if (strcmp(argv[i], "-dp") == 0)
 			opt_trace_parser = TRUE;
+		else if (i + 1 < argc && strcmp(argv[i],"-o") == 0)
+		{	
+			fcode = fopen(argv[++i], "w");
+			if (fcode == 0)
+			{
+				fprintf(fcode, "ERROR: Cannot open file '%s' for writing\n", argv[i]);
+				return 1;
+			}
+		}
 		else
 			input_filename = argv[i];
 
+	define_base_types();
+	add_predefined_types();
 
 	env_p one_source_env = get_env("ONE_SOURCE", TRUE);
 	one_source_env->tokens = new_int_token("1");

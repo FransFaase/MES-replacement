@@ -16,6 +16,7 @@ Notes:
 - http://ref.x86asm.net/geek.html
 - https://www.felixcloutier.com/x86/
 - https://faculty.nps.edu/cseagle/assembly/sys_call.html
+- https://defuse.ca/online-x86-assembler.htm
 
 */
 
@@ -345,36 +346,47 @@ void add_function(const char *name)
 int main(int argc, char *argv[])
 {
 	ferr = stderr;
+	fout = stdout;
+	fin = stdin;
+	
+	for (int i = 1; i < argc; i++)
+		if (i + 1 < argc && strcmp(argv[i], "-o") == 0)
+		{
+			fout = fopen(argv[++i], "w");
+			if (fout == 0)
+			{
+				fprintf(ferr, "ERROR: Cannot open file '%s' for writing\n", argv[i]);
+				return 1;
+			}
+		}
+		else
+		{
+			fin = fopen(argv[i], "r");
+			if (fin == 0)
+			{
+				fprintf(ferr, "ERROR: Cannot open file '%s' for input\n", argv[i]);
+				return 1;
+			}
+		}
+	
 
 	// Add predefined system functions
 	add_function("sys_int80");
 	add_function("sys_malloc");
 
-	fout = stdout;
-
 	// Copy contents of stack_c_intro.M1
-	fin = fopen("stack_c_intro.M1", "r");
-	if (fin != 0)
 	{
-		for (;;)
+		FILE *fintro = fopen("stack_c_intro.M1", "r");
+		if (fintro != 0)
 		{
-			cur_char = fgetc(fin);
-			if (feof(fin))
-				break;
-			fputc(cur_char, fout);
-		}
-		fclose(fin);
-	}
-	
-	fin = stdin;
-	
-	if (argc == 2)
-	{
-		fin = fopen(argv[1], "r");
-		if (fin == 0)
-		{
-			fprintf(ferr, "ERROR %d: Cannot open file '%s'\n", cur_line, argv[1]);
-			return 1;
+			for (;;)
+			{
+				cur_char = fgetc(fintro);
+				if (feof(fintro))
+					break;
+				fputc(cur_char, fout);
+			}
+			fclose(fintro);
 		}
 	}
 	
@@ -914,10 +926,12 @@ int main(int argc, char *argv[])
 		{
 			fprintf(fout, ":%s", idents[i].name);
 			for (int j = 0; j < idents[i].size; j++)
-				printf("%sNULL", j % 8 == 0 ? "\n\t" : " ");
-			printf("\n");
+				fprintf(fout, "%sNULL", j % 8 == 0 ? "\n\t" : " ");
+			fprintf(fout, "\n");
 		}
-	fprintf(fout, "\n:ELF_end\n");	
+	fprintf(fout, "\n:ELF_end\n");
+
+	fclose(fout);
 
 	return error;
 }
