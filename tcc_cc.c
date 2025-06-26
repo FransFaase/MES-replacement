@@ -127,7 +127,8 @@ void file_iterator_next(char_iterator_p char_it)
 	}		
 	it->base.ch = fgetc(it->_f);
 	if (feof(it->_f))
-		{
+	{
+		it->base.ch = '\0';
 		fclose(it->_f);
 		it->_f = NULL;
 	}
@@ -167,7 +168,7 @@ void line_splice_iterator_next(char_iterator_p char_it)
 {
 	line_splice_iterator_p it = (line_splice_iterator_p)char_it;
 	char_next_p _source_it_next; _source_it_next = it->_source_it->next;
-	//fhputs("line_splice_iterator_next(\n", STDOUT_FILENO);
+	//fprintf(stderr, "line_splice_iterator_next\n");
 	if (it->_a == 0)
 	{
 		it->base.ch = 0;
@@ -217,9 +218,7 @@ void comment_strip_iterator_next(char_iterator_p char_it)
 {
 	comment_strip_iterator_p it = (comment_strip_iterator_p)char_it;
 	char_next_p _source_it_next; _source_it_next = it->_source_it->next;
-	//fhputs("comment_strip_iterator_next(\n", STDOUT_FILENO);
-	//fhput_int(it->_state, STDOUT_FILENO);
-	//fhputs("'\n", STDOUT_FILENO);
+	//fprintf(stderr, "_source_it_next %p\n", _source_it_next);
     switch (it->_state)
     {
         case 0: goto s0;
@@ -3284,7 +3283,8 @@ bool parse_declaration(bool is_param)
 						inside_function = FALSE;
 						return TRUE;
 					}
-					fprintf(fcode, "void %s ;\n", decl->name);
+					if (!inside_function && inside_struct_or_union == 0)
+						fprintf(fcode, "void %s ;\n", decl->name);
 					cur_ident_decls = save_ident_decls;
 					break;
 				}
@@ -3773,6 +3773,7 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 		}
 		break;
 	}
+	fprintf(fcode, "# %s %d\n", token_it->filename, token_it->line);
 	if (accept_term(TK_IF))
 	{
 		if (!accept_term('('))
@@ -4008,9 +4009,9 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 		gen_indent();
 		expr_p ret_value = parse_expr();
 		if (ret_value != NULL)
-		{
 			gen_expr(ret_value, TRUE);
-		}
+		else
+			fprintf(fcode, "0 ");
 		fprintf(fcode, "return\n");
 		if (!accept_term(';'))
 			FAIL_FALSE
@@ -4168,7 +4169,8 @@ bool parse_file(const char *input_filename, bool only_preprocess)
 int indent = 0;
 void gen_indent(void)
 {
-	fprintf(fcode, "%*.*s", 4 * indent, 4 * indent, "");
+	for (int i = 0; i < indent; i++)
+		fprintf(fcode, "    ");
 }
 
 void gen_newline(void)
@@ -4249,7 +4251,7 @@ void gen_function_end(void)
 {
 	inside_function = FALSE;
 	indent--;
-	fprintf(fcode, "\treturn\n}\n");
+	fprintf(fcode, "\t0 return\n}\n");
 }
 
 void gen_stats_open(void)
@@ -4264,14 +4266,6 @@ void gen_stats_close(void)
 	indent--;
 	gen_indent();
 	fprintf(fcode, "}\n");
-}
-
-void ignore_value_expr(expr_p expr)
-{
-	if (   expr->kind != '('
-		|| expr->type->kind != TYPE_KIND_BASE
-		|| expr->type->base_type != BT_VOID)
-		fprintf(fcode, "; ");
 }
 
 const char *size_ind(expr_p expr)
@@ -4316,7 +4310,7 @@ void gen_expr(expr_p expr, bool as_value)
 			{
 				gen_expr(expr->children[i], TRUE);
 				if (i < expr->nr_children - 1)
-					ignore_value_expr(expr->children[i]);
+					fprintf(fcode, "; ");
 			}
 			break;
 		case '!':
@@ -4434,7 +4428,7 @@ void gen_expr(expr_p expr, bool as_value)
 			if (   expr->children[0]->kind == 'i' && strcmp(expr->children[0]->str_val, "va_start") == 0
 				&& expr->nr_children > 1 && expr->children[1]->kind == 'i')
 			{
-				fprintf(fcode, "%s __var_args ? =", expr->children[1]->str_val);
+				fprintf(fcode, "%s __var_args ? = ", expr->children[1]->str_val);
 			}
 			else
 			{
@@ -4469,6 +4463,8 @@ void gen_expr(expr_p expr, bool as_value)
 						gen_expr(expr->children[i], TRUE);
 				}
 				gen_expr(expr->children[0], FALSE);
+				if (expr->children[0]->type->kind == TYPE_KIND_POINTER)
+					fprintf(fcode, "? ");
 				fprintf(fcode, "() ");
 				if (close_bracket)
 					fprintf(fcode, "} ");
@@ -4533,7 +4529,7 @@ void gen_expr(expr_p expr, bool as_value)
 			{
 				gen_expr(expr->children[i], TRUE);
 				if (i < expr->nr_children - 1)
-					ignore_value_expr(expr->children[i]);
+					fprintf(fcode, "; ");
 			}
 			break;
 		default:
@@ -4550,7 +4546,8 @@ void gen_expr(expr_p expr, bool as_value)
 			|| expr->kind == '.'
 			|| expr->kind == '['
 			|| expr->kind == OPER_STAR)
-		&& expr->type->kind != TYPE_KIND_ARRAY)
+		&& expr->type->kind != TYPE_KIND_ARRAY
+		&& expr->type->kind != TYPE_KIND_FUNCTION)
 		fprintf(fcode, "?%s ", expr_size_ind);
 }
 
@@ -4560,7 +4557,7 @@ void gen_stat_expr(expr_p expr)
 	{
 		gen_indent();
 		gen_expr(expr, TRUE);
-		ignore_value_expr(expr);
+		fprintf(fcode, ";"); // ignore_value_expr(expr);
 		gen_newline();
 	}
 }

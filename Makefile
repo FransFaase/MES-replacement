@@ -1,4 +1,4 @@
-all : tcc_cc stack_c run_unittest_s stack_c_s stack_c_diff tcc_cc_s tcc_cc_diff diff3
+all : tcc_cc stack_c run_unittest_s stack_c_s stack_c_diff tcc_cc_s tcc_cc_diff diff3 diff5 diff4
 
 % : %.c
 	./run.sh gcc $(basename $@)
@@ -35,6 +35,12 @@ tcc_cc_diff : tcc_cc tcc_cc_s
 	
 diff3 : unittest.sl unittest_t.sl
 	./run.sh diff unittest.sl unittest_t.sl
+
+diff4 : stack_c.sl stack_c_t.sl
+	./run.sh diff stack_c.sl stack_c_t.sl
+
+diff5 : tcc_cc.sl tcc_cc_t.sl
+	./run.sh diff tcc_cc.sl tcc_cc_t.sl
 
 .PRECIOUS: %.sl %_s.M1 %.blood_elf %.macro
 .PHONY: all run_unittest_s stack_c_diff tcc_cc_diff

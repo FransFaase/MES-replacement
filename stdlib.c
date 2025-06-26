@@ -5,7 +5,7 @@ int sys_malloc(size_t size);
 
 void exit(int result)
 {
-	sys_int80(1, result, 0, 0);
+	return sys_int80(1, result, 0, 0);
 }
 
 #define NULL 0
@@ -30,8 +30,10 @@ const FILE *stderr = &__sys_stderr;
 
 void *memcpy(void *dest, const void *src, size_t n)
 {
+	char *d = (char *)dest;
+	char *s = (char *)src;
 	for (int i = 0; i < n; i++)
-		dest[i] = src[i];
+		d[i] = s[i];
 	return dest;
 }
 #if 0
@@ -93,6 +95,7 @@ void *malloc(size_t size)
 void free(void *ptr)
 {
 	// Do freeing of memory
+	return 0
 }
 #if 0
 void *realloc(void *ptr, size_t size);

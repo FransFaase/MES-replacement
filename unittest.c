@@ -1,3 +1,7 @@
+#ifdef __GNUC__
+#include <stdio.h>
+#include <string.h>
+#endif
 
 int result = 0;
 
@@ -18,6 +22,30 @@ void is_false(int val, const char *testname)
 		result = 1;
 	}
 }
+
+int one(void)
+{
+	return 1;
+}
+
+void void_func(void)
+{
+
+}
+
+typedef struct with_func_pointer_s *with_func_pointer_p;
+struct with_func_pointer_s
+{
+	int (*func)(void);
+};
+
+with_func_pointer_p new_struct_with_function_pointer(void)
+{
+	with_func_pointer_p it = malloc(sizeof(struct with_func_pointer_s));
+	it->func = one;
+	return it;
+}
+
 
 int main (int argc, char *argv[])
 {
@@ -47,7 +75,7 @@ int main (int argc, char *argv[])
 	const char *eln = "\\n";
 	is_true(eln[0] == '\\', "first is \\");
 	is_true(eln[1] == 'n', "second is n");
-	snprintf(buffer, 30, eln);
+	snprintf(buffer, 30, "%s", eln);
 	is_true(buffer[0] == '\\', "b first is \\");
 	is_true(buffer[1] == 'n', "b second is n");
 	is_true(strcmp(buffer, "\\n") == 0, "sprintf \\\\n");
@@ -61,5 +89,13 @@ int main (int argc, char *argv[])
 	is_true(4 / -2 == -2, "4 / -2 == -2");
 	is_true(-4 / -2 == 2, "-4 / -2 == 2");
 	unsigned int negu = -1;
+	is_true(negu > 0, "negu > 0");
+	int (*func)(void) = one;
+	int x = func();
+	is_true(x == 1, "func() == 1");
+	with_func_pointer_p it_one = new_struct_with_function_pointer();
+	is_true(it_one->func() == 1, "it_one->func() == 1");
+	void (*v_func)(void) = void_func;
+	v_func();
 	return result;
 }
