@@ -80,7 +80,7 @@ DEFINE NULL 00000000
     mov_[DWORD],eax &SYS_MALLOC                 # Set our malloc pointer
 
     # allocate memory for the second stack
-    mov_eax, %10000
+    mov_eax, %100000
     push_eax                                    # (sys_malloc assums address)
     call %sys_malloc
     mov_ebp,eax

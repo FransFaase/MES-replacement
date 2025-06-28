@@ -889,7 +889,7 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 	}
 	done: token_it->token[i] = '\0';
 	if (opt_trace_parser)
-		printf("tokenizer_next %d '%s'\n", token_it->kind, token_it->token);
+		printf("tokenizer_next %d: %d '%s'\n", token_it->line, token_it->kind, token_it->token);
 	//printf("tokenizer result %d '%s' %d\n", token_it->kind, token_it->token, token_it->length);
 	return token_it;
 }
@@ -2048,12 +2048,13 @@ struct expr_s
 	expr_p children[0];
 };
 
+char token_it_pos_buffer[101];
+
 const char *token_it_pos(void)
 {
-	static char buffer[101];
-	snprintf(buffer, 100, "%s: %d.%d", token_it->filename, token_it->line, token_it->column);
-	buffer[100] = '\0';
-	return buffer;
+	snprintf(token_it_pos_buffer, 100, "%s: %d.%d", token_it->filename, token_it->line, token_it->column);
+	token_it_pos_buffer[100] = '\0';
+	return token_it_pos_buffer;
 }
 
 #ifdef LOCATION_IN_EXPR
@@ -2068,15 +2069,16 @@ void store_pos_for_expr(void)
 	column_for_expr = token_it->column;
 }
 
+static char expr_pos_buffer[101];
+
 const char *expr_pos(expr_p expr)
 {
-	static char buffer[101];
 	if (expr->kind > ' ' && expr->kind < 127)
-		snprintf(buffer, 100, "%s: %d.%d expr '%c ", expr->filename, expr->line, expr->column, expr->kind);
+		snprintf(expr_pos_buffer, 100, "%s: %d.%d expr '%c ", expr->filename, expr->line, expr->column, expr->kind);
 	else
-		snprintf(buffer, 100, "%s: %d.%d expr %d ", expr->filename, expr->line, expr->column, expr->kind);
-	buffer[100] = '\0';
-	return buffer;
+		snprintf(expr_pos_buffer, 100, "%s: %d.%d expr %d ", expr->filename, expr->line, expr->column, expr->kind);
+	expr_pos_buffer[100] = '\0';
+	return expr_pos_buffer;
 }
 #else
 void store_pos_for_expr(void) {}
@@ -2175,16 +2177,20 @@ struct decl_s
 	decl_p prev;
 };
 
+bool trace_decls = FALSE;
 
 decl_p cur_ident_decls = NULL;
 decl_p cur_decls = NULL;
 
 decl_p add_decl(decl_kind_e kind, const char *name, type_p type)
 {
-	//printf("add_decl '%s' %d", name, kind);
-	//if (type != NULL)
-	//	printf("Type %d", type->kind);
-	//printf("\n");
+	if (trace_decls)
+	{
+		printf("add_decl '%s' %d", name, kind);
+		if (type != NULL)
+			printf(" Type %d", type->kind);
+		printf("\n");
+	}
 	decl_p decl = (decl_p)malloc(sizeof(struct decl_s));
 	decl->kind = kind;
 	decl->name = copystr(name);
@@ -2307,7 +2313,7 @@ decl_p type_decl(type_p type, const char *name)
 	for (int i = 0; i < type->nr_decls; i++)
 		if (type->decls[i] != NULL && strcmp(type->decls[i]->name, name) == 0)
 			return type->decls[i];
-	printf("%s: Error Type %p has no field %s\n", token_it_pos(), type, name);
+	fprintf(stderr, "%s: Error Type %p has no field %s\n", token_it_pos(), type, name);
 	return NULL;
 }
 
@@ -2362,14 +2368,16 @@ bool accept_term(int kind)
 	return FALSE;
 }
 
-#define FAIL_FALSE { if (opt_trace_parser) printf("Fail in %s at %d\n", __func__, __LINE__); return FALSE; }
-#define FAIL_NULL  { if (opt_trace_parser) printf("Fail in %s at %d\n", __func__, __LINE__); return NULL; }
+#define FAIL_FALSE { if (opt_trace_parser) fprintf(stderr, "Fail in %s at %d\n", __func__, __LINE__); return FALSE; }
+#define FAIL_NULL  { if (opt_trace_parser) fprintf(stderr, "Fail in %s at %d\n", __func__, __LINE__); return NULL; }
 
 expr_p parse_expr(void);
 type_p parse_type_specifier(storage_type_e *ref_storage_type);
 expr_p parse_unary_expr(void);
 
 #define MAX_CONST_STRLEN 8000
+
+static char strbuf[MAX_CONST_STRLEN];
 
 expr_p parse_primary_expr(void)
 {
@@ -2411,7 +2419,6 @@ expr_p parse_primary_expr(void)
 	if (token_it->kind == '"')
 	{
 		store_pos_for_expr();
-		static char strbuf[MAX_CONST_STRLEN];
 		int len = token_it->length;
 		memcpy(strbuf, token_it->token, token_it->length);
 		next_token();
@@ -3173,7 +3180,7 @@ bool parse_declaration(bool is_param)
 		{
 			storage_type = ST_TYPEDEF;
 			if (inside_function)
-				printf("%s: XX inside function", token_it_pos());
+				fprintf(stderr, "%s: typedef inside function\n", token_it_pos());
 		}
 		else if (accept_term(TK_EXTERN))
 		{
@@ -3184,6 +3191,8 @@ bool parse_declaration(bool is_param)
 		else if (accept_term(TK_STATIC))
 		{
 			storage_type = ST_STATIC;
+			if (inside_function)
+				fprintf(stderr, "%s: static inside function\n", token_it_pos());
 		}
 		else
 			break;
