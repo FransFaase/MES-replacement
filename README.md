@@ -65,6 +65,12 @@ stack_c compiler and the life-bootstrap programs `blood-elf`, `M1` and `hex2`.
 ## WIP 18 june 2025: compile stack_c.c
 
 The [commit 5808d49c](https://github.com/FransFaase/MES-replacement/commit/5808d49c14bd2e1b0a997be58cdd04f4a9ef713c)
+
+## 28 june 2025: Self hosting compiler
+
+With [commit c57b9bbd](https://github.com/FransFaase/MES-replacement/commit/c57b9bbdf55de3115a5159d8362ed67d8fab7e23)
+the compiler is now a self hosting compiler in the sense that the compiled version of the compiler (with its source
+as input) when used to compile its source, will return the same output.
 fixes some bugs, such that compiling `stack_c.c` with the `tcc_cc` compiler, the resulting program produces the
 same output when executed on the output of `tcc_cc`.
 
