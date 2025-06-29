@@ -3333,6 +3333,14 @@ bool parse_declaration(bool is_param)
 			if (accept_term('='))
 			{
 				decl->value = parse_initializer();
+				if (!as_pointer && decl->type->kind == TYPE_KIND_POINTER && decl->value->kind == 'l')
+				{
+					// Fix type:
+					int nr_elems = decl->value->nr_children;
+					decl->type->kind = TYPE_KIND_ARRAY;
+					decl->type->size = nr_elems * decl->type->size;
+					decl->type->nr_elems = nr_elems;
+				}
 			}
 			if (!is_param && inside_struct_or_union == 0 && decl->storage_type != ST_TYPEDEF && type->kind != TYPE_KIND_FUNCTION)
 				gen_variable_decl(decl);

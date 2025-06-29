@@ -97,5 +97,7 @@ int main (int argc, char *argv[])
 	is_true(it_one->func() == 1, "it_one->func() == 1");
 	void (*v_func)(void) = void_func;
 	v_func();
+	int array[] = { 1, 2, 3 };
+	is_true(sizeof(array) == 3 * sizeof(array[0]));
 	return result;
 }
