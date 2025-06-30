@@ -98,6 +98,9 @@ int main (int argc, char *argv[])
 	void (*v_func)(void) = void_func;
 	v_func();
 	int array[] = { 1, 2, 3 };
-	is_true(sizeof(array) == 3 * sizeof(array[0]));
+	is_true(sizeof(array) == 3 * sizeof(array[0]), "size of array is 3");
+	static int s_int = 1;
+	is_true(s_int == 1, "static int == 1");
+
 	return result;
 }

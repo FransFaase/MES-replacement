@@ -3190,9 +3190,8 @@ bool parse_declaration(bool is_param)
 		}
 		else if (accept_term(TK_STATIC))
 		{
-			storage_type = ST_STATIC;
 			if (inside_function)
-				fprintf(stderr, "%s: static inside function\n", token_it_pos());
+				storage_type = ST_STATIC;
 		}
 		else
 			break;
@@ -4218,7 +4217,10 @@ void gen_initializer(expr_p expr, type_p type);
 void gen_variable_decl(decl_p decl)
 {
 	gen_indent();
-	fprintf(fcode, "int ");
+	if (decl->storage_type == ST_STATIC)
+		fprintf(fcode, "static ");
+	else
+		fprintf(fcode, "int ");
 	if (decl->type->size > 4)
 		fprintf(fcode, "%d ", (decl->type->size + 3) / 4);
 	fprintf(fcode, "%s", decl->name);
@@ -4362,7 +4364,7 @@ void gen_expr(expr_p expr, bool as_value)
 						if (expr_is_pointer_size_lt_1(expr->children[1]))
 							fprintf(fcode, "- %d / ", expr->children[0]->type->members[0]->size);
 						else
-							fprintf(fcode, "%d * -", expr->children[0]->type->members[0]->size);
+							fprintf(fcode, "%d * - ", expr->children[0]->type->members[0]->size);
 					}
 					else
 						fprintf(fcode, "- ");
@@ -4612,7 +4614,7 @@ void gen_initializer(expr_p expr, type_p type)
 			}
 		}
 		else
-			printf("Error: unfit type for initializer");
+			fprintf(stderr, "%s Error: unfit type %d for initializer\n", token_it_pos(), type->kind);
 	}
 	else
 	{

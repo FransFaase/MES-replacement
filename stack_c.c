@@ -26,8 +26,9 @@ Notes:
 
 // Constants
 
-#define MAX_TOKEN_LENGTH 1000
-#define MAX_NR_VARIABLES 500
+#define MAX_TOKEN_LENGTH 4000
+#define MAX_NR_VARIABLES 4000
+#define MAX_NR_STATICS 10
 #define MAX_VARIABLE_LENGTH 50
 #define MAX_NESTING 100
 
@@ -70,7 +71,7 @@ typedef struct
 	const char *name;
 	char sym;
 } Keyword;
-#define NR_KEYWORDS 10
+#define NR_KEYWORDS 11
 Keyword keywords[NR_KEYWORDS] = {
 	{ "void",		'F' },
 	{ "const",		'C' },
@@ -82,6 +83,7 @@ Keyword keywords[NR_KEYWORDS] = {
 	{ "else" ,		'E' },
 	{ "return",		'R' },
 	{ "goto",		'G' },
+	{ "static",     'S' }
 };
 
 int error = 0;
@@ -282,12 +284,22 @@ typedef struct
 	char name[MAX_VARIABLE_LENGTH+1];
 	int pos;     // position for local variable
 	int size;    // size for variable
-	int value;   // value for constant
+	int value;   // value for constant, nr for static
 } ident_t;
 
 ident_t idents[MAX_NR_VARIABLES];
 int nr_idents = 0;
 int pos = 0;
+
+typedef struct
+{
+	char name[MAX_VARIABLE_LENGTH+1];
+	int size;
+	/* data */
+} static_t;
+
+static_t statics[MAX_NR_STATICS];
+int nr_statics;
 
 // String constants
 
@@ -480,8 +492,9 @@ int main(int argc, char *argv[])
 			idents[nr_idents].value = int_value;
 			nr_idents++;
 		}
-		else if (sym == 'V')
+		else if (sym == 'V' || sym == 'S')
 		{
+			char type = sym == 'S' ? 'S' : nesting_depth == 0 ? 'G' : 'L'; 
 			// Variable definition
 			get_token();
 			int size = 1;
@@ -500,10 +513,22 @@ int main(int argc, char *argv[])
 				fprintf(ferr, "ERROR %d: More than %d variables\n", cur_line, MAX_NR_VARIABLES);
 				return 1;
 			}
-			idents[nr_idents].type = nesting_depth == 0 ? 'G' : 'L';
+			if (nr_statics >= MAX_NR_STATICS)
+			{
+				fprintf(ferr, "ERROR %d: More than %d variables\n", cur_line, MAX_NR_STATICS);
+				return 1;
+			}
+			idents[nr_idents].type = type;
 			strcpy(idents[nr_idents].name, token);
 			idents[nr_idents].size = size;
-			if (nesting_depth > 0)
+			if (type == 'S')
+			{
+				strcpy(statics[nr_statics].name, token);
+				statics[nr_statics].size = size;
+				idents[nr_idents].value = nr_statics;
+				nr_statics++;
+			}
+			else if (nesting_depth > 0)
 			{
 				idents[nr_idents].pos = pos;
 				pos += size;
@@ -670,6 +695,8 @@ int main(int argc, char *argv[])
 					fprintf(fout, "\tpush_eax              # %d (const %s)\n\tmov_eax, %%%d\n", idents[i].value, token, idents[i].value);
 				else if (idents[i].type == 'L')
 					fprintf(fout, "\tpush_eax              # %s (local)\n\tlea_eax,[ebp+DWORD] %%%d\n", token, 4 * idents[i].pos);
+				else if (idents[i].type == 'S')
+					fprintf(fout, "\tpush_eax              # %s (static)\n\tmov_eax, &_static_%d_%s\n", token, idents[i].value, token);
 			}
 			else
 			{
@@ -722,6 +749,10 @@ int main(int argc, char *argv[])
 		else if (sym == '|')
 		{
 			fprintf(fout, "\tpop_ebx               # |\n\tor_eax,ebx\n");
+		}
+		else if (sym == '^')
+		{
+			fprintf(fout, "\tpop_ebx               # ^\n\txor_eax,ebx\n");
 		}
 		else if (sym == '~')
 		{
@@ -929,6 +960,13 @@ int main(int argc, char *argv[])
 				fprintf(fout, "%sNULL", j % 8 == 0 ? "\n\t" : " ");
 			fprintf(fout, "\n");
 		}
+	for (int i = 0; i < nr_statics; i++)
+	{
+		fprintf(fout, ":_static_%d_%s", i, statics[i].name);
+		for (int j = 0; j < statics[i].size; j++)
+			fprintf(fout, "%sNULL", j % 8 == 0 ? "\n\t" : " ");
+		fprintf(fout, "\n");
+	}
 	fprintf(fout, "\n:ELF_end\n");
 
 	fclose(fout);

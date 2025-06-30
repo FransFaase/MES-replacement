@@ -45,6 +45,7 @@ DEFINE idiv_ebx F7FB
 DEFINE and_eax, 25
 DEFINE and_eax,ebx 21D8
 DEFINE or_eax,ebx 09D8
+DEFINE xor_eax,ebx 31D8
 DEFINE not_eax F7D0
 DEFINE add_ebp, 81C5
 DEFINE sub_ebp, 81ED

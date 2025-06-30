@@ -36,11 +36,42 @@ void *memcpy(void *dest, const void *src, size_t n)
 		d[i] = s[i];
 	return dest;
 }
-#if 0
-void *memmove(void *dest, const void *src, size_t n);
-void *memset(void *s, int c, size_t n);
-int memcmp(const void *s1, const void *s2, size_t n);
-#endif
+
+void *memmove(void *dest, const void *src, size_t n)
+{
+	char *d = (char *)dest;
+	char *s = (char *)src;
+	if (dest < src)
+	{
+		for (size_t i = 0; i < n; i++)
+			d[i] = s[i];
+	}
+	else if (src < dest)
+	{
+		size j = n-1;
+		for (size_t i = 0; i < n; i++, j--)
+			d[j] = s[j];
+	}
+	return dest;
+}
+
+void *memset(void *s, int c, size_t n)
+{
+	for (size_t i = 0; i < n; i++)
+		s[i] = c;
+	return s;
+}
+
+int memcmp(const void *s1, const void *s2, size_t n)
+{
+	for (size_t i = 0; i < n; i++, s1++, s2++)
+	{
+		int result = *(char*)s1 - *(char*)s2;
+		if (result != 0)
+			return result;
+	}
+	return 0;
+}
 
 size_t strlen(const char *s)
 {
@@ -57,12 +88,36 @@ char *strcpy(char *dest, const char *src)
 	*dest = '\0';
 	return result;
 }
-#if 0
-char *strncpy(char *dest, const char *src, size_t n);
-char *strchr(const char *s, int c);
-char *strrchr(const char *s, int c);
-char *strstr(const char *haystack, const char *needle);
-#endif
+
+char *strncpy(char *dest, const char *src, size_t n)
+{
+	char *d = (char *)dest;
+	char *s = (char *)src;
+	for (int i = 0; i < n; i++)
+	{
+		d[i] = s[i];
+		if (s[i] == '\0')
+			break;
+	}
+}
+
+char *strchr(const char *s, int c)
+{
+	for (; *s != '\0'; s++)
+		if (*s == c)
+			return s;
+	return NULL;
+}
+
+char *strrchr(const char *s, int c)
+{
+	int n = strlen(s);
+	for (int i = n; i >= 0; i--)
+		if (s[i] == c)
+			return s + i;
+	return NULL;
+}
+
 int strcmp(const char *s1, const char *s2)
 {
 	for (;;)
@@ -75,15 +130,76 @@ int strcmp(const char *s1, const char *s2)
 	}
 	return 0; // should not get here
 }
-#if 0
-int strncmp(const char *s1, const char *s2, size_t n);
+
+int strncmp(const char *s1, const char *s2, size_t n)
+{
+	for (; n > 0; n--)
+	{
+		int result = *s1 - *s2;
+		if (result != 0 || *s1 == 0)
+			return result;
+		s1++;
+		s2++;
+	}
+	return 0;
+}
+
+char *strstr(const char *haystack, const char *needle)
+{
+	int n = strlen(needle);
+	for (; *haystack != '\0'; haystack++)
+		if (strncmp(haystack, needle, n) == 0)
+			return haystack;
+	return NULL;
+}
 
 
-long strtol(const char *nptr, char **endptr, int base);
-long strtoul(const char *nptr, char **endptr, int base);
-long strtoll(const char *nptr, char **endptr, int base);
-long strtoull(const char *nptr, char **endptr, int base);
-#endif
+long strtoul(const char *nptr, char **endptr, int base)
+{
+	long result = 0;
+	char sub_10 = '0' + (base < 10 ? base : 10);
+	for (;; nptr++)
+	{
+		if ('0' <= *nptr && *nptr < sub_10)
+			result = base * result + *nptr - '0';
+		else if ('a' <= *nptr && *nptr < 'a' + base - 10)
+			result = base * result + *nptr - 'a' + 10;
+		else if ('A' <= *nptr && *nptr < 'A' + base - 10)
+			result = base * result + *nptr - 'A' + 10;
+		else
+			break;
+	}
+	*endptr = nptr;
+	return result;
+}
+
+long strtol(const char *nptr, char **endptr, int base)
+{
+	long sign = 1;
+	if (*nptr == '-')
+	{
+		sign = -1;
+		nptr++;
+	}
+	return sign * strtoul(nptr, endptr, base);
+}
+
+long strtoll(const char *nptr, char **endptr, int base)
+{
+	return strtol(nptr, endptr, base);
+}
+
+long strtoull(const char *nptr, char **endptr, int base)
+{
+	return strtoul(nptr, endptr, base);
+}
+
+float strtof(const char* str, char **endptr)
+{
+	// TODO
+	*endptr = str;
+	return 0;
+}
 
 void *malloc(size_t size)
 {
@@ -97,11 +213,18 @@ void free(void *ptr)
 	// Do freeing of memory
 	return 0
 }
-#if 0
-void *realloc(void *ptr, size_t size);
 
-size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
-#endif
+void *realloc(void *ptr, size_t size)
+{
+	void *r = malloc(size);
+	memcpy(r, ptr, size);
+	return r;
+}
+
+size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
+{
+	return sys_int80(4, stream->fh, ptr, size * nmemb);
+}
 
 int fputc(int c, FILE *stream)
 {
@@ -230,6 +353,7 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 }
 
 void va_start(va_list ap, ...);
+void va_end(va_list ap) {}
 
 int fprintf(FILE *stream, const char *format, ...)
 {
@@ -257,10 +381,12 @@ int snprintf(char *str, size_t size, const char *format, ...)
 	va_start(ap, format);
 	return __sys_printf(0, str, size, format, ap);
 }
-#if 0
-int vsnprintf(char *str, size_t size, const char *format, va_list ap);
 
-#endif
+int vsnprintf(char *str, size_t size, const char *format, va_list ap)
+{
+	return __sys_printf(0, str, size, format, ap);
+}
+
 #define O_RDONLY 0
 #define O_WRONLY 1
 #define O_CREAT 00100
@@ -313,19 +439,37 @@ FILE *fopen(const char *pathname, const char *mode)
 	f->at_eof = 0;
 	return f;
 }
-#if 0
-FILE *fdopen(int fd, const char *mode);
-#endif
+
+FILE *fdopen(int fd, const char *mode)
+{
+	// TODO
+}
+
 int fclose(FILE *stream)
 {
 	return sys_int80(6, stream->fh, 0, 0);
 }
-#if 0
-int fflush(FILE *stream);
-int fseek(FILE *stream, long offset, int whence);
-long ftell(FILE *stream);
-size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
-#endif
+
+int fflush(FILE *stream)
+{
+	// TODO
+}
+
+int fseek(FILE *stream, long offset, int whence)
+{
+	// TODO
+}
+
+long ftell(FILE *stream)
+{
+	// TODO
+}
+
+size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
+{
+	// TODO
+}
+
 
 #define SEEK_SET	0
 #define SEEK_CUR	1
@@ -334,10 +478,12 @@ off_t lseek(int fd, off_t offset, int whence)
 {
 	return sys_int80(19, fd, offset, whence);
 }
+
 int feof(FILE *stream)
 {
 	return stream->at_eof;
 }
+
 int fgetc(FILE *stream)
 {
 	if (stream->at_eof)
@@ -351,12 +497,20 @@ int fgetc(FILE *stream)
 	}
 	return buffer[0];
 }
-#if 0
 
 
-double ldexp(double x, int exp);
+double ldexp(double x, int exp)
+{
+	double result = x;
+	for (int i = 1; i < exp; i++)
+		result *= x;
+	return result;
+}
 
-time_t time(time_t *tloc);
+time_t time(time_t *tloc)
+{
+	// TODO
+}
 
 struct tm {
 	int tm_sec;    /* Seconds (0-60) */
@@ -369,7 +523,10 @@ struct tm {
 	int tm_yday;   /* Day in the year (0-365, 1 Jan = 0) */
 	int tm_isdst;  /* Daylight saving time */
 };
-struct tm *localtime(const time_t *timep);
+struct tm *localtime(const time_t *timep)
+{
+	// TODO
+}
 
 struct timeval {
 	time_t      tv_sec;     /* seconds */
@@ -379,7 +536,10 @@ struct timezone {
 	int tz_minuteswest;     /* minutes west of Greenwich */
 	int tz_dsttime;         /* type of DST correction */
 };
-int gettimeofday(struct timeval *tv, struct timezone *tz);
+int gettimeofday(struct timeval *tv, struct timezone *tz)
+{
+	return 0;
+}
 
 int errno;
 
@@ -392,11 +552,11 @@ const int LINE_MACRO_OUTPUT_FORMAT_STD = 2;
 const int LINE_MACRO_OUTPUT_FORMAT_P10 = 11;
 
 // for tcc_cc.c
-#endif
 int write(int fd, char* buf, unsigned count)
 {
 	return sys_int80(4, fd, buf, count);
 }
+
 int fileno(FILE *stream)
 {
 	return stream->fh;
@@ -406,25 +566,61 @@ int fileno(FILE *stream)
 #define __file__ ""
 #define __func__ ""
 
-#if 0
+char *getcwd(char *buf, size_t size)
+{
+	// TODO
+}
 
-char *getcwd(char *buf, size_t size);
-char *getenv(const char *name);
-void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *));
-void va_end(va_list ap);
-time_t time(time_t *tloc);
+char *getenv(const char *name)
+{
+	// TODO
+}
 
-int setjmp(jmp_buf env);
-void longjmp(jmp_buf env, int val);
+void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *))
+{
+	// TODO
+}
 
-int unlink(const char *pathname);
+time_t time(time_t *tloc)
+{
+	// TODO
+}
 
+int setjmp(jmp_buf env)
+{
+	// TODO
+	return 0;
+}
 
-int sscanf(const char *str, const char *format, ...);
-int atoi(const char *nptr);
-int remove(const char *pathname);
-int execvp(const char *file, char * argv[]);
+void longjmp(jmp_buf env, int val)
+{
+	// TODO
+	exit(-1);
+}
+
+int unlink(const char *pathname)
+{
+	// TODO
+}
+
+int sscanf(const char *str, const char *format, ...)
+{
+	// TODO
+}
+int atoi(const char *nptr)
+{
+	// TODO
+}
+
+int remove(const char *pathname)
+{
+	// TODO
+}
+
+int execvp(const char *file, char * argv[])
+{
+	// TODO
+}
+
 
 void __init_globals__(void);
-
-#endif
