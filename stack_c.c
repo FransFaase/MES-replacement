@@ -44,7 +44,8 @@ FILE *fin;
 FILE *fout;
 FILE *ferr;
 char cur_char = '\0';
-int cur_line = 1;
+int cur_char_line = 1;
+int cur_char_column = 1;
 
 // Read charachter
 
@@ -55,16 +56,27 @@ void read_char(void)
 	else
 	{
 		if (cur_char == '\n')
-			cur_line++;
+		{
+			cur_char_line++;
+			cur_char_column = 0;
+		}
 		cur_char = fgetc(fin);
 		if (feof(fin))
 			cur_char = '\0';
+		else
+		{
+			cur_char_column++;
+			if (cur_char == '\t')
+				cur_char_column += 4 - ((cur_char_column - 1) % 4);
+		}
 	}
 }
 
 char sym;
 char token[MAX_TOKEN_LENGTH+1];
 int int_value;
+int cur_line = 0;
+int cur_column = 0;
 
 typedef struct
 {
@@ -160,6 +172,10 @@ void get_token(void)
 		sym = '\0';
 		return;
 	}
+
+	// Store starting position
+	cur_line = cur_char_line;
+	cur_column = cur_char_column;
 
 	// Check for identifier
 	if (('a' <= cur_char && cur_char <= 'z') || ('A' <= cur_char && cur_char <= 'Z') || cur_char == '_')
@@ -312,7 +328,6 @@ void get_token(void)
 	if (cur_char == ':')
 	{
 		sym = ':';
-		token[0] = ':';
 		token[1] = '\0';
 		read_char();
 		return;
@@ -483,7 +498,7 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != 'A')
 			{
-				fprintf(ferr, "ERROR %d: Expecting name after 'void' for function\n", cur_line);
+				fprintf(ferr, "ERROR %d.%d: Expecting name after 'void' for function\n", cur_line, cur_column);
 				return 1;
 			}
 			// Save the function name
@@ -501,7 +516,7 @@ int main(int argc, char *argv[])
 				{
 					if (nr_idents >= MAX_NR_VARIABLES)
 					{
-						fprintf(ferr, "ERROR %d: More than %d variables\n", cur_line, MAX_NR_VARIABLES);
+						fprintf(ferr, "ERROR %d.%d: More than %d variables\n", cur_line, cur_column, MAX_NR_VARIABLES);
 						return 1;
 					}
 					add_function(token);
@@ -517,7 +532,7 @@ int main(int argc, char *argv[])
 				pos = 1;
 				if (sym != '{')
 				{
-					fprintf(ferr, "ERROR %d '%s: Expect ; or { after function name\n", cur_line, token);
+					fprintf(ferr, "ERROR %d.%d: Expect ; or { after function name\n", cur_line, cur_column);
 					return 1;
 				}
 				//printf("start function %s\n", function_name);
@@ -536,12 +551,12 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != 'A')
 			{
-				fprintf(ferr, "ERROR %d: Expecting name after 'const'\n", cur_line);
+				fprintf(ferr, "ERROR %d.%d: Expecting name after 'const'\n", cur_line, cur_column);
 				return 1;
 			}
 			if (nr_idents >= MAX_NR_VARIABLES)
 			{
-				fprintf(ferr, "ERROR %d: More than %d variables\n", cur_line, MAX_NR_VARIABLES);
+				fprintf(ferr, "ERROR %d.%d: More than %d variables\n", cur_line, cur_column, MAX_NR_VARIABLES);
 				return 1;
 			}
 			idents[nr_idents].type = 'C';
@@ -549,7 +564,7 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != '0')
 			{
-				fprintf(ferr, "ERROR %d: Expecting number after 'const' <name>\n", cur_line);
+				fprintf(ferr, "ERROR %d.%d: Expecting number after 'const' <name>\n", cur_line, cur_column);
 				return 1;
 			}
 			idents[nr_idents].value = int_value;
@@ -568,17 +583,17 @@ int main(int argc, char *argv[])
 			}
 			if (sym != 'A')
 			{
-				fprintf(ferr, "ERROR %d: Expecting name after 'int'\n", cur_line);
+				fprintf(ferr, "ERROR %d.%d: Expecting name after 'int'\n", cur_line, cur_column);
 				return 1;
 			}
 			if (nr_idents >= MAX_NR_VARIABLES)
 			{
-				fprintf(ferr, "ERROR %d: More than %d variables\n", cur_line, MAX_NR_VARIABLES);
+				fprintf(ferr, "ERROR %d.%d: More than %d variables\n", cur_line, cur_column, MAX_NR_VARIABLES);
 				return 1;
 			}
 			if (nr_statics >= MAX_NR_STATICS)
 			{
-				fprintf(ferr, "ERROR %d: More than %d variables\n", cur_line, MAX_NR_STATICS);
+				fprintf(ferr, "ERROR %d.%d: More than %d variables\n", cur_line, cur_column, MAX_NR_STATICS);
 				return 1;
 			}
 			idents[nr_idents].type = type;
@@ -603,13 +618,13 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != '{')
 			{
-				fprintf(ferr, "ERROR %d: expecting '{' after 'do'\n", cur_line);
+				fprintf(ferr, "ERROR %d.%d: expecting '{' after 'do'\n", cur_line, cur_column);
 				return 1;
 			}
 			fprintf(fout, ":_%s_loop%d\n", function_name, id);
 			if (nesting_depth >= MAX_NESTING)
 			{
-				fprintf(ferr, "ERROR %d: Nesting deeper than %d\n", cur_line, MAX_NESTING);
+				fprintf(ferr, "ERROR %d.%d: Nesting deeper than %d\n", cur_line, cur_column, MAX_NESTING);
 				return 1;
 			}
 			nesting_type[nesting_depth] = 'L';
@@ -626,7 +641,7 @@ int main(int argc, char *argv[])
 					break;
 			if (i < 0)
 			{
-				fprintf(ferr, "ERROR %d: 'break' outside 'loop'\n", cur_line);
+				fprintf(ferr, "ERROR %d.%d: 'break' outside 'loop'\n", cur_line, cur_column);
 				return 1;
 			}
 			if (sym == 'B')
@@ -639,7 +654,7 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != '{')
 			{
-				fprintf(ferr, "ERROR %d: expecting '{' after 'if'\n", cur_line);
+				fprintf(ferr, "ERROR %d.%d: expecting '{' after 'if'\n", cur_line, cur_column);
 				return 1;
 			}
 			fprintf(fout, "\ttest_eax,eax          # if\n\tpop_eax\n\tje %%_%s_else%d\n", function_name, id);
@@ -656,7 +671,7 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == 'E')
 		{
-			fprintf(ferr, "ERROR %d: unexpected 'else'\n", cur_line);
+			fprintf(ferr, "ERROR %d.%d: unexpected 'else'\n", cur_line, cur_column);
 			return 1;
 		}
 		else if (sym == '{')
@@ -670,7 +685,7 @@ int main(int argc, char *argv[])
 		{
 			if (nesting_depth == 0)
 			{
-				fprintf(ferr, "ERROR %d: To many }\n", cur_line);
+				fprintf(ferr, "ERROR %d.%d: To many }\n", cur_line, cur_column);
 				return 1;
 			}
 			nesting_depth--;
@@ -686,14 +701,14 @@ int main(int argc, char *argv[])
 					get_token();
 					if (sym != '{')
 					{
-						fprintf(ferr, "ERROR %d: expecting '{' after 'else'\n", cur_line);
+						fprintf(ferr, "ERROR %d.%d: expecting '{' after 'else'\n", cur_line, cur_column);
 						return 1;
 					}
 					fprintf(fout, "\tjmp %%_%s_else_end%d\n", function_name, nesting_id[nesting_depth]);
 					fprintf(fout, ":_%s_else%d\n", function_name, nesting_id[nesting_depth]);
 					if (nesting_depth >= MAX_NESTING)
 					{
-						fprintf(ferr, "ERROR %d: Nesting deeper than %d\n", cur_line, MAX_NESTING);
+						fprintf(ferr, "ERROR %d.%d: Nesting deeper than %d\n", cur_line, cur_column, MAX_NESTING);
 						return 1;
 					}
 					nesting_type[nesting_depth] = 'E';
@@ -731,7 +746,7 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != 'A')
 			{
-				fprintf(ferr, "Expecting label after 'goto'\n");
+				fprintf(ferr, "ERROR %d.%d: Expecting label after 'goto'\n", cur_line, cur_column);
 				return 0;
 			}
 			fprintf(fout, "\tjmp %%%s_%s\n", token, function_name);
@@ -763,7 +778,7 @@ int main(int argc, char *argv[])
 			}
 			else
 			{
-				fprintf(ferr, "ERROR %d: Ident %s is not defined\n", cur_line, token);
+				fprintf(ferr, "ERROR %d.%d: Ident %s is not defined\n", cur_line, cur_column, token);
 				error = 1;
 			}
 		}
@@ -846,7 +861,7 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != 'A')
 			{
-				fprintf(ferr, "ERROR %d: Expect identifier after ':", cur_line);
+				fprintf(ferr, "ERROR %d.%d: Expect identifier after ':", cur_line, cur_column);
 				return -1;
 			}
 			fprintf(fout, ":%s_%s\n", token, function_name);
@@ -922,13 +937,13 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != '{')
 			{
-				fprintf(ferr, "ERROR %d: expecting '{' after '&&'\n", cur_line);
+				fprintf(ferr, "ERROR %d.%d: expecting '{' after '&&'\n", cur_line, cur_column);
 				return 1;
 			}
 			fprintf(fout, "\ttest_eax,eax          # &&\n\tje %%_%s_and_end%d\n\tpop_eax\n", function_name, id);
 			if (nesting_depth >= MAX_NESTING)
 			{
-				fprintf(ferr, "ERROR %d: Nesting deeper than %d\n", cur_line, MAX_NESTING);
+				fprintf(ferr, "ERROR %d.%d: Nesting deeper than %d\n", cur_line, cur_column, MAX_NESTING);
 				return 1;
 			}
 			nesting_type[nesting_depth] = 'A';
@@ -942,13 +957,13 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != '{')
 			{
-				fprintf(ferr, "ERROR %d: expecting '{' after '||'\n", cur_line);
+				fprintf(ferr, "ERROR %d.%d: expecting '{' after '||'\n", cur_line, cur_column);
 				return 1;
 			}
 			fprintf(fout, "\ttest_eax,eax          # ||\n\tjne %%_%s_or_end%d\n\tpop_eax\n", function_name, id);
 			if (nesting_depth >= MAX_NESTING)
 			{
-				fprintf(ferr, "ERROR %d: Nesting deeper than %d\n", cur_line, MAX_NESTING);
+				fprintf(ferr, "ERROR %d.%d: Nesting deeper than %d\n", cur_line, cur_column, MAX_NESTING);
 				return 1;
 			}
 			nesting_type[nesting_depth] = 'O';
@@ -962,7 +977,7 @@ int main(int argc, char *argv[])
 			get_token();
 			if (sym != 'A')
 			{
-				fprintf(ferr, "ERROR %d: Expecting const ident after '->'. Found %s\n", cur_line, token);
+				fprintf(ferr, "ERROR %d.%d: Expecting const ident after '->'. Found %s\n", cur_line, cur_column, token);
 				return 1;
 			}
 			int i = nr_idents - 1;
@@ -985,7 +1000,7 @@ int main(int argc, char *argv[])
 		}
 		else
 		{
-			fprintf(ferr, "ERROR %d: token |%s| not supported\n", cur_line, token);
+			fprintf(ferr, "ERROR %d.%d: token |%s| not supported\n", cur_line, cur_column, token);
 			error = 1;
 		}
 		
