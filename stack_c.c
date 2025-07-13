@@ -70,20 +70,66 @@ typedef struct
 {
 	const char *name;
 	char sym;
-} Keyword;
+} Mapping;
 #define NR_KEYWORDS 11
-Keyword keywords[NR_KEYWORDS] = {
+Mapping keywords[NR_KEYWORDS] = {
 	{ "void",		'F' },
 	{ "const",		'C' },
 	{ "int",		'V' },
 	{ "do",			'L' },
 	{ "break",		'B' },
 	{ "continue",	'D' },
-	{ "if",			'T' },
+	{ "if",			'I' },
 	{ "else" ,		'E' },
 	{ "return",		'R' },
 	{ "goto",		'G' },
 	{ "static",     'S' }
+};
+
+#define SYMBOL(X) ('a' + (X))
+
+#define NR_SYMBOLS 20
+Mapping symbols[NR_SYMBOLS] = {
+#define SYM_REV_ASS SYMBOL(0)
+	{ "=:",         SYM_REV_ASS },
+#define SYM_GET_BYTE SYMBOL(1)
+	{ "?1",         SYM_GET_BYTE },
+#define SYM_ASS_BYTE SYMBOL(2)
+	{ "=1",         SYM_ASS_BYTE },
+#define SYM_CALL SYMBOL(3)
+	{ "()",         SYM_CALL },
+#define SYM_DIV_SIGNED SYMBOL(4)
+	{ "/s",         SYM_DIV_SIGNED },
+#define SYM_MOD_SIGNED SYMBOL(5)
+	{ "%s",         SYM_MOD_SIGNED },
+#define SYM_EQ SYMBOL(6)
+	{ "==",         SYM_EQ },
+#define SYM_NE SYMBOL(7)
+	{ "!=",         SYM_NE },
+#define SYM_LE SYMBOL(8)
+	{ "<=",         SYM_LE },
+#define SYM_GE SYMBOL(9)
+	{ ">=",         SYM_GE },
+#define SYM_LT_SIGNED SYMBOL(10)
+	{ "<s",         SYM_LT_SIGNED },
+#define SYM_LE_SIGNED SYMBOL(11)
+	{ "<=s",         SYM_LE_SIGNED },
+#define SYM_GT_SIGNED SYMBOL(12)
+	{ ">s",         SYM_GT_SIGNED },
+#define SYM_GE_SIGNED SYMBOL(13)
+	{ ">=s",         SYM_GE_SIGNED },
+#define SYM_SHL SYMBOL(14)
+	{ "<<",         SYM_SHL },
+#define SYM_SHR SYMBOL(15)
+	{ ">>",         SYM_SHR },
+#define SYM_LOG_AND SYMBOL(16)
+	{ "&&",         SYM_LOG_AND },
+#define SYM_LOG_OR SYMBOL(17)
+	{ "||",         SYM_LOG_OR },
+#define SYM_ARROW SYMBOL(18)
+	{ "->",         SYM_ARROW },
+#define SYM_SWAP SYMBOL(19)
+	{ "><",         SYM_SWAP },
 };
 
 int error = 0;
@@ -118,7 +164,7 @@ void get_token(void)
 	// Check for identifier
 	if (('a' <= cur_char && cur_char <= 'z') || ('A' <= cur_char && cur_char <= 'Z') || cur_char == '_')
 	{
-		sym = 'i';
+		sym = 'A';
 		do
 		{
 			token[i++] = cur_char;
@@ -262,8 +308,18 @@ void get_token(void)
 		}
 	}
 
+	// Label start
+	if (cur_char == ':')
+	{
+		sym = ':';
+		token[0] = ':';
+		token[1] = '\0';
+		read_char();
+		return;
+	}
+
 	// Parse symbol till next white space
-	sym = 's';
+	sym = ' ';
 	do
 	{
 		token[i++] = cur_char;
@@ -274,6 +330,13 @@ void get_token(void)
 	token[i] = '\0';
 	if (i == 1)
 		sym = token[0];
+	else
+		for (int i = 0; i < NR_SYMBOLS; i++)
+			if (strcmp(token, symbols[i].name) == 0)
+			{
+				sym = symbols[i].sym;
+				return;
+			}
 }
 
 // Identifiers
@@ -418,7 +481,7 @@ int main(int argc, char *argv[])
 		{
 			// Function definition
 			get_token();
-			if (sym != 'i')
+			if (sym != 'A')
 			{
 				fprintf(ferr, "ERROR %d: Expecting name after 'void' for function\n", cur_line);
 				return 1;
@@ -454,7 +517,7 @@ int main(int argc, char *argv[])
 				pos = 1;
 				if (sym != '{')
 				{
-					fprintf(ferr, "ERROR %d: Expect ; or { after function name\n", cur_line);
+					fprintf(ferr, "ERROR %d '%s: Expect ; or { after function name\n", cur_line, token);
 					return 1;
 				}
 				//printf("start function %s\n", function_name);
@@ -471,7 +534,7 @@ int main(int argc, char *argv[])
 		{
 			// Constant definition
 			get_token();
-			if (sym != 'i')
+			if (sym != 'A')
 			{
 				fprintf(ferr, "ERROR %d: Expecting name after 'const'\n", cur_line);
 				return 1;
@@ -503,7 +566,7 @@ int main(int argc, char *argv[])
 				size = int_value;
 				get_token();
 			}
-			if (sym != 'i')
+			if (sym != 'A')
 			{
 				fprintf(ferr, "ERROR %d: Expecting name after 'int'\n", cur_line);
 				return 1;
@@ -571,7 +634,7 @@ int main(int argc, char *argv[])
 			else
 				fprintf(fout, "\tjmp %%_%s_loop%d\n", function_name, nesting_id[i]);
 		}
-		else if (sym == 'T')
+		else if (sym == 'I')
 		{
 			get_token();
 			if (sym != '{')
@@ -585,7 +648,7 @@ int main(int argc, char *argv[])
 				fprintf(ferr, "ERROR %d: Nesting deeper than %d\n", cur_line, MAX_NESTING);
 				return 1;
 			}
-			nesting_type[nesting_depth] = 'T';
+			nesting_type[nesting_depth] = 'I';
 			nesting_id[nesting_depth] = id++;
 			nesting_nr_vars[nesting_depth] = nr_idents;
 			nesting_pos[nesting_depth] = pos;
@@ -615,7 +678,7 @@ int main(int argc, char *argv[])
 			pos = nesting_pos[nesting_depth];
 			if (nesting_type[nesting_depth] == 'L')
 				fprintf(fout, "\tjmp %%_%s_loop%d\n:_%s_loop_end%d\n", function_name, nesting_id[nesting_depth], function_name, nesting_id[nesting_depth]);
-			else if (nesting_type[nesting_depth] == 'T')
+			else if (nesting_type[nesting_depth] == 'I')
 			{
 				get_token();
 				if (sym == 'E')
@@ -666,14 +729,14 @@ int main(int argc, char *argv[])
 		else if (sym == 'G')
 		{
 			get_token();
-			if (sym != 'i')
+			if (sym != 'A')
 			{
 				fprintf(ferr, "Expecting label after 'goto'\n");
 				return 0;
 			}
 			fprintf(fout, "\tjmp %%%s_%s\n", token, function_name);
 		}
-		else if (sym == 'i')
+		else if (sym == 'A')
 		{
 			int i = nr_idents - 1;
 			for (; i >= 0; i--)
@@ -778,153 +841,151 @@ int main(int argc, char *argv[])
 		{
 			fprintf(fout, "\ttest_eax,eax          # !\n\tsete_al\n\tmovzx_eax,al\n");
 		}
-		else if (sym == 's')
+		else if (sym == ':')
 		{
-			if (token[0] == ':')
+			get_token();
+			if (sym != 'A')
 			{
-				fprintf(fout, "%s_%s\n", token, function_name);
+				fprintf(ferr, "ERROR %d: Expect identifier after ':", cur_line);
+				return -1;
 			}
-			else if (strcmp(token, "=:") == 0)
+			fprintf(fout, ":%s_%s\n", token, function_name);
+		}
+		else if (sym == SYM_REV_ASS)
+		{
+			fprintf(fout, "\tpop_ebx               # =:\n\tmov_[eax],ebx\n\tpop_eax\n");
+		}
+		else if (sym == SYM_GET_BYTE)
+		{
+			fprintf(fout, "\tmov_al,[eax]          # ?1\n\tmovzx_eax,al\n");
+		}
+		else if (sym == SYM_ASS_BYTE)
+		{
+			fprintf(fout, "\tpop_ebx               # =1\n\tmov_[ebx],al\n");
+		}
+		else if (sym == SYM_CALL)
+		{
+			//int nr = pos - nesting_nr_vars[0] + 1;
+			//printf(" call at %d offset %d\n", pos, nr);
+			fprintf(fout, "\tadd_ebp, %%%d         # ()\n\tcall_eax\n\tsub_ebp, %%%d\n", 4 * pos, 4 * pos);
+		}
+		else if (sym == SYM_DIV_SIGNED)
+		{
+			fprintf(fout, "\tmov_ebx,eax           # /s\n\tpop_eax\n\tcdq\n\tidiv_ebx\n");
+		}
+		else if (sym == SYM_MOD_SIGNED)
+		{
+			fprintf(fout, "\tmov_ebx,eax           # %%s\n\tpop_eax\n\tcdq\n\tidiv_ebx\n\tmov_eax,edx");
+		}
+		else if (sym == SYM_EQ)
+		{
+			fprintf(fout, "\tpop_ebx               # ==\n\tcmp_eax_ebx\n\tsete_al\n\tmovzx_eax,al\n");
+		}
+		else if (sym == SYM_NE)
+		{
+			fprintf(fout, "\tpop_ebx               # !=\n\tcmp_eax_ebx\n\tsetne_al\n\tmovzx_eax,al\n");
+		}
+		else if (sym == SYM_LE)
+		{
+			fprintf(fout, "\tpop_ebx               # <=\n\tcmp_eax_ebx\n\tsetbe_al\n\tmovzx_eax,al\n");
+		}
+		else if (sym == SYM_GE)
+		{
+			fprintf(fout, "\tpop_ebx               # >=\n\tcmp_eax_ebx\n\tsetae_al\n\tmovzx_eax,al\n");
+		}
+		else if (sym == SYM_LT_SIGNED)
+		{
+			fprintf(fout, "\tpop_ebx               # <s\n\tcmp_eax_ebx\n\tsetl_al\n\tmovzx_eax,al\n");
+		}
+		else if (sym == SYM_LE_SIGNED)
+		{
+			fprintf(fout, "\tpop_ebx               # <=s\n\tcmp_eax_ebx\n\tsetle_al\n\tmovzx_eax,al\n");
+		}
+		else if (sym == SYM_GT_SIGNED)
+		{
+			fprintf(fout, "\tpop_ebx               # >s\n\tcmp_eax_ebx\n\tsetg_al\n\tmovzx_eax,al\n");
+		}
+		else if (sym == SYM_GE_SIGNED)
+		{
+			fprintf(fout, "\tpop_ebx               # >=sfv\n\tcmp_eax_ebx\n\tsetge_al\n\tmovzx_eax,al\n");
+		}
+		else if (sym == SYM_SHL)
+		{
+			fprintf(fout, "\tmov_ecx,eax           # <<\n\tpop_eax\n\tshl_eax,cl\n");
+		}
+		else if (sym == SYM_SHR)
+		{
+			fprintf(fout, "\tmov_ecx,eax           # <<\n\tpop_eax\n\tshr_eax,cl\n");
+		}
+		else if (sym == SYM_LOG_AND)
+		{
+			get_token();
+			if (sym != '{')
 			{
-				fprintf(fout, "\tpop_ebx               # =:\n\tmov_[eax],ebx\n\tpop_eax\n");
+				fprintf(ferr, "ERROR %d: expecting '{' after '&&'\n", cur_line);
+				return 1;
 			}
-			else if (strcmp(token, "?1") == 0)
+			fprintf(fout, "\ttest_eax,eax          # &&\n\tje %%_%s_and_end%d\n\tpop_eax\n", function_name, id);
+			if (nesting_depth >= MAX_NESTING)
 			{
-				fprintf(fout, "\tmov_al,[eax]          # ?1\n\tmovzx_eax,al\n");
+				fprintf(ferr, "ERROR %d: Nesting deeper than %d\n", cur_line, MAX_NESTING);
+				return 1;
 			}
-			else if (strcmp(token, "=1") == 0)
+			nesting_type[nesting_depth] = 'A';
+			nesting_id[nesting_depth] = id++;
+			nesting_nr_vars[nesting_depth] = nr_idents;
+			nesting_pos[nesting_depth] = pos;
+			nesting_depth++;
+		}
+		else if (sym == SYM_LOG_OR)
+		{
+			get_token();
+			if (sym != '{')
 			{
-				fprintf(fout, "\tpop_ebx               # =1\n\tmov_[ebx],al\n");
+				fprintf(ferr, "ERROR %d: expecting '{' after '||'\n", cur_line);
+				return 1;
 			}
-			else if (strcmp(token, "()") == 0)
+			fprintf(fout, "\ttest_eax,eax          # ||\n\tjne %%_%s_or_end%d\n\tpop_eax\n", function_name, id);
+			if (nesting_depth >= MAX_NESTING)
 			{
-				//int nr = pos - nesting_nr_vars[0] + 1;
-				//printf(" call at %d offset %d\n", pos, nr);
-				fprintf(fout, "\tadd_ebp, %%%d         # ()\n\tcall_eax\n\tsub_ebp, %%%d\n", 4 * pos, 4 * pos);
+				fprintf(ferr, "ERROR %d: Nesting deeper than %d\n", cur_line, MAX_NESTING);
+				return 1;
 			}
-			else if (strcmp(token, "/s") == 0)
+			nesting_type[nesting_depth] = 'O';
+			nesting_id[nesting_depth] = id++;
+			nesting_nr_vars[nesting_depth] = nr_idents;
+			nesting_pos[nesting_depth] = pos;
+			nesting_depth++;
+		}
+		else if (sym == SYM_ARROW)
+		{
+			get_token();
+			if (sym != 'A')
 			{
-				fprintf(fout, "\tmov_ebx,eax           # /s\n\tpop_eax\n\tcdq\n\tidiv_ebx\n");
+				fprintf(ferr, "ERROR %d: Expecting const ident after '->'. Found %s\n", cur_line, token);
+				return 1;
 			}
-			else if (strcmp(token, "%s") == 0)
+			int i = nr_idents - 1;
+			for (; i >= 0; i--)
+				if (strcmp(token, idents[i].name) == 0)
+					break;
+			if (i >= 0 && idents[i].type == 'C')
 			{
-				fprintf(fout, "\tmov_ebx,eax           # %%s\n\tpop_eax\n\tcdq\n\tidiv_ebx\n\tmov_eax,edx");
-			}
-			else if (strcmp(token, "==") == 0)
-			{
-				fprintf(fout, "\tpop_ebx               # ==\n\tcmp_eax_ebx\n\tsete_al\n\tmovzx_eax,al\n");
-			}
-			else if (strcmp(token, "!=") == 0)
-			{
-				fprintf(fout, "\tpop_ebx               # !=\n\tcmp_eax_ebx\n\tsetne_al\n\tmovzx_eax,al\n");
-			}
-			else if (strcmp(token, "<=") == 0)
-			{
-				fprintf(fout, "\tpop_ebx               # <=\n\tcmp_eax_ebx\n\tsetbe_al\n\tmovzx_eax,al\n");
-			}
-			else if (strcmp(token, ">=") == 0)
-			{
-				fprintf(fout, "\tpop_ebx               # >=\n\tcmp_eax_ebx\n\tsetae_al\n\tmovzx_eax,al\n");
-			}
-			else if (strcmp(token, "<s") == 0)
-			{
-				fprintf(fout, "\tpop_ebx               # <s\n\tcmp_eax_ebx\n\tsetl_al\n\tmovzx_eax,al\n");
-			}
-			else if (strcmp(token, "<=s") == 0)
-			{
-				fprintf(fout, "\tpop_ebx               # <=s\n\tcmp_eax_ebx\n\tsetle_al\n\tmovzx_eax,al\n");
-			}
-			else if (strcmp(token, ">s") == 0)
-			{
-				fprintf(fout, "\tpop_ebx               # >s\n\tcmp_eax_ebx\n\tsetg_al\n\tmovzx_eax,al\n");
-			}
-			else if (strcmp(token, ">=s") == 0)
-			{
-				fprintf(fout, "\tpop_ebx               # >=sfv\n\tcmp_eax_ebx\n\tsetge_al\n\tmovzx_eax,al\n");
-			}
-			else if (strcmp(token, "<<") == 0)
-			{
-				fprintf(fout, "\tmov_ecx,eax           # <<\n\tpop_eax\n\tshl_eax,cl\n");
-			}
-			else if (strcmp(token, ">>") == 0)
-			{
-				fprintf(fout, "\tmov_ecx,eax           # <<\n\tpop_eax\n\tshr_eax,cl\n");
-			}
-			else if (strcmp(token, "&&") == 0)
-			{
-				get_token();
-				if (sym != '{')
-				{
-					fprintf(ferr, "ERROR %d: expecting '{' after '&&'\n", cur_line);
-					return 1;
-				}
-				fprintf(fout, "\ttest_eax,eax          # &&\n\tje %%_%s_and_end%d\n\tpop_eax\n", function_name, id);
-				if (nesting_depth >= MAX_NESTING)
-				{
-					fprintf(ferr, "ERROR %d: Nesting deeper than %d\n", cur_line, MAX_NESTING);
-					return 1;
-				}
-				nesting_type[nesting_depth] = 'A';
-				nesting_id[nesting_depth] = id++;
-				nesting_nr_vars[nesting_depth] = nr_idents;
-				nesting_pos[nesting_depth] = pos;
-				nesting_depth++;
-			}
-			else if (strcmp(token, "||") == 0)
-			{
-				get_token();
-				if (sym != '{')
-				{
-					fprintf(ferr, "ERROR %d: expecting '{' after '||'\n", cur_line);
-					return 1;
-				}
-				fprintf(fout, "\ttest_eax,eax          # ||\n\tjne %%_%s_or_end%d\n\tpop_eax\n", function_name, id);
-				if (nesting_depth >= MAX_NESTING)
-				{
-					fprintf(ferr, "ERROR %d: Nesting deeper than %d\n", cur_line, MAX_NESTING);
-					return 1;
-				}
-				nesting_type[nesting_depth] = 'O';
-				nesting_id[nesting_depth] = id++;
-				nesting_nr_vars[nesting_depth] = nr_idents;
-				nesting_pos[nesting_depth] = pos;
-				nesting_depth++;
-			}
-			else if (strcmp(token, "->") == 0)
-			{
-				get_token();
-				if (sym != 'i')
-				{
-					fprintf(ferr, "ERROR %d: Expecting const ident after '->'. Found %s\n", cur_line, token);
-					return 1;
-				}
-				int i = nr_idents - 1;
-				for (; i >= 0; i--)
-					if (strcmp(token, idents[i].name) == 0)
-						break;
-				if (i >= 0 && idents[i].type == 'C')
-				{
-					fprintf(fout, "\tmov_eax,[eax]         # ->\n\tadd_eax, %%%d\n", idents[i].value);
-				}
-				else
-				{
-					fprintf(ferr, "ERROR %d: Ident %s is not defined\n", cur_line, token);
-					error = 1;
-				}
-			}
-			else if (strcmp(token, "><") == 0)
-			{
-				fprintf(fout, "\tmov_ebx,eax          # >< swap\n\tpop_eax\n\tpush_ebx\n");
+				fprintf(fout, "\tmov_eax,[eax]         # ->\n\tadd_eax, %%%d\n", idents[i].value);
 			}
 			else
 			{
-				fprintf(ferr, "ERROR %d: Sym %c token |%s| not supported\n", cur_line, sym, token);
+				fprintf(ferr, "ERROR %d: Ident %s is not defined\n", cur_line, token);
 				error = 1;
 			}
 		}
+		else if (sym == SYM_SWAP)
+		{
+			fprintf(fout, "\tmov_ebx,eax          # >< swap\n\tpop_eax\n\tpush_ebx\n");
+		}
 		else
 		{
-			fprintf(ferr, "ERROR %d: Sym %c token |%s| not supported\n", cur_line, sym, token);
+			fprintf(ferr, "ERROR %d: token |%s| not supported\n", cur_line, token);
 			error = 1;
 		}
 		
