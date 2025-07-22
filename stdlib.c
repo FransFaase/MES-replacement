@@ -57,8 +57,9 @@ void *memmove(void *dest, const void *src, size_t n)
 
 void *memset(void *s, int c, size_t n)
 {
+	char *p = s
 	for (size_t i = 0; i < n; i++)
-		s[i] = c;
+		p[i] = c;
 	return s;
 }
 
@@ -197,15 +198,18 @@ long strtoull(const char *nptr, char **endptr, int base)
 float strtof(const char* str, char **endptr)
 {
 	// TODO
+	//fprintf(stderr, "TODO strtof\n"); exit(1);
 	*endptr = str;
 	return 0;
 }
 
 void *malloc(size_t size)
 {
-	uint32_t result = sys_malloc(size + 3);
+	void *result = sys_malloc(size); //(sys_malloc(size + 3) + 3) & ~3;
+	for (size_t i = 0; i < size; i++)
+		((char*)result)[i] = 0;
 	//return (result + 3) & ~3;
-	return (((result + 3) >> 2) << 2);
+	return result;
 }
 
 void free(void *ptr)
@@ -217,7 +221,10 @@ void free(void *ptr)
 void *realloc(void *ptr, size_t size)
 {
 	void *r = malloc(size);
-	memcpy(r, ptr, size);
+	if (ptr != NULL)
+		memcpy(r, ptr, size);
+	else
+		memset(r, 0, size);
 	return r;
 }
 
@@ -443,6 +450,7 @@ FILE *fopen(const char *pathname, const char *mode)
 FILE *fdopen(int fd, const char *mode)
 {
 	// TODO
+	fprintf(stderr, "TODO fdopen\n"); exit(1);
 }
 
 int fclose(FILE *stream)
@@ -453,21 +461,25 @@ int fclose(FILE *stream)
 int fflush(FILE *stream)
 {
 	// TODO
+	fprintf(stderr, "TODO fflush\n"); exit(1);
 }
 
 int fseek(FILE *stream, long offset, int whence)
 {
 	// TODO
+	fprintf(stderr, "TODO fseek\n"); exit(1);
 }
 
 long ftell(FILE *stream)
 {
 	// TODO
+	fprintf(stderr, "TODO ftell\n"); exit(1);
 }
 
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
 	// TODO
+	fprintf(stderr, "TODO fread\n"); exit(1);
 }
 
 
@@ -510,6 +522,7 @@ double ldexp(double x, int exp)
 time_t time(time_t *tloc)
 {
 	// TODO
+	fprintf(stderr, "TODO time\n"); exit(1);
 }
 
 struct tm {
@@ -526,6 +539,7 @@ struct tm {
 struct tm *localtime(const time_t *timep)
 {
 	// TODO
+	fprintf(stderr, "TODO localtime\n"); exit(1);
 }
 
 struct timeval {
@@ -569,57 +583,69 @@ int fileno(FILE *stream)
 char *getcwd(char *buf, size_t size)
 {
 	// TODO
+	fprintf(stderr, "TODO getcwd\n"); exit(1);
 }
 
 char *getenv(const char *name)
 {
 	// TODO
+	fprintf(stderr, "TODO getenv\n"); exit(1);
 }
 
 void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *))
 {
 	// TODO
+	fprintf(stderr, "TODO qsort\n"); exit(1);
 }
 
 time_t time(time_t *tloc)
 {
 	// TODO
+	fprintf(stderr, "TODO time\n"); exit(1);
 }
 
 int setjmp(jmp_buf env)
 {
 	// TODO
+	fprintf(stderr, "TODO setjmp\n"); exit(1);
 	return 0;
 }
 
 void longjmp(jmp_buf env, int val)
 {
 	// TODO
+	fprintf(stderr, "TODO longjmp\n"); exit(1);
 	exit(-1);
 }
 
 int unlink(const char *pathname)
 {
 	// TODO
+	fprintf(stderr, "TODO unlink\n"); exit(1);
 }
 
 int sscanf(const char *str, const char *format, ...)
 {
 	// TODO
+	fprintf(stderr, "TODO sscanf\n"); exit(1);
 }
+
 int atoi(const char *nptr)
 {
 	// TODO
+	fprintf(stderr, "TODO atoi\n"); exit(1);
 }
 
 int remove(const char *pathname)
 {
 	// TODO
+	fprintf(stderr, "TODO remove\n"); exit(1);
 }
 
 int execvp(const char *file, char * argv[])
 {
 	// TODO
+	fprintf(stderr, "TODO execvp\n"); exit(1);
 }
 
 

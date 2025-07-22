@@ -660,7 +660,7 @@ int main(int argc, char *argv[])
 			fprintf(fout, "\ttest_eax,eax          # if\n\tpop_eax\n\tje %%_%s_else%d\n", function_name, id);
 			if (nesting_depth >= MAX_NESTING)
 			{
-				fprintf(ferr, "ERROR %d: Nesting deeper than %d\n", cur_line, MAX_NESTING);
+				fprintf(ferr, "ERROR %d.%d: Nesting deeper than %d\n", cur_line, cur_column, MAX_NESTING);
 				return 1;
 			}
 			nesting_type[nesting_depth] = 'I';

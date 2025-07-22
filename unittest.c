@@ -101,6 +101,9 @@ int main (int argc, char *argv[])
 	is_true(sizeof(array) == 3 * sizeof(array[0]), "size of array is 3");
 	static int s_int = 1;
 	is_true(s_int == 1, "static int == 1");
+	
+	int x = 1;
+	int y = x + 1;
 
 	return result;
 }

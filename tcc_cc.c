@@ -2212,6 +2212,16 @@ decl_p add_decl(decl_kind_e kind, const char *name, type_p type)
 	return decl;
 }
 
+void remove_decl(decl_p decl)
+{
+	for (decl_p *ref_decl = &cur_decls; *ref_decl != 0; ref_decl = &(*ref_decl)->prev)
+		if (*ref_decl == decl)
+		{
+			*ref_decl = (*ref_decl)->prev;
+			break;
+		}
+}
+
 void add_decl_clone(decl_p decl)
 {
 	decl_p decl_clone = add_decl(decl->kind, decl->name, decl->type);
@@ -3170,6 +3180,7 @@ expr_p parse_initializer(void);
 int inside_struct_or_union = 0;
 int save_decl_depth = 0;
 bool inside_function = FALSE;
+bool inside_argument_list = FALSE;
 
 bool parse_declaration(bool is_param)
 {
@@ -3218,10 +3229,13 @@ bool parse_declaration(bool is_param)
 			pointer_type->members[0] = type;
 			type = pointer_type;
 		}
+		decl_p prev_decl = NULL;
 		decl_p decl = NULL;
 		bool as_pointer = FALSE;
 		if (token_it->kind == 'i')
 		{
+			if (!inside_function && !inside_argument_list && !inside_struct_or_union)
+				prev_decl = find_decl(DK_IDENT, token_it->token);
 			decl = add_decl(DK_IDENT, token_it->token, NULL);
 			next_token();
 		}
@@ -3232,6 +3246,8 @@ bool parse_declaration(bool is_param)
 				if (token_it->kind == 'i')
 				{
 					as_pointer = TRUE;
+					if (!inside_function && !inside_argument_list && !inside_struct_or_union)
+						prev_decl = find_decl(DK_IDENT, token_it->token);
 					decl = add_decl(DK_IDENT, token_it->token, NULL);
 					next_token();
 				}
@@ -3247,6 +3263,7 @@ bool parse_declaration(bool is_param)
 				type_p subj_type = type;
 				if (accept_term('('))
 				{
+					inside_argument_list = TRUE;
 					cur_labels = NULL;
 					decl_p save_ident_decls = cur_ident_decls;
 					bool var_params = FALSE;
@@ -3262,6 +3279,7 @@ bool parse_declaration(bool is_param)
 					} while (accept_term(','));
 					if (!accept_term(')'))
 						FAIL_FALSE;
+					inside_argument_list = FALSE;
 					type = new_type(TYPE_KIND_FUNCTION, 4, 1);
 					type->members[0] = subj_type;
 					int nr_parameters = 0;
@@ -3326,6 +3344,11 @@ bool parse_declaration(bool is_param)
 				type_p ptr_type = new_type(TYPE_KIND_POINTER, 4, 1);
 				ptr_type->members[0] = type;
 				type = ptr_type;
+			}
+			if (prev_decl != NULL && type->kind != TYPE_KIND_FUNCTION)
+			{
+				fprintf(stderr, "%s: Warning: declaration of %s repeated\n", token_it_pos(), decl->name);
+				remove_decl(decl);
 			}
 			decl->type = type;
 			decl->storage_type = storage_type;
@@ -4144,8 +4167,6 @@ void add_predefined_types(void)
 	// Need to verify the following:
 	add_base_type("ssize_t", base_type_U32);
 	add_base_type("jmp_buf", base_type_jmp_buf);
-	add_base_type("FILE", base_type_file);
-
 }
 
 bool parse_file(const char *input_filename, bool only_preprocess)
@@ -4232,6 +4253,8 @@ void gen_variable_decl(decl_p decl)
 	fprintf(fcode, "\n");
 }
 
+bool run_tracing = FALSE;
+
 void gen_function_start(decl_p decl)
 {
 	bool is_main = strcmp(decl->name, "main") == 0;
@@ -4263,6 +4286,11 @@ void gen_function_start(decl_p decl)
 		gen_indent();
 		fprintf(fcode, "__init_globals__ ()\n");
 	}
+	if (run_tracing)
+	{
+		gen_indent();
+		fprintf(fcode, "\"Enter %s\\n\" stderr ? fputs () ;\n", decl->name);
+	}
 	inside_function = TRUE;
 }
 
@@ -4290,6 +4318,17 @@ void gen_stats_close(void)
 const char *size_ind(expr_p expr)
 {
 	return expr->type != NULL && expr->type->size == 1 ? "1" : "";
+}
+
+bool is_lvalue(expr_p expr)
+{
+	return     (   expr->kind == 'i'
+				|| expr->kind == TK_ARROW
+				|| expr->kind == '.'
+				|| expr->kind == '['
+				|| expr->kind == OPER_STAR)
+			&& expr->type->kind != TYPE_KIND_ARRAY
+			&& expr->type->kind != TYPE_KIND_FUNCTION;
 }
 
 void gen_expr(expr_p expr, bool as_value)
@@ -4430,7 +4469,10 @@ void gen_expr(expr_p expr, bool as_value)
 			break;
 		case TK_ARROW:
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "->s%d_m_%s ", expr->int_val, expr->str_val);
+			if (is_lvalue(expr->children[0]))
+				fprintf(fcode, "->s%d_m_%s ", expr->int_val, expr->str_val);
+			else
+				fprintf(fcode, "s%d_m_%s + ", expr->int_val, expr->str_val);
 			break;
 		case '.':
 			gen_expr(expr->children[0], FALSE);
@@ -4559,14 +4601,7 @@ void gen_expr(expr_p expr, bool as_value)
 			fprintf(fcode, "$ ");
 			break;
 	}
-	if (   as_value
-		&& (   expr->kind == 'i'
-			|| expr->kind == TK_ARROW
-			|| expr->kind == '.'
-			|| expr->kind == '['
-			|| expr->kind == OPER_STAR)
-		&& expr->type->kind != TYPE_KIND_ARRAY
-		&& expr->type->kind != TYPE_KIND_FUNCTION)
+	if (as_value && is_lvalue(expr))
 		fprintf(fcode, "?%s ", expr_size_ind);
 }
 
@@ -4628,6 +4663,17 @@ void gen_init_globals(void)
 	fprintf(fcode, "void __init_globals__\n{\n");
 	indent++;
 
+	// Reverse the list of declarations
+	decl_p next = NULL;
+	for (decl_p decl = cur_ident_decls; decl != NULL;)
+	{
+		decl_p prev = decl->prev;
+		decl->prev = next;
+		next = decl;
+		decl = prev;
+	}
+	cur_ident_decls = next;
+
 	for (decl_p decl = cur_ident_decls; decl != NULL; decl = decl->prev)
 		if (decl->value != NULL)
 		{
@@ -4637,7 +4683,7 @@ void gen_init_globals(void)
 		}
 	
 	indent--;
-	fprintf(fcode, "    return\n}\n");
+	fprintf(fcode, "    0 return\n}\n");
 }
 
 // Main
@@ -4647,10 +4693,13 @@ int main(int argc, char *argv[])
 	fcode = stdout;
 	char *input_filename = "tcc_sources/tcc.c";
 	bool only_preprocess = FALSE;
+	bool add_tracing = FALSE;
 
 	for (int i = 0; i < argc; i++)
 		if (strcmp(argv[i], "-E") == 0)
 			only_preprocess = TRUE;
+		else if (strcmp(argv[i], "-T") == 0)
+			add_tracing = TRUE;
 		else if (strcmp(argv[i], "-dp") == 0)
 			opt_trace_parser = TRUE;
 		else if (i + 1 < argc && strcmp(argv[i],"-o") == 0)
@@ -4682,6 +4731,7 @@ int main(int argc, char *argv[])
 
 	if (!parse_file("stdlib.c", FALSE))
 		return 1;
+	run_tracing = add_tracing;
 	if (!parse_file(input_filename, FALSE))
 		return 1;
 

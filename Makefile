@@ -43,7 +43,7 @@ diff5 : tcc_cc.sl tcc_cc_t.sl
 	./run.sh diff tcc_cc.sl tcc_cc_t.sl
 
 tcc.sl : tcc_cc tcc_sources/tcc.c
-	./tcc_cc tcc_sources/tcc.c -o tcc.sl
+	./tcc_cc tcc_sources/tcc.c -T -o tcc.sl
 
 .PRECIOUS: %.sl %_s.M1 %.blood_elf %.macro
 .PHONY: all run_unittest_s stack_c_diff tcc_cc_diff
