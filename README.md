@@ -39,34 +39,34 @@ programming language, which can compile the `hello.sl` program with the help of
 some live-bootstrap executables (see the script `build_stack_hello`) to an
 executable `hellosl` that does print out the text 'hello world!'.
 
-## WIP 17 april 2025
+## WIP 17 April 2025
 
 The [commit 8084af1c](https://github.com/FransFaase/MES-replacement/commit/8084af1c5680a15dd3c292fd1a667481be3177b3)
 contains a version of `tcc_cc.c` that implements a preprocessor that can process
 the TCC sources (it seems). It is based on iterators.
 
-## WIP 28 april 2025
+## WIP 28 April 2025
 
 The [commit 93fba047](https://github.com/FransFaase/MES-replacement/commit/93fba0474b4527c2e3f0e35bb53e23f1b4c6ed6d)
 contains a version of `tcc_cc.c` that can parse the TCC sources and its own source
 
-## WIP 7 may 2025
+## WIP 7 May 2025
 
 The [commit 9122a22a](https://github.com/FransFaase/MES-replacement/commit/9122a22a91ee4b4ff73144e0c675585320b4e69a)
 contains a version of `tcc_cc.c` that determines the type of all expressions.
 
-## WIP 2 june 2025: compiled first program
+## WIP 2 June 2025: compiled first program
 
 The [commit 6ac84a5d](https://github.com/FransFaase/MES-replacement/commit/6ac84a5d1ab277e3eb8f661dc4062d244c60b69c)
 contains the version of `tcc_cc.c` with which the [`hello.c`](https://github.com/FransFaase/MES-replacement/blob/6ac84a5d1ab277e3eb8f661dc4062d244c60b69c/hello.c)
 program can be compiled to the stack_c language, and compiled to an ELF with the
 stack_c compiler and the life-bootstrap programs `blood-elf`, `M1` and `hex2`.
 
-## WIP 18 june 2025: compile stack_c.c
+## WIP 18 June 2025: compile stack_c.c
 
 The [commit 5808d49c](https://github.com/FransFaase/MES-replacement/commit/5808d49c14bd2e1b0a997be58cdd04f4a9ef713c)
 
-## 28 june 2025: Self hosting compiler
+## 28 June 2025: Self hosting compiler
 
 With [commit c57b9bbd](https://github.com/FransFaase/MES-replacement/commit/c57b9bbdf55de3115a5159d8362ed67d8fab7e23)
 the compiler is now a self hosting compiler in the sense that the compiled version of the compiler (with its source
@@ -74,3 +74,7 @@ as input) when used to compile its source, will return the same output.
 fixes some bugs, such that compiling `stack_c.c` with the `tcc_cc` compiler, the resulting program produces the
 same output when executed on the output of `tcc_cc`.
 
+## 23 July 2025: Stack_c interpreter
+
+The [commit 54fc4685](https://github.com/FransFaase/MES-replacement/commit/54fc46851f0d25b7da7a75814c0d20180dcfaf76)
+gives an interpreter voor the Stack_c language.
