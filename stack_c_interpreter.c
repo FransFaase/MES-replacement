@@ -648,6 +648,7 @@ struct
 	command_p command;
 } function_stack[MAX_FUNCTION_DEPTH];
 int function_depth = 0;
+function_p cur_function = NULL;
 
 command_p cur_command = NULL;
 
@@ -672,8 +673,40 @@ const char *command_name(command_p command)
 	return name;
 }
 
+void print_value_stack(FILE *f)
+{
+	for (int i = 1; i <= value_depth; i++)
+	{
+		if (i >= 2)
+			fprintf(f, ",");
+		fprintf(f, " %s ", cell_kind_name(&value_stack[i]));
+		if (value_stack[i].kind == C_GLOBAL || value_stack[i].kind == C_LOCAL)
+		{
+			memory_p memory = value_stack[i].memory;
+			fprintf(f, "%s %d.%d", memory->name, memory->line, memory->column);
+			if (value_stack[i].int_value != 0)
+				fprintf(f, "[%d]", value_stack[i].int_value);
+			if (value_stack[i].kind == C_LOCAL)
+				fprintf(f, "(%d)", value_stack[i].locals_offset);
+		}
+		else
+		{
+			if (value_stack[i].kind == C_VALUE)
+				fprintf(f, "%d ", value_stack[i].int_value);
+			fprintf(f, " %d.%d", value_stack[i].command->line, value_stack[i].command->column);
+		}
+	}
+	fprintf(f, ")\n");
+}
+
 void report_error(const char *fmt, ...)
 {
+	for (int i = 0; i < function_depth; i++)
+		fprintf(ferr, "At %d.%d in function %s\n",
+			function_stack[i].command->line, function_stack[i].command->line, function_stack[i].function->ident->name);
+	fprintf(ferr, "In function %s\n", cur_function->ident->name);
+	fprintf(ferr, "Stack: ");
+	print_value_stack(ferr);
 	static char message[300];
 	va_list args;
    	va_start(args, fmt);
@@ -789,7 +822,7 @@ void set_array_byte(cell_p cell, int index, char ch)
 	cell_p elem =  cell->kind == C_GLOBAL
 				 ? &cell->memory->cells[offset / 4]
 				 : &locals_stack[cell->locals_offset + offset / 4];
-	int byte_shift = 8 * offset % 4;
+	int byte_shift = 8 * (offset % 4);
 	elem->kind = C_VALUE;
 	elem->int_value = (elem->int_value & ~(0xFF << byte_shift)) | ((ch & 0xFF) << byte_shift);
 	elem->command = cur_command;
@@ -875,6 +908,7 @@ void sys_int80(void)
 				if (ch == '\0')
 					break;
 			}
+			pop();
 			result = open(filename, a2, a3);
 			break;
 		}
@@ -937,24 +971,36 @@ int main(int argc, char *argv[])
 	bool opt_trace_command = FALSE;
 	bool opt_trace_functions = FALSE;
 
-	// opt_trace_parsing
-	// opt_trace_labels
-
-	if (TRUE)
-	{
-		opt_trace_command = TRUE;
-		opt_trace_assignments = TRUE;
-		opt_trace_functions = TRUE;
-	}
-
+	const char **col_argv = (const char**)malloc(argc * sizeof(char*));
+	int col_argc = 0;
+	
 	for (int i = 1; i < argc; i++)
 	{
-		fin = fopen(argv[i], "r");
-		if (fin == 0)
+		const char *arg = argv[i];
+		if (strcmp(arg, "-p") == 0)
+			opt_trace_parsing = TRUE;
+		else if (strcmp(arg, "-l") == 0)
+			opt_trace_labels = TRUE;
+		else if (strcmp(arg, "-d") == 0)
 		{
-			fprintf(ferr, "ERROR: Cannot open file '%s' for input\n", argv[i]);
-			return 1;
+			opt_trace_command = TRUE;
+			opt_trace_assignments = TRUE;
+			opt_trace_functions = TRUE;
 		}
+		else
+			col_argv[col_argc++] = arg;
+	}
+
+	if (col_argc == 0)
+	{
+		fprintf(ferr, "ERROR: No file specified\n");
+		return 1;
+	}
+	fin = fopen(col_argv[0], "r");
+	if (fin == 0)
+	{
+		fprintf(ferr, "ERROR: Cannot open file '%s' for input\n", col_argv[0]);
+		return 1;
 	}
 
 	// Add predefined system functions
@@ -964,8 +1010,6 @@ int main(int argc, char *argv[])
 	sys_malloc_ident->function->sys_function = sys_malloc;
 	
 	read_char();
-
-	function_p cur_function = NULL;
 
 	get_token();
 	while (TRUE)
@@ -1406,13 +1450,13 @@ int main(int argc, char *argv[])
 
 	{
 		// Push argv
-		push_value(argc);
+		push_value(col_argc);
 		push(C_GLOBAL);
-		top_value->memory = alloc_memory(4 * argc);
-		for (int i = 0; i < argc; i++)
+		top_value->memory = alloc_memory(4 * col_argc);
+		for (int i = 0; i < col_argc; i++)
 		{
 			top_value->memory->cells[i].kind = C_STRING;
-			top_value->memory->cells[i].str = argv[i];
+			top_value->memory->cells[i].str = col_argv[i];
 			top_value->memory->cells[i].command = cur_command;
 		}
 	}
@@ -1439,28 +1483,7 @@ int main(int argc, char *argv[])
 		if (opt_trace_command)
 		{
 			printf("Execute command %d.%d: %c %s (%d:", cur_command->line, cur_command->column, cur_command->sym, command_name(cur_command), value_depth);
-			for (int i = 1; i <= value_depth; i++)
-			{
-				if (i >= 2)
-					printf(",");
-				printf(" %s ", cell_kind_name(&value_stack[i]));
-				if (value_stack[i].kind == C_GLOBAL || value_stack[i].kind == C_LOCAL)
-				{
-					memory_p memory = value_stack[i].memory;
-					printf("%s %d.%d", memory->name, memory->line, memory->column);
-					if (value_stack[i].int_value != 0)
-						printf("[%d]", value_stack[i].int_value);
-					if (value_stack[i].kind == C_LOCAL)
-						printf("(%d)", value_stack[i].locals_offset);
-				}
-				else
-				{
-					if (value_stack[i].kind == C_VALUE)
-						printf("%d ", value_stack[i].int_value);
-					printf(" %d.%d", value_stack[i].command->line, value_stack[i].command->column);
-				}
-			}
-			printf(")\n");
+			print_value_stack(stdout);
 		}
 
 		char sym = cur_command->sym;
