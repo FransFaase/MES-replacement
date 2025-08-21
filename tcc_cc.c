@@ -993,6 +993,7 @@ tokens_p new_str_token(char *str)
 {
 	tokens_p token = new_token('"');
 	token->token = copystr(str);
+	token->length = strlen(str);
 	return token;
 }
 tokens_p new_token_from_it(token_iterator_p it)
@@ -1336,7 +1337,7 @@ token_iterator_p conditional_iterator_next(token_iterator_p token_it, bool dummy
 		}
 		else if (kind == TK_H_DEFINE)
 		{
-			prev_token = 0;
+			prev_token = NULL;
 			token_it_next(it->_token_it, FALSE);
 			env = get_env(it->_token_it->token, TRUE);
 			//printf("%s is now defined\n", env->name);
@@ -3182,6 +3183,37 @@ int save_decl_depth = 0;
 bool inside_function = FALSE;
 bool inside_argument_list = FALSE;
 
+int round_up_word(int size) { return (size + 3) & ~3; }
+
+int array_element_size(type_p type)
+{
+	return   type->size == 1 && (type->base_type == BT_S8 || type->base_type == BT_U8)
+		   ? 1
+		   : round_up_word(type->size);
+}
+
+bool parse_array_indexes(type_p type, type_p *arr_type)
+{
+	expr_p expr = parse_expr();
+	if (expr == NULL)
+		return FALSE;
+	int nr_elems = expr_eval(expr);
+	if (!accept_term(']'))
+		FAIL_FALSE
+	if (accept_term('['))
+	{
+		type_p result_type = NULL;
+		if (!parse_array_indexes(type, &result_type))
+			FAIL_FALSE
+		type = result_type;
+	}
+	(*arr_type) = new_type(TYPE_KIND_ARRAY, nr_elems * type->size, 1);
+	(*arr_type)->members[0] = type;
+	(*arr_type)->nr_elems = nr_elems;
+	(*arr_type)->size = round_up_word(nr_elems * array_element_size(type));
+	return TRUE;
+}
+
 bool parse_declaration(bool is_param)
 {
 	storage_type_e storage_type = ST_NONE;
@@ -3319,21 +3351,22 @@ bool parse_declaration(bool is_param)
 					if (accept_term(']'))
 					{
 						type_p ptr_type = new_type(TYPE_KIND_POINTER, 4, 1);
+						if (accept_term('['))
+						{
+							type_p result_type = NULL;
+							if (!parse_array_indexes(type, &result_type))
+								FAIL_FALSE
+							type = result_type;
+						}
 						ptr_type->members[0] = type;
 						type = ptr_type;
 					}
 					else
 					{
-						expr_p expr = parse_expr();
-						if (expr == NULL)
-							return FALSE;
-						int nr_elems = expr_eval(expr);
-						type_p arr_type = new_type(TYPE_KIND_ARRAY, nr_elems * type->size, 1);
-						arr_type->members[0] = type;
-						arr_type->nr_elems = nr_elems;
-						type = arr_type;
-						if (!accept_term(']'))
+						type_p result_type = NULL;
+						if (!parse_array_indexes(type, &result_type))
 							FAIL_FALSE
+						type = result_type;
 					}
 				}
 				else
@@ -3360,7 +3393,7 @@ bool parse_declaration(bool is_param)
 					// Fix type:
 					int nr_elems = decl->value->nr_children;
 					decl->type->kind = TYPE_KIND_ARRAY;
-					decl->type->size = nr_elems * decl->type->size;
+					decl->type->size = nr_elems * array_element_size(decl->type->members[0]);
 					decl->type->nr_elems = nr_elems;
 				}
 			}
@@ -3541,7 +3574,7 @@ type_p parse_struct_or_union_specifier(decl_kind_e decl_kind)
 			nr_decls++;
 			int decl_size = decl1->type->size;
 			if (decl_kind == DK_STRUCT)
-				size += (decl_size + 3) & ~3;
+				size += round_up_word(decl_size);
 			else if (decl_size > size)
 				size = decl_size;
 		}
@@ -3561,7 +3594,7 @@ type_p parse_struct_or_union_specifier(decl_kind_e decl_kind)
 			for (int i = 0; i < nr_decls; i++)
 			{
 				decls[i]->pos = pos;
-				pos += (decls[i]->type->size + 3) & ~3;
+				pos += round_up_word(decls[i]->type->size);
 			}
 		}
 		{
@@ -4289,7 +4322,7 @@ void gen_function_start(decl_p decl)
 	if (run_tracing)
 	{
 		gen_indent();
-		fprintf(fcode, "\"Enter %s\\n\" stderr ? fputs () ;\n", decl->name);
+		fprintf(fcode, "\"Enter %s\\n\" stdout ? fputs () ;\n", decl->name);
 	}
 	inside_function = TRUE;
 }
@@ -4481,8 +4514,11 @@ void gen_expr(expr_p expr, bool as_value)
 		case '[':
 			gen_expr(expr->children[0], TRUE);
 			gen_expr(expr->children[1], TRUE);
-			if (expr->type->size > 1)
-				fprintf(fcode, "%d * ", expr->type->size);
+			{
+				int elem_size = array_element_size(expr->type);
+				if (elem_size > 1)
+					fprintf(fcode, "%d * ", elem_size);
+			}
 			fprintf(fcode, "+ ");
 			break;
 		case '(':
@@ -4630,12 +4666,13 @@ void gen_initializer(expr_p expr, type_p type)
 				if (i + 1 < expr->nr_children)
 				{
 					gen_indent();
-					fprintf(fcode, "%u + ", type->members[0]->size);
+					fprintf(fcode, "%u + ", array_element_size(type->members[0]));
 				}
 			}
 		}
 		else if (type->kind == TYPE_KIND_STRUCT)
 		{
+			int pos = 0;
 			for (int i = 0; i < expr->nr_children; i++)
 			{
 				if (i + 1 < expr->nr_children)
@@ -4644,7 +4681,9 @@ void gen_initializer(expr_p expr, type_p type)
 				if (i + 1 < expr->nr_children)
 				{
 					gen_indent();
-					fprintf(fcode, "%u + ", type->decls[i]->type->size);
+					int pos_inc = type->decls[i + 1]->pos - pos;
+					fprintf(fcode, "%u + ", pos_inc);
+					pos += pos_inc;
 				}
 			}
 		}
@@ -4654,7 +4693,10 @@ void gen_initializer(expr_p expr, type_p type)
 	else
 	{
 		gen_expr(expr, TRUE);
-		fprintf(fcode, "=%s ;\n", type != NULL && type->size == 1 ? "1" : "");
+		if (expr->type == type_char_ptr && type->kind == TYPE_KIND_ARRAY)
+			fprintf(fcode, "%d strncpy () ;\n", type->size);
+		else
+			fprintf(fcode, "=%s ;\n", type != NULL && type->size == 1 ? "1" : "");
 	}
 }
 

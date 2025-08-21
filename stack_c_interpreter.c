@@ -743,6 +743,24 @@ int pop_value(void)
 	return value;
 }
 
+bool get_top_bool(void)
+{
+	if (value_depth <= 0)
+		report_error("Stack is empty");
+	if (top_value->kind == C_VALUE)
+		return top_value->int_value != 0;
+	if (top_value->kind == C_FUNCTION)
+		report_error("Stack does not contains undefined value");
+	return TRUE;
+}
+
+bool pop_bool(void)
+{
+	bool value = get_top_bool();
+	pop();
+	return value;
+}
+
 void push(char kind)
 {
 	top_value = &value_stack[++value_depth];
@@ -939,6 +957,7 @@ memory_p alloc_memory(int size)
 {
 	memory_p result = (memory_p)malloc(sizeof(struct memory_s));
 	result->nr_cells = (size + 3) / 4;
+	//printf("alloc_memory %d cells = %d", size, result->nr_cells);
 	result->cells = (cell_p)malloc(result->nr_cells * sizeof(struct cell_s));
 	result->name = "**heap**";
 	result->line = cur_command != 0 ? cur_command->line : 0;
@@ -956,10 +975,33 @@ void sys_malloc(void)
 	check_stack(1);
 	if (top_value->kind != C_VALUE)
 		report_error("Calling malloc with %s", cell_kind_name(top_value));
+	//printf("sya_malloc size = %d\n", top_value->int_value);
 	top_value->memory = alloc_memory(top_value->int_value);
 	top_value->kind = C_GLOBAL;
 	top_value->int_value = 0;
 	top_value->command = cur_command;
+}
+
+void sys_realloc(void)
+{
+	check_stack(2);
+	if (top_value->kind != C_VALUE)
+		report_error("Calling realloc with %s for size", cell_kind_name(top_value));
+	int size = pop_value();
+	if (top_value->kind != C_VALUE && top_value->kind != C_GLOBAL)
+		report_error("Calling realloc with %s for ptr", cell_kind_name(top_value));
+	if (top_value->kind == C_VALUE && top_value->int_value != 0)
+		report_error("Calling realloc with %d for ptr", top_value->int_value);
+	//printf("sya_malloc size = %d\n", top_value->int_value);
+	memory_p old_memory = top_value->kind == C_GLOBAL ? top_value->memory : NULL; 
+	top_value->memory = alloc_memory(size);
+	top_value->kind = C_GLOBAL;
+	top_value->int_value = 0;
+	top_value->command = cur_command;
+	if (old_memory != NULL) {
+		for (int i = 0; i < old_memory->nr_cells; i++)
+			copy_cell(&top_value->memory->cells[i], &old_memory->cells[i], FALSE);
+	}
 }
 
 int main(int argc, char *argv[])
@@ -1008,6 +1050,8 @@ int main(int argc, char *argv[])
 	sys_int80_ident->function->sys_function = sys_int80;
 	ident_p sys_malloc_ident = add_function("sys_malloc");
 	sys_malloc_ident->function->sys_function = sys_malloc;
+	ident_p sys_realloc_ident = add_function("sys_realloc");
+	sys_realloc_ident->function->sys_function = sys_realloc;
 	
 	read_char();
 
@@ -1489,8 +1533,7 @@ int main(int argc, char *argv[])
 		char sym = cur_command->sym;
 		if (sym == 'I')
 		{
-			int value = pop_value();
-			if (value == 0)
+			if (!pop_bool())
 				cur_command = cur_command->jump_command;
 			else
 				cur_command = cur_command->next;
@@ -1587,7 +1630,7 @@ int main(int argc, char *argv[])
 				top_value->int_value = sub;
 				top_value->command = cur_command;
 			}
-			else if (lhs->kind == C_GLOBAL && top_value->kind == C_GLOBAL)
+			else if (lhs->kind == C_STRING && top_value->kind == C_STRING)
 			{
 				if (lhs->str != top_value->str)
 					report_error("Substraction between incorrect strings");
@@ -1598,7 +1641,7 @@ int main(int argc, char *argv[])
 				top_value->command = cur_command;
 			}
 			else
-				report_error("Illegale substraction");
+				report_error("Illegal substraction");
 		}
 		else if (sym == SYM_REV_ASS)
 		{
@@ -1673,13 +1716,14 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == '!')
 		{
-			unsigned int value = get_top_value();
+			bool value = get_top_bool();
+			top_value->kind = C_VALUE;
 			top_value->int_value = !value;
 		}
 		else if (sym == SYM_LOG_AND)
 		{
-			int value = get_top_value();
-			if (value == 0)
+			bool value = get_top_bool();
+			if (!value)
 			{
 				cur_command = cur_command->jump_command;
 				continue;
@@ -1688,8 +1732,8 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == SYM_LOG_OR)
 		{
-			int value = get_top_value();
-			if (value != 0)
+			bool value = get_top_bool();
+			if (value)
 			{
 				cur_command = cur_command->jump_command;
 				continue;
@@ -1699,16 +1743,73 @@ int main(int argc, char *argv[])
 		else if (sym == SYM_EQ || sym == SYM_NE)
 		{
 			cell_p lhs = &value_stack[value_depth-1];
-			bool equal =    lhs == top_value
-						 || (   lhs->int_value == top_value->int_value
-							 && (  lhs->kind == C_VALUE ? top_value->kind == C_VALUE
-								 : lhs->kind == C_GLOBAL ? top_value->kind == C_GLOBAL && lhs->memory == top_value->memory
-								 : lhs->kind == C_LOCAL ? top_value->kind == C_LOCAL && lhs->memory == top_value->memory
-								 : lhs->kind == C_STRING ? top_value->kind == C_STRING && lhs->str == top_value->str
-								 : lhs->kind == C_FUNCTION && top_value->kind == C_FUNCTION && lhs->function == top_value->function));
+			bool equal = FALSE;
+			if (lhs == top_value)
+				equal = TRUE;
+			else if (lhs->kind != top_value->kind)
+			{
+				if (   (top_value->kind == C_VALUE && top_value->int_value == 0 && lhs->kind != C_UNDEFINED)
+					|| (lhs->kind == C_VALUE && lhs->int_value == 0 && top_value->kind != C_UNDEFINED))
+					equal = FALSE;
+				else
+					report_error("== != cannot compare different types");
+			}
+			else if (top_value->kind == C_UNDEFINED)
+				report_error("== != cannot compare undefined values");
+			else
+				equal =    lhs->int_value == top_value->int_value
+						&& (  lhs->kind == C_VALUE ? TRUE
+							: lhs->kind == C_GLOBAL ? lhs->memory == top_value->memory
+							: lhs->kind == C_LOCAL ? lhs->memory == top_value->memory
+							: lhs->kind == C_STRING ? lhs->str == top_value->str
+							: lhs->kind == C_FUNCTION && lhs->function == top_value->function);
 			pop();
 			pop();
 			push_value(equal == (sym == SYM_EQ));
+		}
+		else if (sym == '<' || sym == '>' || sym == SYM_LE || sym == SYM_GE)
+		{
+			cell_p lhs = &value_stack[value_depth-1];
+			if (lhs->kind != top_value->kind)
+			{
+				if (lhs->kind == C_GLOBAL && top_value->kind == C_VALUE && top_value->int_value == 0)
+				{
+					pop();
+					pop();
+					push_value(sym == '>');
+				}
+				else
+					report_error("< <= > >= cannot compare different types");
+			}
+			else
+			{
+				if (top_value->kind == C_UNDEFINED)
+					report_error("< <= > >= cannot compare undefined values");
+				if (top_value->kind == C_FUNCTION)
+					report_error("< <= > >= cannot compare function pointers");
+				if (top_value->kind == C_GLOBAL || top_value->kind == C_LOCAL)
+				{
+					if (lhs->memory != top_value->memory)
+						report_error("< <= > >= cannot compare pointers from different memory pieces");
+				}
+				else if (top_value->kind == C_STRING)
+				{
+					if (lhs->str != top_value->str)
+						report_error("< <= > >= cannot compare pointers from different string");
+				}
+				unsigned int urhs = top_value->int_value;
+				pop();
+				unsigned int ulhs = top_value->int_value;
+				pop();
+				if (sym == '<')
+					push_value(ulhs < urhs);
+				else if (sym == '>')
+					push_value(ulhs > urhs);
+				else if (sym == SYM_LE)
+					push_value(ulhs <= urhs);
+				else // (sym == SYM_GE)
+					push_value(ulhs >= urhs);
+			}
 		}
 		else
 		{
@@ -1728,18 +1829,10 @@ int main(int argc, char *argv[])
 				push_value(ulhs / urhs);
 			else if (sym == '%')
 				push_value(ulhs % urhs);
-			else if (sym == '<')
-				push_value(ulhs < urhs);
-			else if (sym == '>')
-				push_value(ulhs > urhs);
 			else if (sym == SYM_DIV_SIGNED)
 				push_value(lhs / rhs);
 			else if (sym == SYM_MOD_SIGNED)
 				push_value(lhs % rhs);
-			else if (sym == SYM_LE)
-				push_value(ulhs <= urhs);
-			else if (sym == SYM_GE)
-				push_value(ulhs >= urhs);
 			else if (sym == SYM_LT_SIGNED)
 				push_value(lhs < rhs);
 			else if (sym == SYM_LE_SIGNED)

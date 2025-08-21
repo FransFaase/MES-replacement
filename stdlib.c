@@ -1,7 +1,7 @@
 // Functions defined in stack_c_intro.M1
 
 int sys_int80(int a, int b, int c, int d); // https://faculty.nps.edu/cseagle/assembly/sys_call.html
-int sys_malloc(size_t size);
+void *sys_malloc(size_t size);
 
 void exit(int result)
 {
@@ -28,8 +28,11 @@ const FILE *stdin = &__sys_stdin;
 const FILE *stdout = &__sys_stdout;
 const FILE *stderr = &__sys_stderr;
 
+int printf(const char *format, ...);
+
 void *memcpy(void *dest, const void *src, size_t n)
 {
+	printf("memcpy n = %u\n", n);
 	char *d = (char *)dest;
 	char *s = (char *)src;
 	for (int i = 0; i < n; i++)
@@ -205,10 +208,27 @@ float strtof(const char* str, char **endptr)
 
 void *malloc(size_t size)
 {
-	void *result = sys_malloc(size); //(sys_malloc(size + 3) + 3) & ~3;
-	for (size_t i = 0; i < size; i++)
-		((char*)result)[i] = 0;
+	size = (size + 3) & ~3;
+	int *result = sys_malloc(size + 4); //(sys_malloc(size + 3) + 3) & ~3;
+	*result = size;
+	result++;
+	//memset(result, 0, size);
+	//for (size_t i = 0; i < size; i++)
+	//	((char*)result)[i] = 0;
 	//return (result + 3) & ~3;
+	return result;
+}
+
+void *realloc(void *ptr, size_t size)
+{
+	int *result = malloc(size);
+	if (ptr != 0)
+	{
+		int *old_ptr = ptr;
+		int old_size = old_ptr[-1] / 4;
+		for (int i = 0; i < old_size; i++)
+			result[i] = old_ptr[i];
+	}
 	return result;
 }
 
@@ -216,16 +236,6 @@ void free(void *ptr)
 {
 	// Do freeing of memory
 	return 0
-}
-
-void *realloc(void *ptr, size_t size)
-{
-	void *r = malloc(size);
-	if (ptr != NULL)
-		memcpy(r, ptr, size);
-	else
-		memset(r, 0, size);
-	return r;
 }
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
@@ -626,8 +636,44 @@ int unlink(const char *pathname)
 
 int sscanf(const char *str, const char *format, ...)
 {
-	// TODO
-	fprintf(stderr, "TODO sscanf\n"); exit(1);
+	va_list ap;
+	va_start(ap, format);
+
+	int args_parsed = 0;
+
+	while (*format != '\0')
+		if (*str == '\0')
+			break;
+		else if (*format == '%')
+		{
+			format++;
+			if (*format == 'd')
+			{
+				format++;
+				int v = 0;
+				while ('0' <= *str && *str <= '9')
+				{
+					v = 10 * v + *str - '0';
+					str++;
+				}
+				*((int**)ap) = v;
+				ap++;
+				args_parsed++;
+			}
+			else
+			{
+				fprintf(stderr, "sscanf: format %%%c not supported\n", *format);
+				exit(1);
+			}
+		}
+		else
+		{
+			if (*format != *str)
+				break;
+			format++;
+			str++;
+		}
+	return args_parsed;
 }
 
 int atoi(const char *nptr)
