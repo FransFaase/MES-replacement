@@ -26,7 +26,7 @@ Notes:
 
 // Constants
 
-#define MAX_TOKEN_LENGTH 4000
+#define MAX_TOKEN_LENGTH 8000
 #define MAX_NR_VARIABLES 4000
 #define MAX_NR_STATICS 10
 #define MAX_VARIABLE_LENGTH 50
@@ -74,6 +74,7 @@ void read_char(void)
 
 char sym;
 char token[MAX_TOKEN_LENGTH+1];
+int token_len = 0;
 int int_value;
 int cur_line = 0;
 int cur_column = 0;
@@ -100,7 +101,7 @@ Mapping keywords[NR_KEYWORDS] = {
 
 #define SYMBOL(X) ('a' + (X))
 
-#define NR_SYMBOLS 20
+#define NR_SYMBOLS 21
 Mapping symbols[NR_SYMBOLS] = {
 #define SYM_REV_ASS SYMBOL(0)
 	{ "=:",         SYM_REV_ASS },
@@ -142,13 +143,15 @@ Mapping symbols[NR_SYMBOLS] = {
 	{ "->",         SYM_ARROW },
 #define SYM_SWAP SYMBOL(19)
 	{ "><",         SYM_SWAP },
+#define SYM_SUB_PTRS SYMBOL(20)
+	{ "-p",         SYM_SUB_PTRS }
 };
 
 int error = 0;
 
 void get_token(void)
 {
-	int i = 0;
+	token_len = 0;
 	// Skip white spaces, but echo comments starting with # till end of the line
 	while ((cur_char != '\0' && cur_char <= ' ') || cur_char == '#')
 	{
@@ -183,13 +186,13 @@ void get_token(void)
 		sym = 'A';
 		do
 		{
-			token[i++] = cur_char;
+			token[token_len++] = cur_char;
 			read_char();
 		}
 		while (('a' <= cur_char && cur_char <= 'z') || ('A' <= cur_char && cur_char <= 'Z') || cur_char == '_' || ('0' <= cur_char && cur_char <= '9'));
-		token[i] = '\0';
+		token[token_len] = '\0';
 
-		if (i > MAX_VARIABLE_LENGTH)
+		if (token_len > MAX_VARIABLE_LENGTH)
 		{
 			fprintf(ferr, "ERROR %d: Variable '%s' is longer than %d characters\n", cur_line, token, MAX_VARIABLE_LENGTH);
 			error = 1;
@@ -222,7 +225,7 @@ void get_token(void)
 				read_char();
 				break;
 			}
-			if (i > MAX_TOKEN_LENGTH)
+			if (token_len > MAX_TOKEN_LENGTH)
 			{
 				fprintf(ferr, "ERROR %d: String longer than %d characters\n", cur_line, MAX_TOKEN_LENGTH);
 				error = 1;
@@ -240,19 +243,19 @@ void get_token(void)
 					cur_char = '\r';
 				else if (cur_char == 't')
 					cur_char = '\t';
-				token[i++] = cur_char;
+				token[token_len++] = cur_char;
 			}
 			else
-				token[i++] = cur_char;
+				token[token_len++] = cur_char;
 		}
-		token[i] = '\0';
+		token[token_len] = '\0';
 		return;
 	}
 
 	// Check for number or '->' symbol
 	if (('0' <= cur_char && cur_char <= '9') || cur_char == '-')
 	{
-		token[i++] = cur_char;
+		token[token_len++] = cur_char;
 		int sign = 1;
 		if (cur_char == '-')
 		{
@@ -261,16 +264,24 @@ void get_token(void)
 			// check of '->' symbol
 			if (cur_char == '>')
 			{
-				sym = 's';
-				token[i++] = cur_char;
-				token[i] = '\0';
+				sym = SYM_ARROW;
+				token[token_len++] = cur_char;
+				token[token_len] = '\0';
+				read_char();
+				return;
+			}
+			if (cur_char == 'p')
+			{
+				sym = SYM_SUB_PTRS;
+				token[token_len++] = cur_char;
+				token[token_len] = '\0';
 				read_char();
 				return;
 			}
 			if (cur_char <= ' ')
 			{
 				sym = '-';
-				token[i] = '\0';
+				token[token_len] = '\0';
 				return;
 			}
 		}
@@ -337,13 +348,13 @@ void get_token(void)
 	sym = ' ';
 	do
 	{
-		token[i++] = cur_char;
+		token[token_len++] = cur_char;
 		read_char();
 	}
 	while (cur_char > ' ');
 
-	token[i] = '\0';
-	if (i == 1)
+	token[token_len] = '\0';
+	if (token_len == 1)
 		sym = token[0];
 	else
 		for (int i = 0; i < NR_SYMBOLS; i++)
@@ -385,6 +396,7 @@ typedef struct string_s *string_p;
 struct string_s
 {
 	char *value;
+	int length;
 	string_p next;
 };
 string_p strings = 0;
@@ -404,17 +416,18 @@ void save_print_string(FILE *fout, const char *s)
 			fprintf(fout, "%c", *s);
 }
 
-int nr_for_string(const char *s)
+int nr_for_string(const char *s, int length)
 {
 	//printf("# nr_for_string %s\n", s);
 	int nr = 0;
 	string_p *ref_string = &strings;
 	for (; (*ref_string) != 0; ref_string = &(*ref_string)->next, nr++)
-		if (strcmp((*ref_string)->value, s) == 0)
+		if ((*ref_string)->length == length && memcmp((*ref_string)->value, s, length) == 0)
 			return nr;
 	(*ref_string) = (string_p)malloc(sizeof(struct string_s));
-	(*ref_string)->value = (char*)malloc(strlen(s) + 1);
-	strcpy((*ref_string)->value, s);
+	(*ref_string)->value = (char*)malloc(length + 1);
+	memcpy((*ref_string)->value, s, length + 1);
+	(*ref_string)->length = length;
 	(*ref_string)->next = 0;
 	return nr;
 }
@@ -788,7 +801,7 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == '"')
 		{
-			int nr = nr_for_string(token);
+			int nr = nr_for_string(token, token_len);
 			fprintf(fout, "\tpush_eax              # '");
 			save_print_string(fout, token);
 			fprintf(fout, "'\n\tmov_eax, &string_%d\n", nr);
@@ -812,7 +825,7 @@ int main(int argc, char *argv[])
 		{
 			fprintf(fout, "\tpop_ebx               # +\n\tadd_eax,ebx\n");
 		}
-		else if (sym == '-')
+		else if (sym == '-' || sym == SYM_SUB_PTRS)
 		{
 			fprintf(fout, "\tpop_ebx               # -\n\tsub_ebx,eax\n\tmov_eax,ebx\n");
 		}
@@ -1014,16 +1027,21 @@ int main(int argc, char *argv[])
 	{
 		fprintf(fout, ":string_%d  ", nr);
 		bool safe_string = TRUE;
-		int len = 1;
-		for (const char *s = string->value; *s != '\0'; s++, len++)
-			if (*s == '"' || (*s < ' ' && *s != '\n' && *s != '\t'))
+		for (int i = 0; i < string->length; i++)
+		{
+			char ch = string->value[i];
+			if (ch == '"' || (ch < ' ' && ch != '\n' && ch != '\t'))
+			{
 				safe_string = FALSE;
+				break;
+			}
+		}
 		if (safe_string)
 			fprintf(fout, "\"%s\"", string->value);
 		else
 		{
-			for (const char *s = string->value; *s != '\0'; s++)
-				fprintf(fout, "!%u ", *s);
+			for (int i = 0; i < string->length; i++)
+				fprintf(fout, "!%u ", string->value[i]);
 			fprintf(fout, "!0");
 		}
 		fprintf(fout, "\n");

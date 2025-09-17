@@ -80,6 +80,15 @@ char* copystr(const char* str)
 	return new_str;
 }
 
+char* copystrlen(const char* str, int len)
+{
+	//printf("copystrlen %d %ld\n", len + 1, strlen(str) + 1);
+	char* new_str = _malloc(len + 1);
+	memcpy(new_str, str, len + 1);
+
+	return new_str;
+}
+
 // Options
 
 bool opt_trace_parser = FALSE;
@@ -581,6 +590,8 @@ char tokenizer_parse_char_literal(tokenizer_p tokenizer)
 	return ch;
 }
 
+#define MAX_TOKEN_LEN 6000
+
 token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 {
 	tokenizer_p tokenizer = (tokenizer_p)token_it;
@@ -701,7 +712,6 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 		{
 			token_it->token[i] = ch; i = i + 1; it_next(it); ch = it->ch;
 		}
-		token_it->length = i;
 	}
 	else if (ch == '\'')
 	{
@@ -713,22 +723,25 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 		{
 			it_next(it);
 		}
-		token_it->length = i;
 	}
 	else if (ch == '"')
 	{
 		token_it->kind = ch; it_next(it); ch = it->ch;
 		while (ch != '\0' && ch != '\n' && ch != '"')
 		{
+			if (i == MAX_TOKEN_LEN)
+			{
+				fprintf(stderr, "MAX_TOKEN_LEN %d exceeded\n", i);
+				exit(-1);
+			}
 			token_it->token[i] = tokenizer_parse_char_literal(tokenizer);
-			i = i + 1;
+			i++;
 			ch = it->ch;
 		}
 		if (ch == '"')
 		{
 			it_next(it);
 		}
-		token_it->length = i;
 	}
 	else
 	{
@@ -887,7 +900,9 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 			it_next(it);
 		}
 	}
-	done: token_it->token[i] = '\0';
+	done:
+	token_it->token[i] = '\0';
+	token_it->length = i;
 	if (opt_trace_parser)
 		printf("tokenizer_next %d: %d '%s'\n", token_it->line, token_it->kind, token_it->token);
 	//printf("tokenizer result %d '%s' %d\n", token_it->kind, token_it->token, token_it->length);
@@ -953,7 +968,7 @@ tokenizer_p new_tokenizer(char_iterator_p char_iterator)
 {
 	tokenizer_p tokenizer = _malloc(sizeof(struct tokenizer_s));
 	tokenizer->_char_iterator = char_iterator;
-	tokenizer->base.token = _malloc(6000);
+	tokenizer->base.token = _malloc(MAX_TOKEN_LEN);
 	tokenizer->base.filename = NULL;
 	tokenizer->base.next = tokenizer_next;
 	return tokenizer;
@@ -999,7 +1014,7 @@ tokens_p new_str_token(char *str)
 tokens_p new_token_from_it(token_iterator_p it)
 {
 	tokens_p token = new_token(it->kind);
-	token->token = copystr(it->token);
+	token->token = copystrlen(it->token, it->length);
 	token->length = it->length;
 	token->filename = it->filename;
 	token->line = it->line;
@@ -2120,7 +2135,7 @@ expr_p new_expr_int_value(int value)
 	return expr;
 }
 
-bool expr_is_pointer_size_lt_1(expr_p expr)
+bool expr_is_pointer_size_gt_1(expr_p expr)
 {
 	return type_is_pointer(expr->type) && expr->type->members[0]->size > 1;
 }
@@ -2430,9 +2445,7 @@ expr_p parse_primary_expr(void)
 	if (token_it->kind == '"')
 	{
 		store_pos_for_expr();
-		int len = token_it->length;
-		memcpy(strbuf, token_it->token, token_it->length);
-		next_token();
+		int len = 0;
 		while (token_it->kind == '"')
 		{
 			if (len + token_it->length < MAX_CONST_STRLEN - 1)
@@ -2445,11 +2458,12 @@ expr_p parse_primary_expr(void)
 			printf("MAX_CONST_STRLEN < %d\n", len + 1);
 			exit(1);
 		}
-		strbuf[len++] = '\0';
+		strbuf[len] = '\0';
 		expr_p expr = new_expr('"', 0);
-		expr->str_val = (char*)malloc(len);
+		expr->str_val = (char*)malloc(len + 1);
 		expr->type = type_char_ptr;
-		memcpy(expr->str_val, strbuf, len);
+		memcpy(expr->str_val, strbuf, len + 1);
+		expr->int_val = len;
 		return expr;
 	}
 	if (accept_term('('))
@@ -2712,7 +2726,9 @@ expr_p parse_unary_expr(void)
 int parse_sizeof_type(void)
 {
 	int size = -1;
-	if (accept_term(TK_INT))
+	if (accept_term(TK_CHAR))
+		size = base_type_S8->size;
+	else if (accept_term(TK_INT))
 		size = base_type_S32->size;
 	else if (accept_term(TK_UNSIGNED))
 	{
@@ -3388,7 +3404,7 @@ bool parse_declaration(bool is_param)
 			if (accept_term('='))
 			{
 				decl->value = parse_initializer();
-				if (!as_pointer && decl->type->kind == TYPE_KIND_POINTER && decl->value->kind == 'l')
+				if (!as_pointer && decl->type->kind == TYPE_KIND_POINTER && decl->value != NULL && decl->value->kind == 'l')
 				{
 					// Fix type:
 					int nr_elems = decl->value->nr_children;
@@ -3822,6 +3838,8 @@ expr_p parse_initializer(void)
 	return parse_assignment_expr();
 }
 
+bool run_tracing = FALSE;
+
 int default_case_nr = 0;
 
 bool parse_statement(bool in_block, expr_p continue_expr)
@@ -4084,6 +4102,8 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 			gen_expr(ret_value, TRUE);
 		else
 			fprintf(fcode, "0 ");
+		if (run_tracing)
+			fprintf(fcode, "\"Exit\\n\" stdout ? fputs () ; \n");
 		fprintf(fcode, "return\n");
 		if (!accept_term(';'))
 			FAIL_FALSE
@@ -4286,8 +4306,6 @@ void gen_variable_decl(decl_p decl)
 	fprintf(fcode, "\n");
 }
 
-bool run_tracing = FALSE;
-
 void gen_function_start(decl_p decl)
 {
 	bool is_main = strcmp(decl->name, "main") == 0;
@@ -4331,7 +4349,10 @@ void gen_function_end(void)
 {
 	inside_function = FALSE;
 	indent--;
-	fprintf(fcode, "\t0 return\n}\n");
+	fprintf(fcode, "\t");
+	if (run_tracing)
+		fprintf(fcode, "\"Exit\\n\" stdout ? fputs () ; \n");
+	fprintf(fcode, "0 return\n}\n");
 }
 
 void gen_stats_open(void)
@@ -4378,19 +4399,24 @@ void gen_expr(expr_p expr, bool as_value)
 			break;
 		case '"':
 			fprintf(fcode, "\"");
-			for (const char *s = expr->str_val; *s != '\0'; s++)
-				if (*s == '\n')
+			for (int i = 0; i < expr->int_val; i++)
+			{
+				const char ch = expr->str_val[i];
+				if (ch == '\0')
+					fprintf(fcode, "\\0");
+				else if (ch == '\n')
 					fprintf(fcode, "\\n");
-				else if (*s == '\r')
+				else if (ch == '\r')
 					fprintf(fcode, "\\r");
-				else if (*s == '\t')
+				else if (ch == '\t')
 					fprintf(fcode, "\\t");
-				else if (*s == '\"' || *s == '\\')
-					fprintf(fcode, "\\%c", *s);
-				else if (*s < ' ')
-					fprintf(fcode, "\\%3o", *s);
+				else if (ch == '\"' || ch == '\\')
+					fprintf(fcode, "\\%c", ch);
+				else if (ch < ' ')
+					fprintf(fcode, "\\%3o", ch);
 				else
-					fprintf(fcode, "%c", *s);
+					fprintf(fcode, "%c", ch);
+			}
 			fprintf(fcode, "\" ");
 			break;
 		case 'c': // cast
@@ -4424,19 +4450,28 @@ void gen_expr(expr_p expr, bool as_value)
 			switch (expr->kind)
 			{
 				case '+':
-					if (expr_is_pointer_size_lt_1(expr->children[0]))
+					if (expr_is_pointer_size_gt_1(expr->children[0]))
 						fprintf(fcode, "%d * ", expr->children[0]->type->members[0]->size);
-					else if (expr_is_pointer_size_lt_1(expr->children[1]))
+					else if (expr_is_pointer_size_gt_1(expr->children[1]))
 						fprintf(fcode, ">< %d * ", expr->children[1]->type->members[0]->size);
 					fprintf(fcode, "+ ");
 					break;
 				case '-':
-					if (expr_is_pointer_size_lt_1(expr->children[0]))
+					if (type_is_pointer(expr->children[0]->type))
 					{
-						if (expr_is_pointer_size_lt_1(expr->children[1]))
-							fprintf(fcode, "- %d / ", expr->children[0]->type->members[0]->size);
+						int base_size = expr->children[0]->type->members[0]->size;
+						if (type_is_pointer(expr->children[1]->type))
+						{
+							fprintf(fcode, "-p ");
+							if (base_size > 1)
+								fprintf(fcode, "%d / ", base_size);
+						}
 						else
-							fprintf(fcode, "%d * - ", expr->children[0]->type->members[0]->size);
+						{
+							if (base_size > 1)
+								fprintf(fcode, "%d * ", base_size);
+							fprintf(fcode, "- ");
+						}
 					}
 					else
 						fprintf(fcode, "- ");
@@ -4486,7 +4521,7 @@ void gen_expr(expr_p expr, bool as_value)
 			fprintf(fcode, "$ ? ");
 			gen_expr(expr->children[1], TRUE);
 			if (   (expr->kind == TK_ADD_ASS || expr->kind == TK_SUB_ASS)
-				&& expr_is_pointer_size_lt_1(expr->children[0]))
+				&& expr_is_pointer_size_gt_1(expr->children[0]))
 				fprintf(fcode, "%d * ", expr->children[0]->type->members[0]->size);
 			switch (expr->kind)
 			{
@@ -4762,7 +4797,7 @@ int main(int argc, char *argv[])
 	env_p one_source_env = get_env("ONE_SOURCE", TRUE);
 	one_source_env->tokens = new_int_token("1");
 	env_p tcc_version_env = get_env("TCC_VERSION", TRUE);
-	tcc_version_env->tokens = new_str_token("1.0");
+	tcc_version_env->tokens = new_str_token("0.9.26");
 
 	if (only_preprocess)
 	{

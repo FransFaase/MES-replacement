@@ -44,7 +44,7 @@ void *memmove(void *dest, const void *src, size_t n)
 {
 	char *d = (char *)dest;
 	char *s = (char *)src;
-	if (dest < src)
+	if (1) //dest < src)
 	{
 		for (size_t i = 0; i < n; i++)
 			d[i] = s[i];
@@ -68,9 +68,11 @@ void *memset(void *s, int c, size_t n)
 
 int memcmp(const void *s1, const void *s2, size_t n)
 {
-	for (size_t i = 0; i < n; i++, s1++, s2++)
+	char *p1 = (char*)s1;
+	char *p2 = (char*)s2;
+	for (size_t i = 0; i < n; i++, p1++, p2++)
 	{
-		int result = *(char*)s1 - *(char*)s2;
+		int result = *(char*)p1 - *(char*)p2;
 		if (result != 0)
 			return result;
 	}
@@ -656,7 +658,7 @@ int sscanf(const char *str, const char *format, ...)
 					v = 10 * v + *str - '0';
 					str++;
 				}
-				*((int**)ap) = v;
+				**((int**)ap) = v;
 				ap++;
 				args_parsed++;
 			}

@@ -102,13 +102,24 @@ int main (int argc, char *argv[])
 	static int s_int = 1;
 	is_true(s_int == 1, "static int == 1");
 	
-	int x = 1;
-	int y = x + 1;
+	int xx = 1;
+	int y = xx + 1;
 
 	printf("%s\n", TCC_VERSION);
 
 #define STR "teststr"
 	printf("%s\n", STR);
+
+	char *char_p1 = (char*)malloc(20 * sizeof(char));
+	char *char_p2 = (char*)malloc(20 * sizeof(char));
+	char *char_p3 = &char_p1[3];
+	is_true(char_p1 < char_p3 && char_p3 < char_p1 + 10, "p3 in p1");
+	is_true(char_p2 > char_p1, "char_p2 > char_p1");
+
+	int zz;
+	sscanf("3", "%d",&zz);
+	is_true(zz == 3, "sscanf 3");
+	printf("Done\n");
 
 	return result;
 }

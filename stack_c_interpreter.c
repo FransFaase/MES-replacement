@@ -30,7 +30,7 @@ Notes:
 
 // Constants
 
-#define MAX_TOKEN_LENGTH 4000
+#define MAX_TOKEN_LENGTH 8000
 #define MAX_NR_VARIABLES 4000
 #define MAX_NR_STATICS 10
 #define MAX_VARIABLE_LENGTH 50
@@ -92,6 +92,7 @@ void read_char(void)
 
 char sym;
 char token[MAX_TOKEN_LENGTH+1];
+int token_len = 0;
 int int_value;
 int cur_line = 0;
 int cur_column = 0;
@@ -118,7 +119,7 @@ Mapping keywords[NR_KEYWORDS] = {
 
 #define SYMBOL(X) ('a' + (X))
 
-#define NR_SYMBOLS 20
+#define NR_SYMBOLS 21
 Mapping symbols[NR_SYMBOLS] = {
 #define SYM_REV_ASS SYMBOL(0)
 	{ "=:",         SYM_REV_ASS },
@@ -160,6 +161,8 @@ Mapping symbols[NR_SYMBOLS] = {
 	{ "->",         SYM_ARROW },
 #define SYM_SWAP SYMBOL(19)
 	{ "><",         SYM_SWAP },
+#define SYM_SUB_PTRS SYMBOL(20)
+	{ "-p",         SYM_SUB_PTRS }
 };
 
 int error = 0;
@@ -168,7 +171,7 @@ bool opt_trace_parsing = FALSE;
 
 void get_token(void)
 {
-	int i = 0;
+	token_len = 0;
 	// Skip white spaces, but echo comments starting with # till end of the line
 	while ((cur_char != '\0' && cur_char <= ' ') || cur_char == '#')
 	{
@@ -203,13 +206,13 @@ void get_token(void)
 		sym = 'A';
 		do
 		{
-			token[i++] = cur_char;
+			token[token_len++] = cur_char;
 			read_char();
 		}
 		while (('a' <= cur_char && cur_char <= 'z') || ('A' <= cur_char && cur_char <= 'Z') || cur_char == '_' || ('0' <= cur_char && cur_char <= '9'));
-		token[i] = '\0';
+		token[token_len] = '\0';
 
-		if (i > MAX_VARIABLE_LENGTH)
+		if (token_len > MAX_VARIABLE_LENGTH)
 		{
 			fprintf(ferr, "ERROR %d: Variable '%s' is longer than %d characters\n", cur_line, token, MAX_VARIABLE_LENGTH);
 			error = 1;
@@ -243,7 +246,7 @@ void get_token(void)
 				read_char();
 				break;
 			}
-			if (i > MAX_TOKEN_LENGTH)
+			if (token_len > MAX_TOKEN_LENGTH)
 			{
 				fprintf(ferr, "ERROR %d: String longer than %d characters\n", cur_line, MAX_TOKEN_LENGTH);
 				error = 1;
@@ -262,12 +265,12 @@ void get_token(void)
 					cur_char = '\r';
 				else if (cur_char == 't')
 					cur_char = '\t';
-				token[i++] = cur_char;
+				token[token_len++] = cur_char;
 			}
 			else
-				token[i++] = cur_char;
+				token[token_len++] = cur_char;
 		}
-		token[i] = '\0';
+		token[token_len] = '\0';
 		if (opt_trace_parsing) printf("%d.%d get_token %s %c\n", cur_line, cur_column, token, sym);
 		return;
 	}
@@ -275,7 +278,7 @@ void get_token(void)
 	// Check for number or '->' symbol
 	if (('0' <= cur_char && cur_char <= '9') || cur_char == '-')
 	{
-		token[i++] = cur_char;
+		token[token_len++] = cur_char;
 		int sign = 1;
 		if (cur_char == '-')
 		{
@@ -284,16 +287,24 @@ void get_token(void)
 			// check of '->' symbol
 			if (cur_char == '>')
 			{
-				sym = 's';
-				token[i++] = cur_char;
-				token[i] = '\0';
+				sym = SYM_ARROW;
+				token[token_len++] = cur_char;
+				token[token_len] = '\0';
+				read_char();
+				return;
+			}
+			if (cur_char == 'p')
+			{
+				sym = SYM_SUB_PTRS;
+				token[token_len++] = cur_char;
+				token[token_len] = '\0';
 				read_char();
 				return;
 			}
 			if (cur_char <= ' ')
 			{
 				sym = '-';
-				token[i] = '\0';
+				token[token_len] = '\0';
 				if (opt_trace_parsing) printf("%d.%d get_token %s %c\n", cur_line, cur_column, token, sym);
 				return;
 			}
@@ -356,6 +367,7 @@ void get_token(void)
 	{
 		sym = ':';
 		token[1] = '\0';
+		token_len = 1;
 		read_char();
 		if (opt_trace_parsing) printf("%d.%d get_token %s %c\n", cur_line, cur_column, token, sym);
 		return;
@@ -365,13 +377,13 @@ void get_token(void)
 	sym = ' ';
 	do
 	{
-		token[i++] = cur_char;
+		token[token_len++] = cur_char;
 		read_char();
 	}
 	while (cur_char > ' ');
 
-	token[i] = '\0';
-	if (i == 1)
+	token[token_len] = '\0';
+	if (token_len == 1)
 		sym = token[0];
 	else
 		for (int i = 0; i < NR_SYMBOLS; i++)
@@ -418,23 +430,25 @@ typedef struct string_s *string_p;
 struct string_s
 {
 	char *value;
+	int length;
 	string_p next;
 };
 string_p strings = 0;
 
-const char* unique_string(const char *s)
+string_p unique_string(const char *s, int length)
 {
 	//printf("# nr_for_string %s\n", s);
 	int nr = 0;
 	string_p *ref_string = &strings;
 	for (; (*ref_string) != 0; ref_string = &(*ref_string)->next, nr++)
-		if (strcmp((*ref_string)->value, s) == 0)
-			return (*ref_string)->value;
+		if ((*ref_string)->length == length && memcmp((*ref_string)->value, s, length) == 0)
+			return (*ref_string);
 	(*ref_string) = (string_p)malloc(sizeof(struct string_s));
-	(*ref_string)->value = (char*)malloc(strlen(s) + 1);
-	strcpy((*ref_string)->value, s);
+	(*ref_string)->value = (char*)malloc(length + 1);
+	memcpy((*ref_string)->value, s, length + 1);
+	(*ref_string)->length = length;
 	(*ref_string)->next = 0;
-	return (*ref_string)->value;
+	return (*ref_string);
 }
 
 int nesting_depth = 0;
@@ -449,7 +463,7 @@ struct command_s
 	char sym;
 	int int_value;
 	union {
-		const char *str;
+		string_p str;
 		command_p jump_command;
 		memory_p memory;
 		function_p function;
@@ -610,7 +624,7 @@ struct cell_s
 	union {
 		memory_p memory;
 		function_p function;
-		const char *str;
+		string_p str;
 	};
 	command_p command;
 };
@@ -694,6 +708,8 @@ void print_value_stack(FILE *f)
 			if (value_stack[i].kind == C_VALUE)
 				fprintf(f, "%d ", value_stack[i].int_value);
 			fprintf(f, " %d.%d", value_stack[i].command->line, value_stack[i].command->column);
+			if (value_stack[i].kind == C_STRING)
+				fprintf(f, " '%s'", value_stack[i].str->value);
 		}
 	}
 	fprintf(f, ")\n");
@@ -703,7 +719,7 @@ void report_error(const char *fmt, ...)
 {
 	for (int i = 0; i < function_depth; i++)
 		fprintf(ferr, "At %d.%d in function %s\n",
-			function_stack[i].command->line, function_stack[i].command->line, function_stack[i].function->ident->name);
+			function_stack[i].command->line, function_stack[i].command->column, function_stack[i].function->ident->name);
 	fprintf(ferr, "In function %s\n", cur_function->ident->name);
 	fprintf(ferr, "Stack: ");
 	print_value_stack(ferr);
@@ -810,7 +826,11 @@ int get_array_byte(cell_p cell, int index)
 	if (offset < 0)
 		report_error("get array byte: offset %d is negative", offset);
 	if (cell->kind == C_STRING)
-		return cell->str[offset];
+	{
+		if (offset > cell->str->length)
+			report_error("get string byte: offset %d outside of string (%d, '%s')", offset, cell->str->length, cell->str->value);
+		return cell->str->value[offset];
+	}
 	if (offset >= memory->nr_cells * 4)
 		report_error("get array byte: offset %d outside of memory (%d)", offset, memory->nr_cells);
 	cell_p elem =   cell->kind == C_GLOBAL
@@ -1012,6 +1032,7 @@ int main(int argc, char *argv[])
 	
 	bool opt_trace_command = FALSE;
 	bool opt_trace_functions = FALSE;
+	int opt_indent_calls = 60000; //1307;
 
 	const char **col_argv = (const char**)malloc(argc * sizeof(char*));
 	int col_argc = 0;
@@ -1368,7 +1389,7 @@ int main(int argc, char *argv[])
 		{
 			command_p command = add_command(sym);
 			command->int_value = 0;
-			command->str = unique_string(token);
+			command->str = unique_string(token, token_len);
 		}
 		else if (sym == '\'')
 		{
@@ -1500,10 +1521,12 @@ int main(int argc, char *argv[])
 		for (int i = 0; i < col_argc; i++)
 		{
 			top_value->memory->cells[i].kind = C_STRING;
-			top_value->memory->cells[i].str = col_argv[i];
+			top_value->memory->cells[i].str = unique_string(col_argv[i], strlen(col_argv[i]));
 			top_value->memory->cells[i].command = cur_command;
 		}
 	}
+
+	int indent = 0;
 
 	while (TRUE)
 	{
@@ -1520,6 +1543,12 @@ int main(int argc, char *argv[])
 			if (cur_command == NULL || cur_command->sym != SYM_CALL)
 				report_error("Should be on call");
 			if (opt_trace_functions) printf("Decrement locals_offset from %d with %d to %d\n", locals_offset, cur_command->int_value, locals_offset - cur_command->int_value);
+			if (cur_command->line > opt_indent_calls)
+			{
+				indent--;
+				for (int i = 0; i < indent; i++) printf("  ");
+				printf("returned\n");
+			}
 			locals_offset -= cur_command->int_value;
 			cur_command = cur_command->next;
 		}
@@ -1609,15 +1638,26 @@ int main(int argc, char *argv[])
 			top_value->int_value += rhs_value;
 			top_value->command = cur_command;
 		}
-		else if (sym == '-')
+		else if (sym == '-' || sym == SYM_SUB_PTRS)
 		{
 			check_stack(2);
 			cell_p lhs = &value_stack[value_depth-1];
 			if (top_value->kind == C_VALUE && (lhs->kind == C_VALUE || lhs->kind == C_LOCAL || lhs->kind == C_GLOBAL || lhs->kind == C_STRING))
 			{
-				int rhs_value = pop_value();
-				top_value->int_value -= rhs_value;
-				top_value->command = cur_command;
+				if (sym == SYM_SUB_PTRS && lhs->kind != C_VALUE)
+				{
+					if (top_value->int_value != 0)
+						report_error("Substract non-zero value with pointer not allowed");
+					int value = (long)lhs->memory + lhs->int_value;
+					pop();
+					top_value->kind = C_VALUE;
+					top_value->int_value = value;
+				}
+				else
+				{
+					int rhs_value = pop_value();
+					top_value->int_value -= rhs_value;
+				}
 			}
 			else if (   (lhs->kind == C_LOCAL && top_value->kind == C_LOCAL)
 					 || (lhs->kind == C_GLOBAL && top_value->kind == C_GLOBAL))
@@ -1628,7 +1668,6 @@ int main(int argc, char *argv[])
 				pop();
 				top_value->kind = C_VALUE;
 				top_value->int_value = sub;
-				top_value->command = cur_command;
 			}
 			else if (lhs->kind == C_STRING && top_value->kind == C_STRING)
 			{
@@ -1638,10 +1677,17 @@ int main(int argc, char *argv[])
 				pop();
 				top_value->kind = C_VALUE;
 				top_value->int_value = sub;
-				top_value->command = cur_command;
+			}
+			else if (lhs->kind == C_VALUE && lhs->int_value == 0 && top_value->kind == C_GLOBAL)
+			{
+				int sub = -((long)top_value->memory + top_value->int_value);
+				pop();
+				top_value->kind = C_VALUE;
+				top_value->int_value = sub;
 			}
 			else
-				report_error("Illegal substraction");
+				report_error("Illegal substraction (%d:%d - %d)", lhs->kind, lhs->int_value, top_value->kind);
+			top_value->command = cur_command;
 		}
 		else if (sym == SYM_REV_ASS)
 		{
@@ -1679,6 +1725,12 @@ int main(int argc, char *argv[])
 			else
 			{
 				if (opt_trace_functions) printf("Increment locals_offset from %d with %d to %d\n", locals_offset, cur_command->int_value, locals_offset + cur_command->int_value);
+				if (cur_command->line > opt_indent_calls)
+				{
+					for (int i = 0; i < indent; i++) printf("  ");
+					printf("Call at %d to %d\n", cur_command->line, function->commands->line);
+					indent++;
+				}
 				locals_offset += cur_command->int_value;
 				if (locals_offset + cur_function->max_locals_depth >= MAX_LOCALS_DEPTH)
 					report_error("Stack locals overflow");
@@ -1742,6 +1794,7 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == SYM_EQ || sym == SYM_NE)
 		{
+			check_stack(2);
 			cell_p lhs = &value_stack[value_depth-1];
 			bool equal = FALSE;
 			if (lhs == top_value)
@@ -1769,6 +1822,7 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == '<' || sym == '>' || sym == SYM_LE || sym == SYM_GE)
 		{
+			check_stack(2);
 			cell_p lhs = &value_stack[value_depth-1];
 			if (lhs->kind != top_value->kind)
 			{
