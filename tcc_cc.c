@@ -4336,6 +4336,8 @@ void gen_function_start(decl_p decl)
 	{
 		gen_indent();
 		fprintf(fcode, "__init_globals__ ()\n");
+		gen_indent();
+		fprintf(fcode, "_sys_env argv ? argc ? 4 * 4 + + = ;\n");
 	}
 	if (run_tracing)
 	{

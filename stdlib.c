@@ -598,10 +598,14 @@ char *getcwd(char *buf, size_t size)
 	fprintf(stderr, "TODO getcwd\n"); exit(1);
 }
 
+char **_sys_env = 0;
+
 char *getenv(const char *name)
 {
-	// TODO
-	fprintf(stderr, "TODO getenv\n"); exit(1);
+	int len = strlen(name);
+	for (char **env = _sys_env; *env != NULL; env++)
+		if (strncmp(*env, name, len) == 0 && (*env)[len] == '=')
+			return (*env) + len + 1;
 }
 
 void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *))

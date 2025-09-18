@@ -1514,16 +1514,29 @@ int main(int argc, char *argv[])
 	top_value = &value_stack[value_depth];
 
 	{
+		int nr_env = 0;
+		while (argv[argc + nr_env + 1] != NULL)
+			nr_env++;
+
 		// Push argv
 		push_value(col_argc);
 		push(C_GLOBAL);
-		top_value->memory = alloc_memory(4 * col_argc);
+		top_value->memory = alloc_memory(4 * (col_argc + 1 + nr_env + 1));
 		for (int i = 0; i < col_argc; i++)
 		{
 			top_value->memory->cells[i].kind = C_STRING;
 			top_value->memory->cells[i].str = unique_string(col_argv[i], strlen(col_argv[i]));
 			top_value->memory->cells[i].command = cur_command;
 		}
+		top_value->memory->cells[col_argc].kind = C_VALUE;
+		for (int i = 0; i < nr_env; i++)
+		{
+			int env_i = col_argc + 1 + i;
+			top_value->memory->cells[env_i].kind = C_STRING;
+			top_value->memory->cells[env_i].str = unique_string(argv[argc + 1 + i], strlen(argv[argc + 1 + i]));
+			top_value->memory->cells[env_i].command = cur_command;
+		}
+		top_value->memory->cells[col_argc + 1 + nr_env].kind = C_VALUE;
 	}
 
 	int indent = 0;
