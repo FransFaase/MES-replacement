@@ -415,8 +415,15 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap)
 #define SEEK_CUR 1
 #define SEEK_END 2
 
-int open(const char *filename, int flag, int mode)
+int open(const char *filename, int flag, ...)
 {
+	int mode = 0;
+	if ((flag & O_WRONLY) != 0)
+	{
+		va_list ap;
+		va_start(ap, flag);
+		mode = ap[0];
+	}
 	return sys_int80(5, filename, flag, mode);
 }
 
