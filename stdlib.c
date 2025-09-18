@@ -112,7 +112,7 @@ char *strchr(const char *s, int c)
 	for (; *s != '\0'; s++)
 		if (*s == c)
 			return s;
-	return NULL;
+	return c == '\0' ? s : NULL;
 }
 
 char *strrchr(const char *s, int c)
@@ -479,8 +479,8 @@ int fclose(FILE *stream)
 
 int fflush(FILE *stream)
 {
-	// TODO
-	fprintf(stderr, "TODO fflush\n"); exit(1);
+	// (No buffered output)
+	return 0;
 }
 
 int fseek(FILE *stream, long offset, int whence)
