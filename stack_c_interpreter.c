@@ -707,7 +707,10 @@ void print_value_stack(FILE *f)
 		{
 			if (value_stack[i].kind == C_VALUE)
 				fprintf(f, "%d ", value_stack[i].int_value);
-			fprintf(f, " %d.%d", value_stack[i].command->line, value_stack[i].command->column);
+			if (value_stack[i].command != NULL)
+				fprintf(f, " %d.%d", value_stack[i].command->line, value_stack[i].command->column);
+			else
+				fprintf(f, " ?.?");
 			if (value_stack[i].kind == C_STRING)
 				fprintf(f, " '%s'", value_stack[i].str->value);
 		}
@@ -1185,34 +1188,47 @@ int main(int argc, char *argv[])
 				fprintf(ferr, "ERROR %d.%d: More than %d variables\n", cur_line, cur_column, MAX_NR_VARIABLES);
 				return 1;
 			}
-			ident_p ident = &idents[nr_idents++];
-			ident->type = type;
-			strcpy(ident->name, token);
-			ident->size = size;
-			memory_p memory = (memory_p)malloc(sizeof(struct memory_s));
-			ident->memory = memory;
-			memory->nr_cells = size;
-			memory->name = copystr(token);
-			memory->line = cur_line;
-			memory->column = cur_column;
+			bool repeated_global = FALSE;
 			if (type == 'M')
 			{
-				memory->cells = (cell_p)malloc(size * sizeof(struct cell_s));
-				for (int i = 0; i < size; i++)
-				{
-					memory->cells[i].kind = C_VALUE;
-					memory->cells[i].int_value = 0;
-					memory->cells[i].memory = NULL; // not applicable
-				}
-				ident->pos = 0;
+				for (int i = 0; i < nr_idents; i++)
+					if (idents[i].type == 'M' && strcmp(idents[i].name, token) == 0)
+					{
+						repeated_global = TRUE;
+						break;
+					}
 			}
-			else
+			if (!repeated_global)
 			{
-				memory->cells = NULL;
-				ident->pos = pos;
-				pos += size;
-				if (pos > cur_function->max_locals_depth)
-					cur_function->max_locals_depth = pos;
+				ident_p ident = &idents[nr_idents++];
+				ident->type = type;
+				strcpy(ident->name, token);
+				ident->size = size;
+				memory_p memory = (memory_p)malloc(sizeof(struct memory_s));
+				ident->memory = memory;
+				memory->nr_cells = size;
+				memory->name = copystr(token);
+				memory->line = cur_line;
+				memory->column = cur_column;
+				if (type == 'M')
+				{
+					memory->cells = (cell_p)malloc(size * sizeof(struct cell_s));
+					for (int i = 0; i < size; i++)
+					{
+						memory->cells[i].kind = C_VALUE;
+						memory->cells[i].int_value = 0;
+						memory->cells[i].memory = NULL; // not applicable
+					}
+					ident->pos = 0;
+				}
+				else
+				{
+					memory->cells = NULL;
+					ident->pos = pos;
+					pos += size;
+					if (pos > cur_function->max_locals_depth)
+						cur_function->max_locals_depth = pos;
+				}
 			}
 		}
 		else if (sym == 'L')
