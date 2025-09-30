@@ -976,6 +976,8 @@ void sys_int80(void)
 	push_value(result);
 }
 
+cell_kind_e undefined_kind = C_UNDEFINED;
+
 memory_p alloc_memory(int size)
 {
 	memory_p result = (memory_p)malloc(sizeof(struct memory_s));
@@ -987,7 +989,8 @@ memory_p alloc_memory(int size)
 	result->column = cur_command != 0 ? cur_command->column : 0;
 	for (int i = 0; i < result->nr_cells; i++)
 	{
-		result->cells[i].kind = C_UNDEFINED;
+		result->cells[i].kind = undefined_kind;
+		result->cells[i].int_value = 0;
 		result->cells[i].command = NULL;
 	}
 	return result;
@@ -1053,6 +1056,8 @@ int main(int argc, char *argv[])
 			opt_trace_assignments = TRUE;
 			opt_trace_functions = TRUE;
 		}
+		else if (strcmp(arg, "-u") == 0)
+			undefined_kind = C_VALUE;
 		else
 			col_argv[col_argc++] = arg;
 	}
