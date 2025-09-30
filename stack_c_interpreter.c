@@ -169,6 +169,9 @@ int error = 0;
 
 bool opt_trace_parsing = FALSE;
 
+char *c_filename = NULL;
+int c_line = 0;
+
 void get_token(void)
 {
 	token_len = 0;
@@ -177,16 +180,48 @@ void get_token(void)
 	{
 		if (cur_char == '#')
 		{
-			do
+			char buffer[100];
+			int i = 0;
+			for (;;)
 			{
 				//fputc(cur_char, fout);
 				read_char();
+				if (cur_char == '\0' || cur_char == '\n')
+					break;
+				if (i < 99)
+					buffer[i++] = cur_char;
 			}
-			while (cur_char != '\0' && cur_char != '\n');
+			if (cur_char == '\n')
+				read_char();
+			buffer[i] = '\0';
+
+			if (buffer[0] == ' ')
+			{
+				i = 1;
+				while (buffer[i] != '\0' && buffer[i] != ' ')
+					i++;
+				if (i > 1 && buffer[i] == ' ')
+				{
+					buffer[i] = '\0';
+					i++;
+					int l = 0;
+					while ('0' <= buffer[i] && buffer[i] <= '9')
+						l = 10 * l + buffer[i++] - '0';
+					if (l > 0 && buffer[i] == 0)
+					{
+						c_filename = copystr(buffer + 1);
+						c_line = l;
+					}
+				}
+			}
 			//fputc('\n', fout);
 		}
 		else
+		{
+			if (cur_char == '\n')
+				c_line++;
 			read_char();
+		}
 	}
 
 	// Check for end of file
@@ -470,6 +505,8 @@ struct command_s
 	};
 	int line;
 	int column;
+	char *c_filename;
+	int c_line;
 	command_p next;
 };
 
@@ -562,6 +599,8 @@ command_p add_command(char sym)
 	command->str = NULL;
 	command->line = cur_line;
 	command->column = cur_column;
+	command->c_filename = c_filename;
+	command->c_line = c_line;
 	command->next = NULL;
 	if (ref_command != NULL)
 	{
@@ -721,8 +760,39 @@ void print_value_stack(FILE *f)
 void report_error(const char *fmt, ...)
 {
 	for (int i = 0; i < function_depth; i++)
+		if (function_stack[i].command->c_filename != NULL)
+			fprintf(ferr, "At %s:%d (%d.%d) in function %s\n",
+				function_stack[i].command->c_filename, function_stack[i].command->c_line, 
+				function_stack[i].command->line, function_stack[i].command->column, function_stack[i].function->ident->name);
+		else
+			fprintf(ferr, "At %d.%d in function %s\n",
+				function_stack[i].command->line, function_stack[i].command->column, function_stack[i].function->ident->name);
+	if (cur_command == NULL)
+		fprintf(ferr, "In function %s\n", cur_function->ident->name);
+	else if (cur_command->c_filename != NULL)
+		fprintf(ferr, "At %s:%d (%d.%d) in function %s\n",
+			cur_command->c_filename, cur_command->c_line, 
+			cur_command->line, cur_command->column, cur_function->ident->name);
+	else
 		fprintf(ferr, "At %d.%d in function %s\n",
-			function_stack[i].command->line, function_stack[i].command->column, function_stack[i].function->ident->name);
+			cur_command->line, cur_command->column, cur_function->ident->name);
+	fprintf(ferr, "Stack: ");
+	print_value_stack(ferr);
+	static char message[300];
+	va_list args;
+   	va_start(args, fmt);
+	vsnprintf(message, 299, fmt, args);
+	va_end(args);
+	message[299] = '\0';
+	fprintf(ferr, "Error: %s\n", message);
+	exit(-1);
+}
+
+void report_warning(const char *fmt, ...)
+{
+	//for (int i = 0; i < function_depth; i++)
+	//	fprintf(ferr, "At %d.%d in function %s\n",
+	//		function_stack[i].command->line, function_stack[i].command->column, function_stack[i].function->ident->name);
 	fprintf(ferr, "In function %s\n", cur_function->ident->name);
 	fprintf(ferr, "Stack: ");
 	print_value_stack(ferr);
@@ -733,10 +803,9 @@ void report_error(const char *fmt, ...)
 	va_end(args);
 	message[299] = '\0';
 	if (cur_command != NULL)
-		fprintf(ferr, "Error %d.%d [%s]: %s\n", cur_command->line, cur_command->column, command_name(cur_command), message);
+		fprintf(ferr, "Warning %d.%d %s:%d [%s]: %s\n", cur_command->line, cur_command->column, cur_command->c_filename, cur_command->c_line, command_name(cur_command), message);
 	else
-		fprintf(ferr, "Error: %s\n", message);
-	exit(-1);
+		fprintf(ferr, "Warning: %s\n", message);
 }
 
 void pop(void)
@@ -1837,9 +1906,12 @@ int main(int argc, char *argv[])
 			{
 				if (   (top_value->kind == C_VALUE && top_value->int_value == 0 && lhs->kind != C_UNDEFINED)
 					|| (lhs->kind == C_VALUE && lhs->int_value == 0 && top_value->kind != C_UNDEFINED))
-					equal = FALSE;
+					; // Accept comparing 'pointer' with NULL
+				else if (top_value->kind == C_VALUE && lhs->kind == C_GLOBAL)
+					report_warning("== != comparing value with pointer");
 				else
 					report_error("== != cannot compare different types");
+				equal = FALSE;
 			}
 			else if (top_value->kind == C_UNDEFINED)
 				report_error("== != cannot compare undefined values");
