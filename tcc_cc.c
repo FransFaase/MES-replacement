@@ -575,7 +575,19 @@ char tokenizer_parse_char_literal(tokenizer_p tokenizer)
 			return '1';
 		}
 	}
-	if (ch == 'n')
+	if (ch == 'a')
+	{
+		ch = '\a';
+	}
+	else if (ch == 'b')
+	{
+		ch = '\b';
+	}
+	else if (ch == 'f')
+	{
+		ch = '\f';
+	}
+	else if (ch == 'n')
 	{
 		ch = '\n';
 	}
@@ -587,6 +599,14 @@ char tokenizer_parse_char_literal(tokenizer_p tokenizer)
 	{
 		ch = '\t';
 	}
+	else if (ch == 'v')
+	{
+		ch = '\v';
+	}
+	else if (ch == '\'' || ch == '"' || ch == '\\')
+		;
+	else
+		printf("%s:%d.%d Warning: Unknown escape sequence \\%c\n", it->filename, (int)it->line, (int)it->column, ch);
 	return ch;
 }
 
