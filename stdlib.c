@@ -317,7 +317,7 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 				}
 				else if (*format == 'u')
 				{
-					unsigned int v = *args;
+					unsigned int v = *args++;
 					if (v == 0)
 						buffer[0] = '0';
 					else
@@ -328,11 +328,10 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 						s = buffer + l;
 						l = 20 - l;
 					}
-					args++;
 				}
 				else if (*format == 'x' || *format == 'p')
 				{
-					unsigned int v = *args;
+					unsigned int v = *args++;
 					if (v == 0)
 						buffer[0] = '0';
 					else
@@ -343,11 +342,10 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 						s = buffer + l;
 						l = 20 - l;
 					}
-					args++;
 				}
 				else if (*format == 'c')
 				{
-					buffer[0] = *args;
+					buffer[0] = *args++;
 				}
 				else
 				{
