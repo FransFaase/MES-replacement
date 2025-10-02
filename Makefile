@@ -43,7 +43,12 @@ diff5 : tcc_cc.sl tcc_cc_t.sl
 	./run.sh diff tcc_cc.sl tcc_cc_t.sl
 
 tcc.sl : tcc_cc tcc_sources/tcc.c
-	./tcc_cc tcc_sources/tcc.c -T -o tcc.sl
+	./tcc_cc tcc_sources/tcc.c -o tcc.sl
+
+tcc: tcc_sources/tcc.c
+	gcc -DONE_SOURCE=1 -DTCC_VERSION=\"0.9.26\" tcc_sources/tcc.c -o tcc
+
+x : tcc_s tcc
 
 .PRECIOUS: %.sl %_s.M1 %.blood_elf %.macro
-.PHONY: all run_unittest_s stack_c_diff tcc_cc_diff
+.PHONY: all run_unittest_s stack_c_diff tcc_cc_diff x
