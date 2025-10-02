@@ -3506,7 +3506,7 @@ type_p parse_type_specifier(storage_type_e *ref_storage_type)
 		{
 			return base_type_U32;
 		}
-		return base_type_S32;
+		return base_type_U32;
 	}
 	if (accept_term(TK_SHORT))
 	{
