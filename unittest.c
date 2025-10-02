@@ -2,6 +2,10 @@
 #include <stdio.h>
 #include <string.h>
 #endif
+#ifdef __TINYC__
+typedef int size_t;
+#include "stdlib.c"
+#endif
 
 int result = 0;
 
