@@ -28,11 +28,8 @@ const FILE *stdin = &__sys_stdin;
 const FILE *stdout = &__sys_stdout;
 const FILE *stderr = &__sys_stderr;
 
-int printf(const char *format, ...);
-
 void *memcpy(void *dest, const void *src, size_t n)
 {
-	printf("memcpy n = %u\n", n);
 	char *d = (char *)dest;
 	char *s = (char *)src;
 	for (int i = 0; i < n; i++)
