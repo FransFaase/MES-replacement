@@ -5,12 +5,11 @@ void *sys_malloc(size_t size);
 
 void exit(int result)
 {
-	return sys_int80(1, result, 0, 0);
+	sys_int80(1, result, 0, 0);
 }
 
 #define NULL 0
 
-typedef uint32_t size;
 typedef uint32_t off_t;
 typedef uint32_t time_t;
 typedef uint32_t suseconds_t;
@@ -48,7 +47,7 @@ void *memmove(void *dest, const void *src, size_t n)
 	}
 	else if (src < dest)
 	{
-		size j = n-1;
+		size_t j = n-1;
 		for (size_t i = 0; i < n; i++, j--)
 			d[j] = s[j];
 	}
