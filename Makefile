@@ -43,10 +43,10 @@ diff5 : tcc_cc.sl tcc_cc_t.sl
 	./run.sh diff tcc_cc.sl tcc_cc_t.sl
 
 tcc.sl : tcc_cc tcc_sources/tcc.c
-	./tcc_cc tcc_sources/tcc.c -o tcc.sl
+	./tcc_cc -DONE_SOURCE=1 -DTCC_VERSION=\"0.9.26\" -DBOOTSTRAP=1 -DTCC_TARGET_I386=1 -DHAVE_LONG_LONG=0 tcc_sources/tcc.c -o tcc.sl
 
 tcc: tcc_sources/tcc.c
-	gcc -DONE_SOURCE=1 -DTCC_VERSION=\"0.9.26\" tcc_sources/tcc.c -o tcc
+	gcc -DONE_SOURCE=1 -DTCC_VERSION=\"0.9.26\" -DBOOTSTRAP=1 -DTCC_TARGET_I386=1 -DHAVE_LONG_LONG=0 tcc_sources/tcc.c -o tcc
 
 x : tcc_s tcc
 

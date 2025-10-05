@@ -4801,6 +4801,42 @@ int main(int argc, char *argv[])
 			add_tracing = TRUE;
 		else if (strcmp(argv[i], "-dp") == 0)
 			opt_trace_parser = TRUE;
+		else if (argv[i][0] == '-' && argv[i][1] == 'D')
+		{
+			const char *def = argv[i] + 2;
+			char name[100];
+			int i = 0;
+			const char *s = def;
+			for (s = def; *s != '\0' && *s != '='; s++)
+				if (i < 99)
+					name[i++] = *s;
+			name[i] = '\0';
+			env_p env = get_env(name, TRUE);
+			if (*s == '=')
+			{
+				s++;
+				char value[100];
+				i = 0;
+				if (*s == '"')
+				{
+					s++;
+					for (; *s != '"' && *s != '='; s++)
+						if (i < 99)
+							value[i++] = *s;
+					value[i] = '\0';
+					env->tokens = new_str_token(value);
+				}
+				else
+				{
+					for (; '0' <= *s && *s <= '9'; s++)
+						if (i < 99)
+							value[i++] = *s;
+					value[i] = '\0';
+					env->tokens = new_int_token(value);
+				}
+			}
+			printf("\n");
+		}
 		else if (i + 1 < argc && strcmp(argv[i],"-o") == 0)
 		{	
 			fcode = fopen(argv[++i], "w");
@@ -4815,11 +4851,6 @@ int main(int argc, char *argv[])
 
 	define_base_types();
 	add_predefined_types();
-
-	env_p one_source_env = get_env("ONE_SOURCE", TRUE);
-	one_source_env->tokens = new_int_token("1");
-	env_p tcc_version_env = get_env("TCC_VERSION", TRUE);
-	tcc_version_env->tokens = new_str_token("0.9.26");
 
 	if (only_preprocess)
 	{
