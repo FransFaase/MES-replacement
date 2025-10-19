@@ -43,12 +43,42 @@ diff5 : tcc_cc.sl tcc_cc_t.sl
 	./run.sh diff tcc_cc.sl tcc_cc_t.sl
 
 tcc.sl : tcc_cc tcc_sources/tcc.c
-	./tcc_cc -DONE_SOURCE=1 -DTCC_VERSION=\"0.9.26\" -DBOOTSTRAP=1 -DTCC_TARGET_I386=1 -DHAVE_LONG_LONG=0 tcc_sources/tcc.c -o tcc.sl
+	./tcc_cc \
+    -DBOOTSTRAP=1 \
+    -DHAVE_LONG_LONG=0 \
+    -DTCC_TARGET_I386=1 \
+    -DCONFIG_TCCDIR=\"libdir/tcc\" \
+    -DCONFIG_SYSROOT=\"root\" \
+    -DCONFIG_TCC_CRTPREFIX=\"libdir\" \
+    -DCONFIG_TCC_ELFINTERP=\"/mes/loader\" \
+    -DCONFIG_TCC_SYSINCLUDEPATHS=\"root/include/mes\" \
+    -DTCC_LIBGCC=\"libdir/libc.a\" \
+    -DCONFIG_TCC_LIBTCC1_MES=0 \
+    -DCONFIG_TCCBOOT=1 \
+    -DCONFIG_TCC_STATIC=1 \
+    -DCONFIG_USE_LIBGCC=1 \
+    -DTCC_VERSION=\"0.9.26\" \
+    -DONE_SOURCE=1 tcc_sources/tcc.c -o tcc.sl
 
-tcc: tcc_sources/tcc.c
-	gcc -DONE_SOURCE=1 -DTCC_VERSION=\"0.9.26\" -DBOOTSTRAP=1 -DTCC_TARGET_I386=1 -DHAVE_LONG_LONG=0 tcc_sources/tcc.c -o tcc
+tcc_g: tcc_sources/tcc.c
+	gcc  \
+    -D BOOTSTRAP=1 \
+    -D HAVE_LONG_LONG=0 \
+    -D TCC_TARGET_I386=1 \
+    -D CONFIG_TCCDIR=\"libdir/tcc\" \
+    -D CONFIG_SYSROOT=\"root\" \
+    -D CONFIG_TCC_CRTPREFIX=\"libdir\" \
+    -D CONFIG_TCC_ELFINTERP=\"/mes/loader\" \
+    -D CONFIG_TCC_SYSINCLUDEPATHS=\"root/include/mes\" \
+    -D TCC_LIBGCC=\"libdir/libc.a\" \
+    -D CONFIG_TCC_LIBTCC1_MES=0 \
+    -D CONFIG_TCCBOOT=1 \
+    -D CONFIG_TCC_STATIC=1 \
+    -D CONFIG_USE_LIBGCC=1 \
+    -D TCC_VERSION=\"0.9.26\" \
+    -D ONE_SOURCE=1 tcc_sources/tcc.c -o tcc
 
-x : tcc_s tcc
+x : tcc_s tcc_g
 
 .PRECIOUS: %.sl %_s.M1 %.blood_elf %.macro
 .PHONY: all run_unittest_s stack_c_diff tcc_cc_diff x
