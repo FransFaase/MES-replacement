@@ -50,6 +50,40 @@ with_func_pointer_p new_struct_with_function_pointer(void)
 	return it;
 }
 
+int switch_wd(int a)
+{
+	int r = 0;
+	switch (a++)
+	{
+		case 1:
+			r = 1;
+		default:
+			r += 10;
+		case 2:
+			r += 100;
+	}
+	return r;
+}
+
+int switch_nod(int a)
+{
+	int r = 0;
+	switch(a++)
+	{
+		case 0:
+			r = 1;
+			break;
+		case 1:
+			r = 20;
+		case 2:
+			r += 100;
+			break;
+		case 3:
+			r += 4;
+			break;
+	}
+	return r;
+}
 
 int main (int argc, char *argv[])
 {
@@ -109,7 +143,9 @@ int main (int argc, char *argv[])
 	int xx = 1;
 	int y = xx + 1;
 
+#ifdef __TINYC__
 	printf("%s\n", TCC_VERSION);
+#endif
 
 #define STR "teststr"
 	printf("%s\n", STR);
@@ -123,6 +159,19 @@ int main (int argc, char *argv[])
 	int zz;
 	sscanf("3", "%d",&zz);
 	is_true(zz == 3, "sscanf 3");
+
+	is_true(1000 + switch_wd(1) == 1111, "switch_wd(1)");
+	is_true(1000 + switch_wd(2) == 1100, "switch_wd(2)");
+	is_true(1000 + switch_wd(0) == 1110, "switch_wd(0)");
+	is_true(1000 + switch_wd(3) == 1110, "switch_wd(3)");
+
+	is_true(1000 + switch_nod(0) == 1001, "switch_nod(0)");
+	is_true(1000 + switch_nod(1) == 1120, "switch_nod(1)");
+	is_true(1000 + switch_nod(2) == 1100, "switch_nod(2)");
+	is_true(1000 + switch_nod(3) == 1004, "switch_nod(3)");
+	is_true(1000 + switch_nod(4) == 1000, "switch_nod(4)");
+	is_true(1000 + switch_nod(40) == 1000, "switch_nod(4)");
+
 	printf("Done\n");
 
 	return result;

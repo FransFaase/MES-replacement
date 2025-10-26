@@ -18,7 +18,7 @@ TCC_PKG=tcc_sources
 LIBDIR=~/git/MES-replacement/tcc_sources/libdir
 BINDIR=~/git/MES-replacement
 PREFIX=~/git/MES-replacement/mes
-TCC_BOOT=${BINDIR}/tcc
+TCC_BOOT=${BINDIR}/tcc_s
 
 # Clean previous runs
 

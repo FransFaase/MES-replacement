@@ -3861,6 +3861,7 @@ expr_p parse_initializer(void)
 bool run_tracing = FALSE;
 
 int default_case_nr = 0;
+int fall_through_case_nr = 0;
 
 bool parse_statement(bool in_block, expr_p continue_expr)
 {
@@ -4020,13 +4021,15 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 		if (!accept_term('{'))
 			FAIL_FALSE
 		gen_indent();
+		gen_expr(switch_expr, TRUE);
 		fprintf(fcode, "do\n");
 		gen_stats_open();
-		int case_labels[100];
-		int nr_case_labels = 0;
+		bool fall_through = FALSE;
 		bool has_default = FALSE;
 		while (token_it->kind == TK_CASE || token_it->kind == TK_DEFAULT)
 		{
+			int case_labels[100];
+			int nr_case_labels = 0;
 			bool default_case = FALSE;
 			for (;;)
 			{
@@ -4066,8 +4069,8 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 					{
 						fprintf(fcode, "|| { ");
 					}
-					gen_expr(switch_expr, TRUE);
-					fprintf(fcode, "%u == ", case_labels[i]);
+					//gen_expr(switch_expr, TRUE);
+					fprintf(fcode, "$ %u == ", case_labels[i]);
 					if (i + 1 < nr_case_labels)
 						fprintf(fcode, "\n");
 				}
@@ -4078,6 +4081,16 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 			}
 			fprintf(fcode, "if\n");
 			gen_stats_open();
+			if (nr_case_labels > 0)
+			{
+				gen_indent();
+				fprintf(fcode, ";\n");
+			}
+			if (fall_through)
+			{
+				gen_indent();
+				fprintf(fcode, ":_fall_through_case_%d\n", fall_through_case_nr);
+			}
 			if (default_case)
 			{
 				gen_indent();
@@ -4096,9 +4109,15 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 			{
 				gen_indent();
 				fprintf(fcode, "break ");
+				has_break = TRUE;
 			}
-			if (has_break)
-				nr_case_labels = 0;
+			fall_through = !has_break;
+			if (fall_through)
+			{
+				fall_through_case_nr++;
+				gen_indent();
+				fprintf(fcode, "goto _fall_through_case_%d\n", fall_through_case_nr);
+			}
 			gen_stats_close();
 		}
 		if (!accept_term('}'))
@@ -4106,11 +4125,11 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 		gen_indent();
 		if (has_default)
 		{
-			fprintf(fcode, "goto _default_case_%d\n", default_case_nr);
+			fprintf(fcode, "; goto _default_case_%d\n", default_case_nr);
 			default_case_nr++;
 		}
 		else
-			fprintf(fcode, "break\n");
+			fprintf(fcode, "; break\n");
 		gen_stats_close();
 		return TRUE;
 	}

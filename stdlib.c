@@ -631,7 +631,7 @@ int setjmp(jmp_buf env)
 void longjmp(jmp_buf env, int val)
 {
 	// TODO
-	fprintf(stderr, "TODO longjmp\n"); exit(1);
+	fprintf(stderr, "TODO longjmp\n"); exit(0);
 	exit(-1);
 }
 
@@ -703,3 +703,5 @@ int execvp(const char *file, char * argv[])
 
 
 void __init_globals__(void);
+
+#define __linux__

@@ -76,7 +76,7 @@ tcc_g: tcc_sources/tcc.c
     -D CONFIG_TCC_STATIC=1 \
     -D CONFIG_USE_LIBGCC=1 \
     -D TCC_VERSION=\"0.9.26\" \
-    -D ONE_SOURCE=1 tcc_sources/tcc.c -o tcc
+    -D ONE_SOURCE=1 tcc_sources/tcc.c -o tcc_g
 
 x : tcc_s tcc_g
 
