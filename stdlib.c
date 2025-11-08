@@ -702,6 +702,4 @@ int execvp(const char *file, char * argv[])
 }
 
 
-void __init_globals__(void);
-
 #define __linux__
