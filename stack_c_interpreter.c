@@ -893,6 +893,9 @@ cell_p deref(cell_p cell, bool is_word)
 		   : &locals_stack[cell->locals_offset + offset / 4];
 }
 
+bool ignore_undefined = TRUE;
+bool no_undefined_warnings = TRUE;
+
 int get_array_byte(cell_p cell, int index)
 {
 	if (cell->kind != C_GLOBAL && cell->kind != C_LOCAL && cell->kind != C_STRING)
@@ -914,6 +917,13 @@ int get_array_byte(cell_p cell, int index)
 				  : &locals_stack[cell->locals_offset + offset / 4];
 	//if (cell->kind == C_LOCAL)
 	//	printf("Contenst of local %d + %d = %d\n", cell->locals_offset, offset, cell->locals_offset + offset / 4);
+	if (ignore_undefined && elem->kind == C_UNDEFINED)
+	{
+		if (!no_undefined_warnings)
+			report_warning("Pointer is not pointing to array of bytes but undefined");
+		return 0;
+
+	}
 	if (elem->kind != C_VALUE)
 	{
 		if (elem->kind == C_LOCAL)
@@ -1727,6 +1737,13 @@ int main(int argc, char *argv[])
 		{
 			check_stack(1);
 			copy_cell(top_value, deref(top_value, TRUE), FALSE);
+			if (ignore_undefined && top_value->kind == C_UNDEFINED)
+			{
+				if (!no_undefined_warnings)
+					report_warning("Retrieved undefined value");
+				top_value->kind = C_VALUE;
+				top_value->int_value = 0;
+			}
 		}
 		else if (sym == '=')
 		{
