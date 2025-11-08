@@ -544,14 +544,14 @@ struct label_s
 {
 	char *name;
 	bool defined;
-	command_p jump_to;
-	jump_command_p jump_commands;
-	label_p for_next_command;
-	label_p next;
+	command_p jump_to;            // The command following the label
+	jump_command_p jump_commands; // List of commands that jump to this label
+	label_p for_next_command;     // Used in list for labels_next_command
+	label_p prev;                 // Previous label in list of labels with a function
 };
 
-label_p func_labels = NULL;
-label_p labels_next_command = NULL;
+label_p func_labels = NULL;         // List of all labels in current function in reverse order
+label_p labels_next_command = NULL; // List of labels (via for_next_command) for the next command
 
 label_p find_label(const char *fmt, ...)
 {
@@ -562,7 +562,7 @@ label_p find_label(const char *fmt, ...)
 	va_end(args);
 	name[299] = '\0';
 
-	for (label_p label = func_labels; label != NULL; label = label->next)
+	for (label_p label = func_labels; label != NULL; label = label->prev)
 		if (strcmp(label->name, name) == 0)
 			return label;
 	label_p label = (label_p)malloc(sizeof(struct label_s));
@@ -571,7 +571,7 @@ label_p find_label(const char *fmt, ...)
 	label->jump_to = NULL;
 	label->jump_commands = NULL;
 	label->for_next_command = NULL;
-	label->next = func_labels;
+	label->prev = func_labels;
 	func_labels = label;
 	return label;
 }
@@ -607,9 +607,11 @@ command_p add_command(char sym)
 		*ref_command = command;
 		ref_command = &command->next;
 	}
+	// If there are labels for this command, update these labels to point to this command
 	for (; labels_next_command != NULL; labels_next_command = labels_next_command->for_next_command)
 	{
 		labels_next_command->jump_to = command;
+		// For the goto statements that use the label, update the jump_command of these to point to this command
 		for (jump_command_p jump_command = labels_next_command->jump_commands; jump_command != NULL; jump_command = jump_command->next)
 		{
 			jump_command->command->jump_command = command;
@@ -625,11 +627,13 @@ void add_jump_command(char sym, label_p label)
 	command_p command = add_command(sym);
 	if (label->jump_to != NULL)
 	{
+		// The label already has been defined: set the jump_to the command following the label 
 		command->jump_command = label->jump_to;
 		if (opt_trace_labels) printf("Comaand %d.%d jump to %d.%d\n", command->line, command->column, command->jump_command->line, command->jump_command->column);
 	}
 	else
 	{
+		// The label is not yet defined: Add the command to the list of command that jump to the label
 		jump_command_p jump_command = (jump_command_p)malloc(sizeof(struct jump_command_s));
 		jump_command->command = command;
 		jump_command->next = label->jump_commands;
@@ -1426,7 +1430,7 @@ int main(int argc, char *argv[])
 			else if (nesting_type[nesting_depth] == 'F')
 			{
 				if (opt_trace_parsing) printf("End function\n");
-				for (label_p label = func_labels; label != NULL; label = label->next)
+				for (label_p label = func_labels; label != NULL; label = label->prev)
 					if (!label->defined)
 						report_error("Label %s is never defined\n", label->name);
 			}
