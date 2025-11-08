@@ -1906,7 +1906,9 @@ int main(int argc, char *argv[])
 			bool equal = FALSE;
 			if (lhs == top_value)
 				equal = TRUE;
-			else if (lhs->kind != top_value->kind)
+			else if (   lhs->kind != top_value->kind 
+					 && !(   (lhs->kind == C_GLOBAL && top_value->kind == C_LOCAL)
+						  || (lhs->kind == C_LOCAL && top_value->kind == C_GLOBAL)))
 			{
 				if (   (top_value->kind == C_VALUE && top_value->int_value == 0 && lhs->kind != C_UNDEFINED)
 					|| (lhs->kind == C_VALUE && lhs->int_value == 0 && top_value->kind != C_UNDEFINED))
@@ -1914,11 +1916,10 @@ int main(int argc, char *argv[])
 				else if (top_value->kind == C_VALUE && lhs->kind == C_GLOBAL)
 					report_warning("== != comparing value with pointer");
 				else
-					report_error("== != cannot compare different types");
-				equal = FALSE;
+					report_warning("== != cannot compare different types");
 			}
 			else if (top_value->kind == C_UNDEFINED)
-				report_error("== != cannot compare undefined values");
+				report_warning("== != cannot compare undefined values");
 			else
 				equal =    lhs->int_value == top_value->int_value
 						&& (  lhs->kind == C_VALUE ? TRUE
