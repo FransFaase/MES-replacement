@@ -1969,13 +1969,13 @@ int main(int argc, char *argv[])
 					report_error("< <= > >= cannot compare undefined values");
 				if (top_value->kind == C_FUNCTION)
 					report_error("< <= > >= cannot compare function pointers");
-				int urhs = 0;
+				int diff = 0;
 				if (top_value->kind == C_GLOBAL || top_value->kind == C_LOCAL)
 				{
 					if (lhs->memory != top_value->memory)
 					{
 						report_warning("< <= > >= compare pointers from different memory pieces");
-						urhs = top_value->memory - lhs->memory;
+						diff = top_value->memory - lhs->memory;
 					}
 				}
 				else if (top_value->kind == C_STRING)
@@ -1983,13 +1983,17 @@ int main(int argc, char *argv[])
 					if (lhs->str != top_value->str)
 					{
 						report_warning("< <= > >= compare pointers from different string");
-						urhs = top_value->str - lhs->str;
+						diff = top_value->str - lhs->str;
 					}
 				}
-				urhs += top_value->int_value;
+				unsigned int urhs = top_value->int_value;
 				pop();
-				int ulhs = top_value->int_value;
+				unsigned int ulhs = top_value->int_value;
 				pop();
+				if (diff > 0)
+					urhs += diff;
+				else if (diff < 0)
+					ulhs -= diff;
 				if (sym == '<')
 					push_value(ulhs < urhs);
 				else if (sym == '>')
