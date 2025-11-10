@@ -158,6 +158,20 @@ char *strstr(const char *haystack, const char *needle)
 
 long strtoul(const char *nptr, char **endptr, int base)
 {
+	if (base == 0)
+	{
+		base = 10;
+		if (*nptr == '0')
+		{
+			base = 8;
+			nptr++;
+			if (*nptr == 'x' || *nptr == 'X')
+			{
+				base = 16;
+				nptr++;
+			}
+		}
+	}
 	long result = 0;
 	char sub_10 = '0' + (base < 10 ? base : 10);
 	for (;; nptr++)
