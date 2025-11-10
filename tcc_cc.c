@@ -2012,7 +2012,7 @@ type_p new_base_type(base_type_e base)
 		case  4: size = 1; break;
 		case  8: size = 2; break;
 		case 12: size = 4; break;
-		case 16: size = 8; break;
+		case 16: size = 4; break; // Map int 64 to int 32
 		case 32: size = 4; break;
 		case 33: size = 8; break;
 	}
@@ -4410,11 +4410,6 @@ void gen_stats_close(void)
 	fprintf(fcode, "}\n");
 }
 
-const char *size_ind(expr_p expr)
-{
-	return expr->type != NULL && expr->type->size == 1 ? "1" : "";
-}
-
 bool is_lvalue(expr_p expr)
 {
 	return     (   expr->kind == 'i'
@@ -4426,11 +4421,26 @@ bool is_lvalue(expr_p expr)
 			&& expr->type->kind != TYPE_KIND_FUNCTION;
 }
 
+bool has_error = FALSE;
+
+void expr_print_error(expr_p expr, const char *mesg)
+{
+	printf("%s %d.%d: Error: %s\n", expr->filename, expr->line, expr->column, mesg);
+	for (int i = 0; i < expr->nr_children; i++)
+	{
+		printf("Operand %d: ", i);
+		expr_print(stdout, expr->children[i]);
+		printf("\n");
+	}
+	has_error = TRUE;
+}
+
 void gen_expr(expr_p expr, bool as_value)
 {
 	if (expr == NULL)
 		return; // TODO: Warning
-	const char *expr_size_ind = size_ind(expr);
+	const char *expr_size_ind = expr->type != NULL && expr->type->size == 1 ? "1" : "";
+	bool multiple = expr->type != NULL && expr->type->size > 4;
 	switch (expr->kind) {
 		case 'i':
 			fprintf(fcode, "%s ", expr->str_val);
@@ -4526,8 +4536,20 @@ void gen_expr(expr_p expr, bool as_value)
 			break;
 		case '=':
 			gen_expr(expr->children[0], FALSE);
-			gen_expr(expr->children[1], TRUE);
-			fprintf(fcode, "=%s ", expr_size_ind);
+			if (multiple)
+			{
+				gen_expr(expr->children[1], FALSE);
+				fprintf(fcode, "{ int src src =: int trg trg =: ");
+				fprintf(fcode, "trg ? src ? ? = ; ");
+				for (int i = 4; i < expr->type->size; i += 4)
+					fprintf(fcode, "trg ? %d + src ? %d + ? = ; ", i, i);
+				fprintf(fcode, "trg ? } ");
+			}
+			else
+			{
+				gen_expr(expr->children[1], TRUE);
+				fprintf(fcode, "=%s ", expr_size_ind);
+			}
 			break;
 		case '/':
 		case '%':
@@ -4558,6 +4580,8 @@ void gen_expr(expr_p expr, bool as_value)
 		case TK_XOR_ASS:
 		case TK_BAND_ASS:
 		case TK_BOR_ASS: 
+			if (multiple)
+				expr_print_error(expr, "multiple assignment");
 			gen_expr(expr->children[0], FALSE);
 			fprintf(fcode, "$ ? ");
 			gen_expr(expr->children[1], TRUE);
@@ -4645,6 +4669,8 @@ void gen_expr(expr_p expr, bool as_value)
 			break;
 		case OPER_POST_INC:
 		{
+			if (multiple)
+				expr_print_error(expr, "multiple post increment");
 			gen_expr(expr->children[0], FALSE);
 			int size = expr_inc_dec_value(expr->children[0]);
 			fprintf(fcode, "$ ?%s %d + =%s %d - ", expr_size_ind, size, expr_size_ind, size);
@@ -4652,16 +4678,22 @@ void gen_expr(expr_p expr, bool as_value)
 		}
 		case OPER_POST_DEC:
 		{
+			if (multiple)
+				expr_print_error(expr, "multiple post decrement");
 			gen_expr(expr->children[0], FALSE);
 			int size = expr_inc_dec_value(expr->children[0]);
 			fprintf(fcode, "$ ?%s %d - =%s %d + ", expr_size_ind, size, expr_size_ind, size);
 			break;
 		}
 		case OPER_PRE_INC:
+			if (multiple)
+				expr_print_error(expr, "multiple pre increment");
 			gen_expr(expr->children[0], FALSE);
 			fprintf(fcode, "$ ?%s %d + =%s ", expr_size_ind, expr_inc_dec_value(expr->children[0]), expr_size_ind);
 			break;
 		case OPER_PRE_DEC:
+			if (multiple)
+				expr_print_error(expr, "multiple pre decrement");
 			gen_expr(expr->children[0], FALSE);
 			fprintf(fcode, "$ ?%s %d - =%s ", expr_size_ind, expr_inc_dec_value(expr->children[0]), expr_size_ind);
 			break;
@@ -4672,7 +4704,6 @@ void gen_expr(expr_p expr, bool as_value)
 			break;
 		case OPER_STAR:
 			gen_expr(expr->children[0], TRUE);
-			//fprintf(fcode, "?%s ", expr_size_ind);
 			break;
 		case OPER_ADDR:
 			gen_expr(expr->children[0], FALSE);
@@ -4692,9 +4723,9 @@ void gen_expr(expr_p expr, bool as_value)
 		case '?':
 			gen_expr(expr->children[0], TRUE);
 			fprintf(fcode, "if { ");
-			gen_expr(expr->children[1], TRUE);
+			gen_expr(expr->children[1], as_value);
 			fprintf(fcode, "} else { ");
-			gen_expr(expr->children[2], TRUE);
+			gen_expr(expr->children[2], as_value);
 			fprintf(fcode, "} ");
 			break;
 		case 'l':
@@ -4714,7 +4745,11 @@ void gen_expr(expr_p expr, bool as_value)
 			break;
 	}
 	if (as_value && is_lvalue(expr))
+	{
+		if (multiple)
+			expr_print_error(expr, "multiple get value");
 		fprintf(fcode, "?%s ", expr_size_ind);
+	}
 }
 
 void gen_stat_expr(expr_p expr)
@@ -4883,6 +4918,9 @@ int main(int argc, char *argv[])
 	run_tracing = add_tracing;
 	if (!parse_file(input_filename, FALSE))
 		return 1;
+
+	if (has_error)
+		return -1;
 
 	gen_init_globals();
 

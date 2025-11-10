@@ -85,6 +85,11 @@ int switch_nod(int a)
 	return r;
 }
 
+typedef struct {
+	int x;
+	int y;
+} coord_t;
+
 int main (int argc, char *argv[])
 {
 	printf("argc = %d\n", argc);
@@ -171,6 +176,28 @@ int main (int argc, char *argv[])
 	is_true(1000 + switch_nod(3) == 1004, "switch_nod(3)");
 	is_true(1000 + switch_nod(4) == 1000, "switch_nod(4)");
 	is_true(1000 + switch_nod(40) == 1000, "switch_nod(4)");
+
+	int *ref = &zz;
+	*ref = 4;
+	is_true(zz == 4, "zz == 4");
+
+	coord_t coord_a, coord_b, coord_c;
+	coord_a.x = 1;
+	coord_a.y = 2;
+	coord_b.x = coord_b.y = coord_c.x = coord_c.y = 0;
+	is_true(coord_b.x == 0, "coord_b.x == 0");
+	is_true(coord_b.y == 0, "coord_b.y == 0");
+	coord_c = coord_b = coord_a;
+	is_true(coord_b.x == 1, "coord_b.x == 1");
+	is_true(coord_b.y == 2, "coord_b.y == 2");
+	is_true(coord_c.x == 1, "coord_c.x == 1");
+	is_true(coord_c.y == 2, "coord_c.y == 2");
+
+	coord_t *ref_coord = &coord_a;
+	coord_b.x = 5;
+	*ref_coord = coord_b;
+	is_true(coord_a.x == 5, "coord_a.x == 5");
+
 
 	printf("Done\n");
 
