@@ -78,3 +78,12 @@ same output when executed on the output of `tcc_cc`.
 
 The [commit 54fc4685](https://github.com/FransFaase/MES-replacement/commit/54fc46851f0d25b7da7a75814c0d20180dcfaf76)
 gives an interpreter voor the Stack_c language.
+
+# Acknowledgments
+
+The work in this repository falls under the project [Verifying and documenting live-bootstrap](https://nlnet.nl/project/live-bootstrap/),
+which was funded through the [NGI0 Core](https://nlnet.nl/core/) Fund, a fund established by
+[NLnet](https://nlnet.nl) with financial support from the European Commission's
+[Next Generation Internet](https://ngi.eu) programme, under the aegis of
+[DG Communications Networks, Content and Technology](https://commission.europa.eu/about-european-commission/departments-and-executive-agencies/communications-networks-content-and-technology_en) under grant agreement
+Nₒ [101092990](https://cordis.europa.eu/project/id/101092990").
