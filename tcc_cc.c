@@ -1893,19 +1893,19 @@ void output_preprocessor(const char *filename)
 typedef enum
 {
 	BT_VOID = 0,
-	BT_S8 =  1 | 2 | 4,
-	BT_U8 =  1 | 4,
-	BT_S16 = 1 | 2 | 8,
-	BT_U16 = 1 | 8,
-	BT_S32 = 1 | 2 | 12,
-	BT_U32 = 1 | 12,
-	BT_S64 = 1 | 2 | 16,
-	BT_U64 = 1 | 16,
-	BT_F   = 32,
-	BT_DF  = 33,
-	BT_JMP_BUF  = 34,
-	BT_FILE     = 35,
-	BT_TIME_T   = 36,
+	BT_S8  = 1 | 2 | (1 << 2),
+	BT_U8  = 1     | (1 << 2),
+	BT_S16 = 1 | 2 | (2 << 2),
+	BT_U16 = 1     | (2 << 2),
+	BT_S32 = 1 | 2 | (3 << 2),
+	BT_U32 = 1     | (3 << 2),
+	BT_S64 = 1 | 2 | (4 << 2),
+	BT_U64 = 1     | (4 << 2),
+	BT_F   = 1 | 2 | (1 << 5),  // Treat float and double as integer
+	BT_DF  = 1 | 2 | (2 << 5),
+	BT_JMP_BUF =     (3 << 5),
+	BT_FILE    =     (4 << 5),
+	BT_TIME_T  =     (5 << 5),
 } base_type_e;
 
 typedef enum
@@ -2322,6 +2322,7 @@ int expr_eval(expr_p expr)
 		case '/': return expr_eval(expr->children[0]) / expr_eval(expr->children[1]);
 		case '|': return expr_eval(expr->children[0]) | expr_eval(expr->children[1]);
 		case OPER_MIN: return -expr_eval(expr->children[0]);
+		case TK_SHL: return expr_eval(expr->children[0]) << expr_eval(expr->children[1]);
 		case 'i':
 		{
 			decl_p expr_decl = find_decl(DK_IDENT, expr->str_val);
