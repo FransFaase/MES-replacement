@@ -60,6 +60,7 @@ DEFINE setl_al 0F9CC0
 DEFINE setge_al 0F9DC0
 DEFINE setg_al 0F9FC0
 DEFINE setne_al 0F95C0
+DEFINE movsx_eax,al 0FBEC0
 DEFINE movzx_eax,al 0FB6C0
 DEFINE test_eax,eax 85C0
 DEFINE jmp E9

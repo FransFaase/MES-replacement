@@ -109,6 +109,10 @@ int main (int argc, char *argv[])
 	is_true(-5 < 0, "-5 < 0");
 	is_true(0 < 4, "0 < 4");
 	printf("(%d %d) == (44 -44)\n", 44, -44);
+	char signed_char = 255;
+	is_true(signed_char == -1, "signed_char = -1");
+	unsigned char unsigned_char = -1;
+	is_true(unsigned_char == 255, "unsigned_char = 255");
 	char buffer[40];
 	snprintf(buffer, 30, "(%d %d)", 123, -78);
 	is_true(strcmp(buffer, "(123 -78)") == 0, "sprintf 123 -78");

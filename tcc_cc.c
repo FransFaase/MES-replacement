@@ -4749,7 +4749,7 @@ void gen_expr(expr_p expr, bool as_value)
 	{
 		if (multiple)
 			expr_print_error(expr, "multiple get value");
-		fprintf(fcode, "?%s ", expr_size_ind);
+		fprintf(fcode, "?%s%s ", expr_size_ind, expr->type != NULL && expr->type->base_type == BT_S8 ? "s" : "");
 	}
 }
 
