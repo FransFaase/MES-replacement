@@ -102,7 +102,7 @@ typedef struct
 	const char *name;
 	char sym;
 } Mapping;
-#define NR_KEYWORDS 11
+#define NR_KEYWORDS 12
 Mapping keywords[NR_KEYWORDS] = {
 	{ "void",		'F' },
 	{ "const",		'C' },
@@ -114,7 +114,8 @@ Mapping keywords[NR_KEYWORDS] = {
 	{ "else" ,		'E' },
 	{ "return",		'R' },
 	{ "goto",		'G' },
-	{ "static",     'S' }
+	{ "static",     'S' },
+	{ "char",       'K' }
 };
 
 #define SYMBOL(X) ('a' + (X))
@@ -1722,6 +1723,11 @@ int main(int argc, char *argv[])
 		{
 			push(C_FUNCTION);
 			top_value->function = cur_command->function;
+		}
+		else if (sym == 'K')
+		{
+			unsigned int value = get_top_value();
+			top_value->int_value = (int)(char)value;
 		}
 		else if (sym == '0' || sym == 'C' || sym == '\'')
 		{

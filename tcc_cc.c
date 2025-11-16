@@ -4473,6 +4473,16 @@ void gen_expr(expr_p expr, bool as_value)
 			break;
 		case 'c': // cast
 			gen_expr(expr->children[0], TRUE);
+			if (expr->type->kind == TYPE_KIND_BASE)
+			{
+				switch (expr->type->base_type)
+				{
+					case BT_U8: fprintf(fcode, "0xFF & "); break;
+					case BT_S8: fprintf(fcode, "char "); break;
+					case BT_U16: fprintf(fcode, "0xFFFF & "); break;
+					default: break;
+				}
+			}
 			break;
 		case ',':
 			for (int i = 0; i < expr->nr_children; i++)
@@ -4749,7 +4759,9 @@ void gen_expr(expr_p expr, bool as_value)
 	{
 		if (multiple)
 			expr_print_error(expr, "multiple get value");
-		fprintf(fcode, "?%s%s ", expr_size_ind, expr->type != NULL && expr->type->base_type == BT_S8 ? "s" : "");
+		fprintf(fcode, "?%s ", expr_size_ind);
+		if (expr->type != NULL && expr->type->base_type == BT_S8)
+			fprintf(fcode, "char ");
 	}
 }
 
