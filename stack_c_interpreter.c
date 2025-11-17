@@ -970,6 +970,8 @@ void copy_cell(cell_p dst, cell_p src, bool set_command)
 
 void sys_int80(void)
 {
+	static char filename[300];
+
 	check_stack(4);
 	cell_p arg1 = &value_stack[value_depth - 3];
 	if (arg1->kind != C_VALUE)
@@ -1025,7 +1027,6 @@ void sys_int80(void)
 		{
 			int a3 = pop_value();
 			int a2 = pop_value();
-			static char filename[300];
 			for (int i = 0; i < 299; i++)
 			{
 				char ch = get_array_byte(top_value, i);
@@ -1037,12 +1038,27 @@ void sys_int80(void)
 			result = open(filename, a2, a3);
 			break;
 		}
-		case 6: // close a1
+		case 6: // close fh, a2, a3
 		{
 			pop();
 			pop();
 			int a1 = pop_value();
 			result = close(a1);
+			break;
+		}
+		case 10: // unlink path, a2, a3
+		{
+			pop();
+			pop();
+			for (int i = 0; i < 299; i++)
+			{
+				char ch = get_array_byte(top_value, i);
+				filename[i] = ch;
+				if (ch == '\0')
+					break;
+			}
+			pop();
+			result = unlink(filename);
 			break;
 		}
 		case 19: // lseek a1, a2, a3

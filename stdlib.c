@@ -476,8 +476,10 @@ FILE *fopen(const char *pathname, const char *mode)
 
 FILE *fdopen(int fd, const char *mode)
 {
-	// TODO
-	fprintf(stderr, "TODO fdopen\n"); exit(1);
+	FILE *f = (FILE*)malloc(sizeof(FILE));
+	f->fh = fd;
+	f->at_eof = 0;
+	return f;
 }
 
 int fclose(FILE *stream)
@@ -651,8 +653,7 @@ void longjmp(jmp_buf env, int val)
 
 int unlink(const char *pathname)
 {
-	// TODO
-	fprintf(stderr, "TODO unlink\n"); exit(1);
+	return sys_int80(10, pathname, 0, 0);
 }
 
 int sscanf(const char *str, const char *format, ...)
