@@ -1926,9 +1926,9 @@ struct type_s
 	type_kind_e kind;
 	base_type_e base_type;
 	int size;
-	int nr_members;  // TYPE_KIND_STRUCT or TYPE_KIND_UNION
+	int nr_members;  //
 	type_p *members;
-	int nr_decls;    // TYPE_KIND_FUNCTION
+	int nr_decls;    // TYPE_KIND_FUNCTION, TYPE_KIND_STRUCT or TYPE_KIND_UNION
 	decl_p *decls;
 	int nr_elems;    // TYPE_KIND_ARRAY
 };
@@ -4436,6 +4436,84 @@ void expr_print_error(expr_p expr, const char *mesg)
 	has_error = TRUE;
 }
 
+bool process_special_call(expr_p expr)
+{
+	if (expr->children[0]->kind != 'i')
+		return FALSE;
+	const char *fn_name = expr->children[0]->str_val;
+	if (strcmp(fn_name, "fwrite") != 0 && strcmp(fn_name, "fread") != 0)
+		return FALSE;
+	fprintf(stderr, "process %s %s: ", token_it_pos(), fn_name); expr_print(stderr, expr); fprintf(stderr, "\n");
+	expr_p buffer_expr = expr->children[1];
+	if (buffer_expr->type == NULL)
+		return FALSE;
+	if (!type_is_pointer(buffer_expr->type))
+	{
+		fprintf(stderr, "%s Warning: %s with not a pointer: ", token_it_pos(), fn_name);
+		expr_print(stdout, expr);
+		printf("\n");
+		return FALSE;
+	}
+
+	type_p member_type = buffer_expr->type->members[0];
+	if (member_type->kind == TYPE_KIND_BASE)
+	{
+		if (member_type->size != 1 && member_type->size != 4)
+			fprintf(stderr, "%s: Warning: %s of array with element size %d\n",
+				token_it_pos(), fn_name, member_type->size);
+		return FALSE;
+	}
+
+	if (member_type->kind != TYPE_KIND_STRUCT)
+	{
+		fprintf(stderr, "%s Warning: %s with not a pointer to struct: ", token_it_pos(), fn_name);
+		expr_print(stdout, expr);
+		printf("\n");
+		return FALSE;
+	}
+	//fprintf(stderr, "%s INFO: %s with pointer to struct", token_it_pos(), fn_name);
+	expr_p size_expr = expr->children[2];
+	int size = 0;
+	if (size_expr->kind == '0')
+		size = size_expr->int_val;
+	else
+		fprintf(stderr, "%s Warning: size argument of %s is not an integer", token_it_pos(), fn_name);
+	expr_p times_expr = NULL;
+	expr_p count_expr = expr->children[3];
+	if (count_expr->kind == '0')
+		size *= count_expr->int_val;
+	else if (   count_expr->kind == '*'
+			 && count_expr->children[0]->kind == 'i'
+			 && count_expr->children[1]->kind == '0')
+	{
+		//fprintf(stderr, "%s * %d", count_expr->children[0]->str_val, count_expr->children[1]->int_val);
+		times_expr = count_expr->children[0];
+		size *= count_expr->children[1]->int_val;
+	}
+	else
+		fprintf(stderr, "%s Warning: count argument of %s is not an integer or a product of expression and an integer", token_it_pos(), fn_name);
+
+	gen_expr(buffer_expr, TRUE);
+	if (times_expr != 0)
+		gen_expr(times_expr, TRUE);
+	else
+		fprintf(fcode, "1 ");
+	gen_expr(expr->children[4], TRUE);
+	fprintf(fcode, "{ int f f =: int n n =: int buf buf =: int r r 0 = ; do { n ? 0 <=s if { break }\n");
+	indent++;
+	for (int i = 0; i < member_type->nr_decls; i++)
+	{
+		decl_p decl = member_type->decls[i];
+		gen_indent();
+		fprintf(fcode, "r $ ? buf ? s%d_m_%s + %d 1 f ? %s () + = ;\n", member_type->decls[0]->su_nr, decl->name, decl->type->size, fn_name);
+	}
+	gen_indent();
+	fprintf(fcode, "n $ ? 1 - = ; buf $ ? %d + = ; } r ? } ", member_type->size);
+	indent--;
+
+	return TRUE;
+}
+
 void gen_expr(expr_p expr, bool as_value)
 {
 	if (expr == NULL)
@@ -4633,6 +4711,8 @@ void gen_expr(expr_p expr, bool as_value)
 			fprintf(fcode, "+ ");
 			break;
 		case '(':
+			if (process_special_call(expr))
+				break;
 			if (   expr->children[0]->kind == 'i' && strcmp(expr->children[0]->str_val, "va_start") == 0
 				&& expr->nr_children > 1 && expr->children[1]->kind == 'i')
 			{
