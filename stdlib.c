@@ -510,20 +510,23 @@ int fflush(FILE *stream)
 
 int fseek(FILE *stream, long offset, int whence)
 {
-	// TODO
-	fprintf(stderr, "TODO fseek\n"); exit(1);
+	return lseek(stream->fh, offset, whence);
 }
 
 long ftell(FILE *stream)
 {
-	// TODO
-	fprintf(stderr, "TODO ftell\n"); exit(1);
+	return lseek(stream->fh, 0, SEEK_CUR);
 }
 
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
-	// TODO
-	fprintf(stderr, "TODO fread\n"); exit(1);
+	for (int i = 0; i < nmemb; i++)
+	{
+		size_t r = read(stream->fh, ptr, size);
+		if (r < size)
+			return i;
+	}
+	return nmemb;
 }
 
 
