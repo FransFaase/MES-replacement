@@ -416,6 +416,7 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap)
 
 #define O_RDONLY 0
 #define O_WRONLY 1
+#define O_RDWR   2
 #define O_CREAT 00100
 #define O_TRUNC 001000
 
@@ -452,16 +453,30 @@ off_t lseek(int fd, off_t offset, int whence)
 
 FILE *fopen(const char *pathname, const char *mode)
 {
-	int open_mode = 0;
-	if (mode[0] == 'r' && mode[1] == '\0')
-		open_mode = O_RDONLY;
-	else if (mode[0] == 'w' && mode[1] == '\0')
-		open_mode = O_WRONLY | O_CREAT | O_TRUNC;
-	else
+	char rw = *mode;
+	if (*mode == 'r' || *mode == 'w')
+		mode++;
+	int bin = 0;
+	if (*mode == 'b')
 	{
-		printf("Mode %s should be 'r' or 'w'\n", mode);
+		bin = 1;
+		mode++;
+	}
+	int plus = 0;
+	if (*mode == '+')
+	{
+		plus = 1;
+		mode++;
+	}
+	if (*mode != '\0')
+	{
+		printf("Mode %s should be 'r/w(b)(+)', 'w', or 'wb'\n", mode);
 		return 0;
 	}
+
+	int open_mode =   rw == 'r'
+					? (plus == 1 ? O_RDWR : O_RDONLY)
+					: ((plus == 1 ? O_RDWR : O_WRONLY) | O_CREAT | O_TRUNC);
 	int fh = sys_int80(5, pathname, open_mode, 0777);
 	if (fh < 0)
 	{
