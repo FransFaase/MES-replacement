@@ -627,8 +627,37 @@ char *getenv(const char *name)
 
 void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *))
 {
-	// TODO
-	fprintf(stderr, "TODO qsort\n"); exit(1);
+	// just implement a simple bubble sort
+	for (int go = 1; go == 1;)
+	{
+		go = 0;
+		for (int i = 0; i + 1 < nmemb; i++)
+		{
+			char *arg1 = (char*)base + i * size;
+			char *arg2 = (char*)base + (1 + i) * size;
+			int sign = compar(arg1, arg2);
+			if (sign > 0)
+			{
+				go = 1;
+				for (int j = 0; j < size; j++)
+					if (j + 3 < size)
+					{
+						//printf("(swap int %d %d %d)", j, *(int*)(arg1 + j), *(int*)(arg2 + j));;
+						int h = *(int*)(arg1 + j);
+						*(int*)(arg1 + j) = *(int*)(arg2 + j);
+						*(int*)(arg2 + j) = h;
+						j += 3;
+					}
+					else
+					{
+						//printf("(swap char %d)", j);
+						char h = ((char*)arg1)[j];
+						((char*)arg1)[j] = ((char*)arg2)[j];
+						((char*)arg2)[j] = h;
+					}
+			}
+		}
+	}
 }
 
 time_t time(time_t *tloc)

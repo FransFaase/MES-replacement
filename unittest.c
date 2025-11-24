@@ -1,6 +1,8 @@
 #ifdef __GNUC__
 #include <stdio.h>
 #include <string.h>
+#include <malloc.h>
+#include <stdlib.h>
 #endif
 #ifdef __TINYC__
 typedef int size_t;
@@ -99,6 +101,11 @@ typedef union {
 	int i;
 	Elf32_Test p;
 } test_union;
+
+int compare_ints(const void *a, const void *b)
+{
+	return *(int*)a - *(int*)b;
+}
 
 int main (int argc, char *argv[])
 {
@@ -229,6 +236,16 @@ int main (int argc, char *argv[])
 	is_true(tu.p.a == 5, "tu.p.a == 2");
 	is_true(tu.p.b == 4, "tu.p.a == 2");
 	is_true(tu.i == 0x40005, "tu.i == 0x10002");
+
+	int array2[5] = { 5, 1, 2, 4, 3 };
+	qsort(array2, 5, sizeof(int), compare_ints);
+	//for (int i = 0; i < 5; i++)
+	//	printf("array2[%d] = %d\n", i, array2[i]);
+	is_true(array2[0] == 1, "array2[0] == 1");
+	is_true(array2[1] == 2, "array2[1] == 2");
+	is_true(array2[2] == 3, "array2[2] == 3");
+	is_true(array2[3] == 4, "array2[3] == 4");
+	is_true(array2[4] == 5, "array2[4] == 5");
 
 	printf("Done\n");
 
