@@ -19,6 +19,7 @@ DEFINE mov_ebx,esp 89E3
 DEFINE mov_ecx,eax 89C1
 DEFINE mov_ebp,eax 89C5
 DEFINE mov_al,[eax] 8A00
+DEFINE mov_ax,[eax] 668B00
 DEFINE mov_eax,[eax] 8B00
 DEFINE mov_ebx,[ebp] 8B5D00
 DEFINE mov_eax,[ebp+DWORD] 8B85 
@@ -29,6 +30,7 @@ DEFINE mov_[DWORD],ebx 891D
 DEFINE mov_[ecx],eax 8901
 DEFINE mov_[eax],ebx 8918
 DEFINE mov_[ebx],al 8803
+DEFINE mov_[ebx],ax 668903
 DEFINE mov_[ebx],eax 8903
 DEFINE mov_[ebp],eax 894500
 DEFINE mov_[eax],bl 8818

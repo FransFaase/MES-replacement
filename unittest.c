@@ -90,6 +90,16 @@ typedef struct {
 	int y;
 } coord_t;
 
+typedef struct {
+	short a;
+	short b;
+} Elf32_Test;
+
+typedef union {
+	int i;
+	Elf32_Test p;
+} test_union;
+
 int main (int argc, char *argv[])
 {
 	printf("argc = %d\n", argc);
@@ -202,6 +212,23 @@ int main (int argc, char *argv[])
 	*ref_coord = coord_b;
 	is_true(coord_a.x == 5, "coord_a.x == 5");
 
+	test_union tu;
+	tu.i = 0x10002;
+	is_true(tu.i == 0x10002, "tu.i == 0x10002");
+	is_true(tu.p.a == 2, "tu.p.a == 2");
+	is_true(tu.p.b == 1, "tu.p.b == 1");
+	tu.p.a = 3;
+	is_true(tu.p.a == 3, "tu.p.a == 2");
+	is_true(tu.p.b == 1, "tu.p.a == 2");
+	is_true(tu.i == 0x10003, "tu.i == 0x10002");
+	tu.p.b = 4;
+	is_true(tu.p.a == 3, "tu.p.a == 2");
+	is_true(tu.p.b == 4, "tu.p.a == 2");
+	is_true(tu.i == 0x40003, "tu.i == 0x10002");
+	tu.p.a = 5;
+	is_true(tu.p.a == 5, "tu.p.a == 2");
+	is_true(tu.p.b == 4, "tu.p.a == 2");
+	is_true(tu.i == 0x40005, "tu.i == 0x10002");
 
 	printf("Done\n");
 

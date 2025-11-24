@@ -1890,22 +1890,27 @@ void output_preprocessor(const char *filename)
 
 // Types
 
+#define BT_UNSIGNED_INT (1)
+#define BT_SIGNED_INT (1 | 2)
+#define BT_TYPE(X)  ((X) << 2)
+#define BT_GET_TYPE(X) ((X) >> 2)
+
 typedef enum
 {
 	BT_VOID = 0,
-	BT_S8  = 1 | 2 | (1 << 2),
-	BT_U8  = 1     | (1 << 2),
-	BT_S16 = 1 | 2 | (2 << 2),
-	BT_U16 = 1     | (2 << 2),
-	BT_S32 = 1 | 2 | (3 << 2),
-	BT_U32 = 1     | (3 << 2),
-	BT_S64 = 1 | 2 | (4 << 2),
-	BT_U64 = 1     | (4 << 2),
-	BT_F   = 1 | 2 | (1 << 5),  // Treat float and double as integer
-	BT_DF  = 1 | 2 | (2 << 5),
-	BT_JMP_BUF =     (3 << 5),
-	BT_FILE    =     (4 << 5),
-	BT_TIME_T  =     (5 << 5),
+	BT_S8  = BT_SIGNED_INT   | BT_TYPE(1),
+	BT_U8  = BT_UNSIGNED_INT | BT_TYPE(1),
+	BT_S16 = BT_SIGNED_INT   | BT_TYPE(2),
+	BT_U16 = BT_UNSIGNED_INT | BT_TYPE(2),
+	BT_S32 = BT_SIGNED_INT   | BT_TYPE(3),
+	BT_U32 = BT_UNSIGNED_INT | BT_TYPE(3),
+	BT_S64 = BT_SIGNED_INT   | BT_TYPE(4),
+	BT_U64 = BT_UNSIGNED_INT | BT_TYPE(4),
+	BT_F   = BT_SIGNED_INT   | BT_TYPE(5),  // Treat float and double as integer
+	BT_DF  = BT_SIGNED_INT   | BT_TYPE(6),
+	BT_JMP_BUF =               BT_TYPE(7),
+	BT_FILE    =               BT_TYPE(8),
+	BT_TIME_T  =               BT_TYPE(9),
 } base_type_e;
 
 typedef enum
@@ -1931,6 +1936,7 @@ struct type_s
 	int nr_decls;    // TYPE_KIND_FUNCTION, TYPE_KIND_STRUCT or TYPE_KIND_UNION
 	decl_p *decls;
 	int nr_elems;    // TYPE_KIND_ARRAY
+	decl_p typedef_decl;
 };
 
 type_p new_type(type_kind_e kind, int size, int nr_members)
@@ -1951,6 +1957,7 @@ type_p new_type(type_kind_e kind, int size, int nr_members)
 	type->nr_decls = 0;
 	type->decls = NULL;
 	type->nr_elems = 0;
+	type->typedef_decl = NULL;
 	//if (token_it != NULL)
 	//	printf("new_type %p %d (%s %d)\n", type, kind, token_it->filename, token_it->line);
 	return type;
@@ -2007,14 +2014,14 @@ type_p type_char_ptr = NULL;
 type_p new_base_type(base_type_e base)
 {
 	int size = 4;
-	switch (base & ~3)
+	switch (BT_GET_TYPE(base))
 	{
-		case  4: size = 1; break;
-		case  8: size = 2; break;
-		case 12: size = 4; break;
-		case 16: size = 4; break; // Map int 64 to int 32
-		case 32: size = 4; break;
-		case 33: size = 8; break;
+		case  1: size = 1; break;
+		case  2: size = 2; break;
+		case  3: size = 4; break;
+		case  4: size = 4; break; // Map int 64 to int 32
+		case  5: size = 4; break; // Map float to int 32
+		case  6: size = 4; break; // Map float to int 32
 	}
 	type_p type = new_type(TYPE_KIND_BASE, size, 0);
 	type->base_type = base;
@@ -2522,6 +2529,8 @@ expr_p parse_primary_expr(void)
 
 expr_p parse_assignment_expr(void);
 
+//int inside_low_level_men = 0;
+
 expr_p parse_postfix_expr(void)
 {
 	expr_p expr = parse_primary_expr();
@@ -2618,7 +2627,7 @@ expr_p parse_postfix_expr(void)
 	return expr;
 }
 
-int parse_sizeof_type(void);
+type_p parse_sizeof_type(void);
 
 expr_p parse_unary_expr(void)
 {
@@ -2711,58 +2720,57 @@ expr_p parse_unary_expr(void)
 	}
 	if (accept_term(TK_SIZEOF))
 	{
-		int size = -1;
-		expr_p sizeof_expr = NULL;
+		type_p type = NULL;
 		if (accept_term('('))
 		{
-			size = parse_sizeof_type();
-			if (size == -1)
+			type = parse_sizeof_type();
+			if (type == NULL)
 			{
-				sizeof_expr = parse_expr();
+				expr_p sizeof_expr = parse_expr();
 				if (sizeof_expr == NULL)
 					FAIL_NULL
+				type = sizeof_expr->type;
 			}
 			if (!accept_term(')'))
 				FAIL_NULL
 		}
 		else
 		{
-			sizeof_expr = parse_unary_expr();
+			expr_p sizeof_expr = parse_unary_expr();
 			if (sizeof_expr == NULL)
 				FAIL_NULL
+			type = sizeof_expr->type;
 		}
-		if (sizeof_expr != NULL && sizeof_expr->type != NULL)
-			size = sizeof_expr->type->size;
-		if (size == -1)
-		{
-			printf("Error: sizeof expression has not size\n");
-			size = 0;
-		}
+		int size = 0;
+		if (type == NULL)
+			printf("%s Error: sizeof expression has not size\n", token_it_pos());
+		else
+			size = type->size;
 		return new_expr_int_value(size);
 	}
 	
 	return parse_postfix_expr();
 }
 
-int parse_sizeof_type(void)
+type_p parse_sizeof_type(void)
 {
-	int size = -1;
+	type_p type = NULL;
 	if (accept_term(TK_CHAR))
-		size = base_type_S8->size;
+		type = base_type_S8;
 	else if (accept_term(TK_INT))
-		size = base_type_S32->size;
+		type = base_type_S32;
 	else if (accept_term(TK_UNSIGNED))
 	{
 		if (accept_term(TK_INT))
-			size = base_type_U32->size;
-		size = base_type_U32->size;
+			type = base_type_U32;
+		type = base_type_U32;
 	}
 	else if (accept_term(TK_DOUBLE))
-		size = base_type_double->size;
+		type = base_type_double;
 	else if (accept_term(TK_VOID))
 	{
 		if (accept_term('*'))
-			size = 4;
+			type = type_char_ptr; // Missuse char pointer here
 	}
 	else if (accept_term(TK_STRUCT))
 	{
@@ -2771,7 +2779,7 @@ int parse_sizeof_type(void)
 			decl_p decl = find_decl(DK_STRUCT, token_it->token);
 			if (decl != NULL && decl->type != NULL)
 			{
-				size = decl->type->size;
+				type = decl->type;
 				next_token();
 			}
 		}
@@ -2781,15 +2789,15 @@ int parse_sizeof_type(void)
 		decl_p decl = find_decl(DK_IDENT, token_it->token);
 		if (decl != NULL && decl->type != NULL && decl->storage_type == ST_TYPEDEF)
 		{
-			size = decl->type->size;
+			type = decl->type;
 			next_token();
 		}
 	}
-	if (size == -1)
-		return size;
+	if (type == NULL)
+		return NULL;
 	while (accept_term('*'))
-		size = 4;
-	return size;
+		type = type_char_ptr; // Missuse char pointer here
+	return type;
 }
 
 /*
@@ -3422,6 +3430,31 @@ bool parse_declaration(bool is_param)
 			}
 			decl->type = type;
 			decl->storage_type = storage_type;
+			if (storage_type == ST_TYPEDEF && type->typedef_decl == NULL)
+			{
+				type->typedef_decl = decl;
+				if (   type->kind == TYPE_KIND_STRUCT
+					&& (   strcmp(decl->name, "Stab_Sym") == 0
+						|| strncmp(decl->name, "Elf32_", 6) == 0
+						|| strcmp(decl->name, "ArchiveHeader") == 0
+						|| strcmp(decl->name, "ArHdr") == 0))
+				{
+					int pos = 0;
+					for (int i = 0; i < type->nr_decls; i++)
+					{
+						type->decls[i]->pos = pos;
+						pos += type->decls[i]->type->size;
+					}
+					if (pos < type->size)
+					{
+						printf("%s Info: %s is 'packed' with size reduced from %d to %d\n", token_it_pos(), decl->name, type->size, pos);
+						type->size = pos;
+						gen_start_struct_or_union();
+						for (int i = 0; i < type->nr_decls; i++)
+							gen_struct_or_union_member(type->decls[i]);
+					}
+				}
+			}
 			if (accept_term('='))
 			{
 				decl->value = parse_initializer();
@@ -4518,7 +4551,7 @@ void gen_expr(expr_p expr, bool as_value)
 {
 	if (expr == NULL)
 		return; // TODO: Warning
-	const char *expr_size_ind = expr->type != NULL && expr->type->size == 1 ? "1" : "";
+	const char *expr_size_ind = expr->type == NULL ? "" : expr->type->size == 1 ? "1" : expr->type->size == 2 ? "2" : "";
 	bool multiple = expr->type != NULL && expr->type->size > 4;
 	switch (expr->kind) {
 		case 'i':

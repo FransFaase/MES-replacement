@@ -120,49 +120,53 @@ Mapping keywords[NR_KEYWORDS] = {
 
 #define SYMBOL(X) ('a' + (X))
 
-#define NR_SYMBOLS 21
+#define NR_SYMBOLS 23
 Mapping symbols[NR_SYMBOLS] = {
 #define SYM_REV_ASS SYMBOL(0)
 	{ "=:",         SYM_REV_ASS },
 #define SYM_GET_BYTE SYMBOL(1)
 	{ "?1",         SYM_GET_BYTE },
-#define SYM_ASS_BYTE SYMBOL(2)
+#define SYM_GET_WORD SYMBOL(2)
+	{ "?2",         SYM_GET_WORD },
+#define SYM_ASS_BYTE SYMBOL(3)
 	{ "=1",         SYM_ASS_BYTE },
-#define SYM_CALL SYMBOL(3)
+#define SYM_ASS_WORD SYMBOL(4)
+	{ "=2",         SYM_ASS_WORD },
+#define SYM_CALL SYMBOL(5)
 	{ "()",         SYM_CALL },
-#define SYM_DIV_SIGNED SYMBOL(4)
+#define SYM_DIV_SIGNED SYMBOL(6)
 	{ "/s",         SYM_DIV_SIGNED },
-#define SYM_MOD_SIGNED SYMBOL(5)
+#define SYM_MOD_SIGNED SYMBOL(7)
 	{ "%s",         SYM_MOD_SIGNED },
-#define SYM_EQ SYMBOL(6)
+#define SYM_EQ SYMBOL(8)
 	{ "==",         SYM_EQ },
-#define SYM_NE SYMBOL(7)
+#define SYM_NE SYMBOL(9)
 	{ "!=",         SYM_NE },
-#define SYM_LE SYMBOL(8)
+#define SYM_LE SYMBOL(10)
 	{ "<=",         SYM_LE },
-#define SYM_GE SYMBOL(9)
+#define SYM_GE SYMBOL(11)
 	{ ">=",         SYM_GE },
-#define SYM_LT_SIGNED SYMBOL(10)
+#define SYM_LT_SIGNED SYMBOL(12)
 	{ "<s",         SYM_LT_SIGNED },
-#define SYM_LE_SIGNED SYMBOL(11)
+#define SYM_LE_SIGNED SYMBOL(13)
 	{ "<=s",         SYM_LE_SIGNED },
-#define SYM_GT_SIGNED SYMBOL(12)
+#define SYM_GT_SIGNED SYMBOL(14)
 	{ ">s",         SYM_GT_SIGNED },
-#define SYM_GE_SIGNED SYMBOL(13)
+#define SYM_GE_SIGNED SYMBOL(15)
 	{ ">=s",         SYM_GE_SIGNED },
-#define SYM_SHL SYMBOL(14)
+#define SYM_SHL SYMBOL(16)
 	{ "<<",         SYM_SHL },
-#define SYM_SHR SYMBOL(15)
+#define SYM_SHR SYMBOL(17)
 	{ ">>",         SYM_SHR },
-#define SYM_LOG_AND SYMBOL(16)
+#define SYM_LOG_AND SYMBOL(18)
 	{ "&&",         SYM_LOG_AND },
-#define SYM_LOG_OR SYMBOL(17)
+#define SYM_LOG_OR SYMBOL(19)
 	{ "||",         SYM_LOG_OR },
-#define SYM_ARROW SYMBOL(18)
+#define SYM_ARROW SYMBOL(20)
 	{ "->",         SYM_ARROW },
-#define SYM_SWAP SYMBOL(19)
+#define SYM_SWAP SYMBOL(21)
 	{ "><",         SYM_SWAP },
-#define SYM_SUB_PTRS SYMBOL(20)
+#define SYM_SUB_PTRS SYMBOL(22)
 	{ "-p",         SYM_SUB_PTRS }
 };
 
@@ -1668,7 +1672,7 @@ int main(int argc, char *argv[])
 		{
 			if (opt_trace_functions) printf("function depth = %d\n", function_depth);
 			if (--function_depth < 0)
-				return 0;
+				return pop_value();
 			if (opt_trace_functions) printf("Leaving function %s\n", cur_function->ident->name);
 			cur_function = function_stack[function_depth].function;
 			cur_command = function_stack[function_depth].command;
@@ -1851,11 +1855,28 @@ int main(int argc, char *argv[])
 			top_value->int_value = value;
 			top_value->command = cur_command;
 		}
+		else if (sym == SYM_GET_WORD)
+		{
+			check_stack(1);
+			int value = get_array_byte(top_value, 0) | (get_array_byte(top_value, 1) << 8);
+			top_value->kind = C_VALUE;
+			top_value->int_value = value;
+			top_value->command = cur_command;
+		}
 		else if (sym == SYM_ASS_BYTE)
 		{
 			check_stack(2);
 			int value = pop_value() & 0xff;
 			set_array_byte(top_value, 0, value);
+			top_value->kind = C_VALUE;
+			top_value->int_value = value;
+		}
+		else if (sym == SYM_ASS_WORD)
+		{
+			check_stack(2);
+			int value = pop_value() & 0xffff;
+			set_array_byte(top_value, 0, value & 0xff);
+			set_array_byte(top_value, 1, (value >> 8) & 0xff);
 			top_value->kind = C_VALUE;
 			top_value->int_value = value;
 		}
@@ -2065,7 +2086,6 @@ int main(int argc, char *argv[])
 		}
 		cur_command = cur_command->next;
 	}
-
 
 	return error;
 }

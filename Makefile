@@ -22,8 +22,9 @@ all : tcc_cc stack_c run_unittest_s stack_c_s stack_c_diff tcc_cc_s tcc_cc_diff 
 	./hex2 --file ./M2libc/x86/ELF-x86-debug.hex2 --file $< --output $@ --architecture x86 --base-address 0x8048000 --little-endian 
 	objdump -d $@ >$@.txt
 
-run_unittest_s : unittest_s
+run_unittest_s : unittest_s stack_c_interpreter
 	./unittest_s
+	./stack_c_interpreter unittest.sl
 
 stack_c_diff : stack_c stack_c_s
 	./stack_c_s stack_c.sl -o stack_c_s2.M1
