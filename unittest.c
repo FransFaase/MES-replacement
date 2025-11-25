@@ -70,7 +70,7 @@ int switch_wd(int a)
 int switch_nod(int a)
 {
 	int r = 0;
-	switch(a++)
+	switch (a++)
 	{
 		case 0:
 			r = 1;
@@ -84,6 +84,33 @@ int switch_nod(int a)
 			r += 4;
 			break;
 	}
+	return r;
+}
+
+int switch_label(int a, int b, const char *testname)
+{
+	int r = 0;
+	switch (a)
+	{
+		case 0:
+			r = 1;
+			goto _default;
+		case 1:
+			r = 2;
+			break;
+		case 3:
+			r = 3;
+			break;
+			_default :
+		default:
+			r += 4;
+	}
+	if (r != b)
+	{
+		printf("Failed: %s\n", testname);
+		result = 1;
+	}
+
 	return r;
 }
 
@@ -197,6 +224,12 @@ int main (int argc, char *argv[])
 	is_true(1000 + switch_nod(3) == 1004, "switch_nod(3)");
 	is_true(1000 + switch_nod(4) == 1000, "switch_nod(4)");
 	is_true(1000 + switch_nod(40) == 1000, "switch_nod(4)");
+
+	switch_label(0, 5, "switch_label(0) == 5");
+	switch_label(1, 2, "switch_label(1) == 2");
+	switch_label(2, 4, "switch_label(2) == 4");
+	switch_label(3, 3, "switch_label(3) == 3");
+	switch_label(4, 4, "switch_label(4) == 4");
 
 	int *ref = &zz;
 	*ref = 4;

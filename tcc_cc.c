@@ -3896,6 +3896,7 @@ bool run_tracing = FALSE;
 
 int default_case_nr = 0;
 int fall_through_case_nr = 0;
+bool label_statement = FALSE;
 
 bool parse_statement(bool in_block, expr_p continue_expr)
 {
@@ -3908,6 +3909,7 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 				label = find_or_add_label(token_it->token);
 			if (label != NULL)
 			{
+				label_statement = TRUE;
 				gen_indent();
 				fprintf(fcode, ":%s\n", label->name);
 				next_token();
@@ -4132,17 +4134,22 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 			}
 
 			bool has_break = FALSE;
-			for (;;)
+			for (bool go = TRUE; go;)
 			{
 				if (token_it->kind == TK_BREAK || token_it->kind == TK_RETURN || token_it->kind == TK_GOTO)
 					has_break = TRUE;
-				if (!parse_statement(FALSE, continue_expr))
-					break;
+				label_statement = FALSE;
+				go = parse_statement(FALSE, continue_expr);
+				if (label_statement)
+				{
+					printf("Label after break in case\n");
+					has_break = FALSE;
+				}
 			}
 			if (token_it->kind == '}' && !has_break)
 			{
 				gen_indent();
-				fprintf(fcode, "break ");
+				fprintf(fcode, "break\n");
 				has_break = TRUE;
 			}
 			fall_through = !has_break;
