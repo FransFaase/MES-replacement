@@ -629,8 +629,8 @@ int fileno(FILE *stream)
 
 char *getcwd(char *buf, size_t size)
 {
-	// TODO
-	fprintf(stderr, "TODO getcwd\n"); exit(1);
+	sys_int80(183, buf, size, 0);
+	return buf;
 }
 
 char **_sys_env = 0;
@@ -753,8 +753,7 @@ int atoi(const char *nptr)
 
 int remove(const char *pathname)
 {
-	// TODO
-	fprintf(stderr, "TODO remove\n"); exit(1);
+	return sys_int80(10, pathname, 0, 0);
 }
 
 int execvp(const char *file, char * argv[])

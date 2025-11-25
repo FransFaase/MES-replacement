@@ -1073,6 +1073,24 @@ void sys_int80(void)
 			result = lseek(a1, a2, a3);
 			break; 
 		}
+		case 183: // getcwd
+		{
+			pop();
+			int size = pop_value();
+			if (size > 299)
+				size = 299;
+			char *cwd = getcwd(filename, size);
+			if (cwd == 0)
+				result = -1;
+			else
+			{
+				for (int i = 0; i < size; i++)
+					set_array_byte(top_value, i, cwd[i]);
+				result = size;
+			}
+			pop();
+			break;
+		}
 		default:
 			report_error("Unsupported int80 value %d", arg1->int_value);
 	}
