@@ -651,8 +651,6 @@ char *getcwd(char *buf, size_t size)
 {
 	sys_int80(183, buf, size, 0);
 	return buf;
-	// TODO
-	//fprintf(stderr, "TODO getcwd\n"); exit(1);
 }
 
 char **_sys_env = 0;
@@ -775,8 +773,6 @@ int atoi(const char *nptr)
 
 int remove(const char *pathname)
 {
-	// TODO
-	//fprintf(stderr, "TODO remove\n"); exit(1);
 	return sys_int80(10, pathname, 0, 0);
 }
 

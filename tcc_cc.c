@@ -4141,10 +4141,7 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 				label_statement = FALSE;
 				go = parse_statement(FALSE, continue_expr);
 				if (label_statement)
-				{
-					printf("Label after break in case\n");
 					has_break = FALSE;
-				}
 			}
 			if (token_it->kind == '}' && !has_break)
 			{
@@ -4634,7 +4631,7 @@ void gen_expr(expr_p expr, bool as_value)
 			if (multiple)
 				expr_print_error(expr, "multiple assignment");
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "$ ? ");
+			fprintf(fcode, "$ ?%s ", expr_size_ind);
 			gen_expr(expr->children[1], TRUE);
 			if (   (expr->kind == TK_ADD_ASS || expr->kind == TK_SUB_ASS)
 				&& expr_is_pointer_size_gt_1(expr->children[0]))

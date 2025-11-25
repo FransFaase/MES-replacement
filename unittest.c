@@ -280,6 +280,12 @@ int main (int argc, char *argv[])
 	is_true(array2[3] == 4, "array2[3] == 4");
 	is_true(array2[4] == 5, "array2[4] == 5");
 
+	char bytes[2];
+	bytes[1] = 2;
+	void *ptr_byte = bytes + 1;
+	*(char*)ptr_byte *= 4;
+	is_true(bytes[1] == 8, "byte == 8");
+
 	printf("Done\n");
 
 	return result;
