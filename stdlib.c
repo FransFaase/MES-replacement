@@ -275,6 +275,8 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 	char *s;
 	int cnt = 0;
 
+	char *org_format = format;
+
 	for (;;)
 	{
 		if (len == 0)
@@ -302,67 +304,85 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 				format++;
 				if (*format == '%')
 					buffer[0] = '%';
-				else if (*format == 's')
-				{
-					s = (char*)*args++;
-					l = strlen(s);
-				}
-				else if (*format == 'd')
-				{
-					int v = *args;
-					if (v == 0)
-						buffer[0] = '0';
-					else
-					{
-						if (v < 0) v = -v;
-						l = 20;
-						for (; v > 0; v = v / 10)
-							buffer[--l] = '0' + v % 10;
-						if (*args < 0)
-							buffer[--l] = '-';
-						s = buffer + l;
-						l = 20 - l;
-					}
-					args++;
-				}
-				else if (*format == 'u')
-				{
-					unsigned int v = *args++;
-					if (v == 0)
-						buffer[0] = '0';
-					else
-					{
-						l = 20;
-						for (; v > 0; v = v / 10)
-							buffer[--l] = '0' + v % 10;
-						s = buffer + l;
-						l = 20 - l;
-					}
-				}
-				else if (*format == 'x' || *format == 'p')
-				{
-					unsigned int v = *args++;
-					if (v == 0)
-						buffer[0] = '0';
-					else
-					{
-						l = 20;
-						for (; v != 0; v >>= 4)
-							buffer[--l] = ((v & 0xf) < 10 ? '0' : ('a' - 10)) + (v & 0xf);
-						s = buffer + l;
-						l = 20 - l;
-					}
-				}
-				else if (*format == 'c')
-				{
-					buffer[0] = *args++;
-				}
 				else
 				{
-					fputs("__sys_printf %", stderr);
-					fputc(*format, stderr);
-					fputs("\n", stderr);
-					exit(1);
+					int modifier = 0;
+					int sign = 1;
+					if (*format == '-')
+					{
+						sign = -1;
+						format++;
+					}
+					while ('0' <= *format && *format <= '9')
+					{
+						modifier = 10 * modifier + *format - '0';
+						format++;
+					}
+					modifier *= sign;
+					if (*format == 's')
+					{
+						s = (char*)*args++;
+						l = strlen(s);
+					}
+					else if (*format == 'd')
+					{
+						int v = *args;
+						if (v == 0)
+							buffer[0] = '0';
+						else
+						{
+							if (v < 0) v = -v;
+							l = 20;
+							for (; v > 0; v = v / 10)
+								buffer[--l] = '0' + v % 10;
+							if (*args < 0)
+								buffer[--l] = '-';
+							s = buffer + l;
+							l = 20 - l;
+						}
+						args++;
+					}
+					else if (*format == 'u')
+					{
+						unsigned int v = *args++;
+						if (v == 0)
+							buffer[0] = '0';
+						else
+						{
+							l = 20;
+							for (; v > 0; v = v / 10)
+								buffer[--l] = '0' + v % 10;
+							s = buffer + l;
+							l = 20 - l;
+						}
+					}
+					else if (*format == 'x' || *format == 'p')
+					{
+						unsigned int v = *args++;
+						if (v == 0)
+							buffer[0] = '0';
+						else
+						{
+							l = 20;
+							for (; v != 0; v >>= 4)
+								buffer[--l] = ((v & 0xf) < 10 ? '0' : ('a' - 10)) + (v & 0xf);
+							s = buffer + l;
+							l = 20 - l;
+						}
+					}
+					else if (*format == 'c')
+					{
+						buffer[0] = *args++;
+					}
+					else
+					{
+						fputs("__sys_printf %", stderr);
+						fputc(*format, stderr);
+						fputs(" ", stderr);
+						fputs(org_format, stderr);
+						fputs("\n", stderr);
+						exit(1);
+					}
 				}
 			}
 			else
@@ -631,6 +651,8 @@ char *getcwd(char *buf, size_t size)
 {
 	sys_int80(183, buf, size, 0);
 	return buf;
+	// TODO
+	//fprintf(stderr, "TODO getcwd\n"); exit(1);
 }
 
 char **_sys_env = 0;
@@ -753,6 +775,8 @@ int atoi(const char *nptr)
 
 int remove(const char *pathname)
 {
+	// TODO
+	//fprintf(stderr, "TODO remove\n"); exit(1);
 	return sys_int80(10, pathname, 0, 0);
 }
 
