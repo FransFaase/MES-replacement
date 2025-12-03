@@ -3255,7 +3255,7 @@ bool parse_array_indexes(type_p type, type_p *arr_type)
 	(*arr_type) = new_type(TYPE_KIND_ARRAY, nr_elems * type->size, 1);
 	(*arr_type)->members[0] = type;
 	(*arr_type)->nr_elems = nr_elems;
-	(*arr_type)->size = round_up_word(nr_elems * array_element_size(type));
+	(*arr_type)->size = nr_elems * array_element_size(type);
 	return TRUE;
 }
 
