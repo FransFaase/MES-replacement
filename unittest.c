@@ -134,6 +134,13 @@ int compare_ints(const void *a, const void *b)
 	return *(int*)a - *(int*)b;
 }
 
+void test_printf(const char *format, int value, const char *expect, const char *err)
+{
+	char buffer[40];
+	snprintf(buffer, 39, format, value);
+	is_true(strcmp(buffer, expect) == 0, err);
+}
+
 int main (int argc, char *argv[])
 {
 	printf("argc = %d\n", argc);
@@ -285,6 +292,13 @@ int main (int argc, char *argv[])
 	void *ptr_byte = bytes + 1;
 	*(char*)ptr_byte *= 4;
 	is_true(bytes[1] == 8, "byte == 8");
+
+	test_printf("%d", 2, "2", "printf %d 2");
+	test_printf("%d", 123, "123", "printf %d 123");
+	test_printf("%-5d", 123, "123  ", "printf %-5d 123");
+	test_printf("%5d", 123, "  123", "printf %5d 123");
+	test_printf("%-2d", 123, "12", "printf %-2d 123");
+	test_printf("%2d", 123, "12", "printf %2d 123");
 
 	printf("Done\n");
 

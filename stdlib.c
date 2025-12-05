@@ -318,7 +318,6 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 						modifier = 10 * modifier + *format - '0';
 						format++;
 					}
-					modifier *= sign;
 					if (*format == 's')
 					{
 						s = (char*)*args++;
@@ -327,19 +326,35 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 					else if (*format == 'd')
 					{
 						int v = *args;
+						int b = 20;
 						if (v == 0)
-							buffer[0] = '0';
+							buffer[--b] = '0';
 						else
 						{
 							if (v < 0) v = -v;
-							l = 20;
 							for (; v > 0; v = v / 10)
-								buffer[--l] = '0' + v % 10;
+								buffer[--b] = '0' + v % 10;
 							if (*args < 0)
-								buffer[--l] = '-';
-							s = buffer + l;
-							l = 20 - l;
+								buffer[--b] = '-';
 						}
+						l = 20 - b;
+						if (modifier > 0)
+						{
+							if (modifier > l)
+							{
+								if (sign == -1)
+								{
+									for (int i = 20 - modifier; i < 20; i++)
+										buffer[i] = b < 20 ? buffer[b++] : ' ';
+									b = 20 - modifier;
+								}
+								else
+									for (; l < modifier; l++)
+										buffer[--b] = ' ';
+							}
+							l = modifier;
+						}
+						s = buffer + b;
 						args++;
 					}
 					else if (*format == 'u')
