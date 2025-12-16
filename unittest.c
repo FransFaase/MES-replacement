@@ -163,6 +163,7 @@ int main (int argc, char *argv[])
 	is_true(1 == 1, "1 == 1");
 	is_true(1 << 2 == 4, "1 << 2 == 4");
 	is_true(4 >> 2 == 1, "4 >> 2 == 1");
+	is_true(45456 >> 32 == 0, "45456 >> 32 == 0");
 	int a = 8;
 	a >>= 2;
 	is_true(a == 2, "int a = 8; a >>= 2; a == 2");

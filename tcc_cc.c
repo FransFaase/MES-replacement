@@ -4562,6 +4562,13 @@ void gen_expr(expr_p expr, bool as_value)
 			gen_expr(expr->children[0], TRUE);
 			fprintf(fcode, "%c ", expr->kind);
 			break;
+		case TK_SHR:
+			if (expr->children[1]->kind == '0' && expr->children[1]->int_val > 31)
+			{
+				fprintf(fcode, "0 ");
+				break;
+			}
+			// Fall through
 		case '+':
 		case '-':
 		case '*':
@@ -4570,7 +4577,6 @@ void gen_expr(expr_p expr, bool as_value)
 		case '|':
 		case TK_NE:
 		case TK_SHL:
-		case TK_SHR:
 		case TK_EQ:
 			gen_expr(expr->children[0], TRUE);
 			gen_expr(expr->children[1], TRUE);

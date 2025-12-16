@@ -960,7 +960,7 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == SYM_SHR)
 		{
-			fprintf(fout, "\tmov_ecx,eax           # <<\n\tpop_eax\n\tshr_eax,cl\n");
+			fprintf(fout, "\tmov_ecx,eax           # >>\n\tpop_eax\n\tshr_eax,cl\n");
 		}
 		else if (sym == SYM_LOG_AND)
 		{
