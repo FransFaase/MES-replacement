@@ -129,6 +129,18 @@ typedef union {
 	Elf32_Test p;
 } test_union;
 
+typedef struct {
+	union {
+		struct {
+			int a, b;
+		};
+		struct {
+			int c, d;
+		};
+	};
+	int x;
+} nested_union_t;
+
 int compare_ints(const void *a, const void *b)
 {
 	return *(int*)a - *(int*)b;
@@ -299,6 +311,16 @@ int main (int argc, char *argv[])
 	test_printf("%5d", 123, "  123", "printf %5d 123");
 	test_printf("%-2d", 123, "12", "printf %-2d 123");
 	test_printf("%2d", 123, "12", "printf %2d 123");
+
+	nested_union_t nu;
+	nu.a = 3;
+	nu.b = 4;
+	nu.x = 5;
+	is_true(nu.a == 3, "nu.a == 3");
+	is_true(nu.b == 4, "nu.b == 4");
+	is_true(nu.c == 3, "nu.c == 3");
+	is_true(nu.d == 4, "nu.d == 4");
+	is_true(nu.x == 5, "nu.x == 5");
 
 	printf("Done\n");
 

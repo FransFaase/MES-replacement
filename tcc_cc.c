@@ -3223,7 +3223,16 @@ expr_p parse_expr(void)
 bool parse_statements(expr_p continue_expr);
 expr_p parse_initializer(void);
 
-int inside_struct_or_union = 0;
+typedef struct struct_or_union_constructor_s struct_or_union_constructor_t;
+struct struct_or_union_constructor_s
+{
+	bool is_struct;
+	int pos;
+	int size;
+};
+
+struct_or_union_constructor_t *cur_struct_or_union = NULL;
+
 int save_decl_depth = 0;
 bool inside_function = FALSE;
 bool inside_argument_list = FALSE;
@@ -3289,11 +3298,27 @@ bool parse_declaration(bool is_param)
 		FAIL_FALSE
 	if (accept_term(';'))
 	{
-		if (   inside_struct_or_union > 0
+		if (   cur_struct_or_union != NULL
 			&& (type_specifier->kind == TYPE_KIND_STRUCT || type_specifier->kind == TYPE_KIND_UNION))
 		{
 			for (int i = 0; i < type_specifier->nr_decls; i++)
-				add_decl_clone(type_specifier->decls[i]);
+			{
+				decl_p decl = type_specifier->decls[i];
+				decl_p decl_clone = add_decl(decl->kind, decl->name, decl->type);
+				decl_clone->storage_type = decl->storage_type;
+				decl_clone->pos = cur_struct_or_union->pos + decl->pos;
+			}
+			if (cur_struct_or_union->is_struct)
+			{
+				cur_struct_or_union->pos += round_up_word(type_specifier->size);
+				cur_struct_or_union->size = cur_struct_or_union->pos;
+			}
+			else
+			{
+				int size = round_up_word(type_specifier->size);
+				if (size > cur_struct_or_union->size)
+					cur_struct_or_union->size = size;
+			}
 		}
 		return TRUE;
 	}
@@ -3311,7 +3336,7 @@ bool parse_declaration(bool is_param)
 		bool as_pointer = FALSE;
 		if (token_it->kind == 'i')
 		{
-			if (!inside_function && !inside_argument_list && !inside_struct_or_union)
+			if (!inside_function && !inside_argument_list && cur_struct_or_union == NULL)
 				prev_decl = find_decl(DK_IDENT, token_it->token);
 			decl = add_decl(DK_IDENT, token_it->token, NULL);
 			next_token();
@@ -3323,7 +3348,7 @@ bool parse_declaration(bool is_param)
 				if (token_it->kind == 'i')
 				{
 					as_pointer = TRUE;
-					if (!inside_function && !inside_argument_list && !inside_struct_or_union)
+					if (!inside_function && !inside_argument_list && cur_struct_or_union == NULL)
 						prev_decl = find_decl(DK_IDENT, token_it->token);
 					decl = add_decl(DK_IDENT, token_it->token, NULL);
 					next_token();
@@ -3386,7 +3411,7 @@ bool parse_declaration(bool is_param)
 						inside_function = FALSE;
 						return TRUE;
 					}
-					if (!inside_function && inside_struct_or_union == 0)
+					if (!inside_function && cur_struct_or_union == NULL)
 						fprintf(fcode, "void %s ;\n", decl->name);
 					cur_ident_decls = save_ident_decls;
 					break;
@@ -3430,6 +3455,21 @@ bool parse_declaration(bool is_param)
 			}
 			decl->type = type;
 			decl->storage_type = storage_type;
+			if (cur_struct_or_union != NULL)
+			{
+				decl->pos = cur_struct_or_union->pos;
+				if (cur_struct_or_union->is_struct)
+				{
+					cur_struct_or_union->pos += round_up_word(type->size);
+					cur_struct_or_union->size = cur_struct_or_union->pos;
+				}
+				else
+				{
+					int size = round_up_word(type->size);
+					if (size > cur_struct_or_union->size)
+						cur_struct_or_union->size = size;
+				}
+			}
 			if (storage_type == ST_TYPEDEF && type->typedef_decl == NULL)
 			{
 				type->typedef_decl = decl;
@@ -3467,7 +3507,7 @@ bool parse_declaration(bool is_param)
 					decl->type->nr_elems = nr_elems;
 				}
 			}
-			if (!is_param && inside_struct_or_union == 0 && decl->storage_type != ST_TYPEDEF && type->kind != TYPE_KIND_FUNCTION)
+			if (!is_param && cur_struct_or_union == NULL && decl->storage_type != ST_TYPEDEF && type->kind != TYPE_KIND_FUNCTION)
 				gen_variable_decl(decl);
 		}
 	} while (!is_param && accept_term(','));
@@ -3630,7 +3670,12 @@ type_p parse_struct_or_union_specifier(decl_kind_e decl_kind)
 	}
 	if (accept_term('{'))
 	{
-		inside_struct_or_union++;
+		struct_or_union_constructor_t *parent = cur_struct_or_union;
+		struct_or_union_constructor_t this_struct_or_union;
+		this_struct_or_union.is_struct = decl_kind == DK_STRUCT;
+		this_struct_or_union.pos = 0;
+		this_struct_or_union.size = 0;
+		cur_struct_or_union = &this_struct_or_union;
 		decl_p save_ident_decls = cur_ident_decls;
 		do
 		{
@@ -3638,35 +3683,18 @@ type_p parse_struct_or_union_specifier(decl_kind_e decl_kind)
 				FAIL_NULL
 		} while (!accept_term('}'));
 		int nr_decls = 0;
-		int size = 0;
 		for (decl_p decl1 = cur_ident_decls; decl1 != save_ident_decls; decl1 = decl1->prev)
-		{
 			nr_decls++;
-			int decl_size = decl1->type->size;
-			if (decl_kind == DK_STRUCT)
-				size += round_up_word(decl_size);
-			else if (decl_size > size)
-				size = decl_size;
-		}
 		if (type == NULL)
 		{
-			type = new_type(type_kind, size, 0);
+			type = new_type(type_kind, this_struct_or_union.size, 0);
 		}
 		else
-			type->size = size;
+			type->size = this_struct_or_union.size;
 		decl_p decls[200];
 		int i = nr_decls;
 		for (decl_p decl1 = cur_ident_decls; decl1 != save_ident_decls; decl1 = decl1->prev)
 			decls[--i] = decl1;
-		if (decl_kind == DK_STRUCT)
-		{
-			int pos = 0;
-			for (int i = 0; i < nr_decls; i++)
-			{
-				decls[i]->pos = pos;
-				pos += round_up_word(decls[i]->type->size);
-			}
-		}
 		{
 			gen_start_struct_or_union();
 			for (int i = 0; i < nr_decls; i++)
@@ -3674,7 +3702,7 @@ type_p parse_struct_or_union_specifier(decl_kind_e decl_kind)
 		}
 		type_set_decls(type, nr_decls, decls);
 		cur_ident_decls = save_ident_decls;
-		inside_struct_or_union--;
+		cur_struct_or_union = parent;
 	}
 	return type;
 }
