@@ -185,7 +185,8 @@ long strtoul(const char *nptr, char **endptr, int base)
 		else
 			break;
 	}
-	*endptr = nptr;
+	if (endptr != NULL)
+		*endptr = nptr;
 	return result;
 }
 
