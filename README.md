@@ -1,87 +1,73 @@
 # GNU Mes replacement
 
-Investigation into replacing the [GNU Mes compiler](https://www.gnu.org/software/mes/)
-which is part of [live-bootstrap](https://github.com/fosslinux/live-bootstrap).
+The goal of this project is to simplify stage0 of
+[live-bootstrap](https://github.com/fosslinux/live-bootstrap),
+which involves implementing a replacement for the
+[GNU Mes compiler](https://www.gnu.org/software/mes/)
+by implementing a C-compiler in C that can compile the
+[Tiny C Compiler](https://en.wikipedia.org/wiki/Tiny_C_Compiler) version 0.9.26.
 
-The reason for this is that the GNU Mes compiler is a bit of odd one out because
-it is compiled with a C-preprocessor and C-compiler and it is used to compile
-Tiny C Compiler, which itself might only use a subset of C itself. The gap
-between the two seems rather small.
+The motivation for this project is given in the presentation
+[Reviewing live-bootstrap](https://www.iwriteiam.nl/WHY2025_talk.html).
 
-## Analyzing C-grammar used for TCC
+For blog article related to reviewing the live bootstrap project and this
+project see the section 'Live-bootstrap' on [this page](https://www.iwriteiam.nl/Software.html).
 
-The first step consists of analyzing what part of the C-grammar that is needed
-for compiling TCC. For this I wrote a minimal C preprocessor: `min_tcc_preprocessor.cpp`
-and `CParser.c` that is heavily based on [RawParser](https://github.com/FransFaase/RawParser).
+# Stage 1
 
-## WIP 11 July 2024
+The first stage of this project is to implement said C-compiler for i386.
+The source of the C-compiler is the file `tcc_cc.c`. This
+compiler produces intermediate code in a stack based language.
+The intermediage code can be compiled with the program `stack_c.c`
+to assembly or interpretted with the program `stack_c_interpreter.c`
 
-The [commit 058272](https://github.com/FransFaase/MES-replacemen/commit/4e31a615bcc408b6351247f035f348935121d26f)
-adds the files `tcc_cc.c` and `gcc_tcc_cc.c`. The second includes the first. The first is
-an attempt to implement an iterator based C-preprocessor (which is not finished yet). It
-does work when compiling `gcc_tcc_cc.c` with the following command:
-```
-gcc -Wno-builtin-declaration-mismatch -Wno-int-conversion -g gcc_tcc_cc.c -o gcc_tcc_cc
-```
-But when I compile it with `M2-Mesoplanet` using the following command:
-```
-M2-Mesoplanet -f tcc_cc.c --architecture x86 --max-string 6000 -o tcc_cc
-```
-it returns a segmentation fault after some time in a place where before it did not give it.
-It looks like the return address on the stack is overwritten at some point. The error
-also occurs when using [`Emulator`](https://github.com/FransFaase/Emulator/).
+This stage depends on a number of executables from stage0. Namely:
+- hex2
+- M1
+- blood-elf
+- catm
+- match
+- sha256sum
+These need to be present in the directory of the repository.
 
-## WIP 19 August 2024
+Furthermore it requires the usual Linux commands and the GNU C compiler.
+A makefile is included to build and test the C-compiler `tcc_cc`.
 
-The [commit 590e5315](https://github.com/FransFaase/MES-replacement/commit/590e5315e847ebab648d6aede870bff70cdfd65d)
-contains the first version of `stack_c.cpp`, a compiler for a small stack base
-programming language, which can compile the `hello.sl` program with the help of
-some live-bootstrap executables (see the script `build_stack_hello`) to an
-executable `hellosl` that does print out the text 'hello world!'.
+The sources of the Tiny C Compiler should be placed in a directory
+with the name `tcc_sources` that should also have sub directory
+`lib`.
 
-## WIP 17 April 2025
+There should also be a directory `mes` with the contents of the
+GNU Mes compiler, which is needed to build the standard library
+that the Tiny C Compiler needs.
 
-The [commit 8084af1c](https://github.com/FransFaase/MES-replacement/commit/8084af1c5680a15dd3c292fd1a667481be3177b3)
-contains a version of `tcc_cc.c` that implements a preprocessor that can process
-the TCC sources (it seems). It is based on iterators.
+To build and test the Tiny C Compiler, the `test.sh` shell script
+is provided. This script first compiles the Tiny C Compiler with
+GNU C-compiler, resulting in `tcc_g` and with tcc_cc compiler,
+resulting in `tcc_s`. Next is uses these to bootstrap the Tiny
+C Compiler from the sources. The script compares the results
+for the various steps using `tcc_g` and `tcc_c`.
 
-## WIP 28 April 2025
+Remark: The `test.sh` script assumes that this repository is cloned
+in the `git` directory in the home directory. Please update the
+`BINDIR` to point to the repository containing the repository.
 
-The [commit 93fba047](https://github.com/FransFaase/MES-replacement/commit/93fba0474b4527c2e3f0e35bb53e23f1b4c6ed6d)
-contains a version of `tcc_cc.c` that can parse the TCC sources and its own source
+## Stage 2
 
-## WIP 7 May 2025
+The second stage will focus on removing the dependency of the
+executables from stage0 by building these with the C-compiler.
 
-The [commit 9122a22a](https://github.com/FransFaase/MES-replacement/commit/9122a22a91ee4b4ff73144e0c675585320b4e69a)
-contains a version of `tcc_cc.c` that determines the type of all expressions.
+## Older files
 
-## WIP 2 June 2025: compiled first program
-
-The [commit 6ac84a5d](https://github.com/FransFaase/MES-replacement/commit/6ac84a5d1ab277e3eb8f661dc4062d244c60b69c)
-contains the version of `tcc_cc.c` with which the [`hello.c`](https://github.com/FransFaase/MES-replacement/blob/6ac84a5d1ab277e3eb8f661dc4062d244c60b69c/hello.c)
-program can be compiled to the stack_c language, and compiled to an ELF with the
-stack_c compiler and the life-bootstrap programs `blood-elf`, `M1` and `hex2`.
-
-## WIP 18 June 2025: compile stack_c.c
-
-The [commit 5808d49c](https://github.com/FransFaase/MES-replacement/commit/5808d49c14bd2e1b0a997be58cdd04f4a9ef713c)
-
-## 28 June 2025: Self hosting compiler
-
-With [commit c57b9bbd](https://github.com/FransFaase/MES-replacement/commit/c57b9bbdf55de3115a5159d8362ed67d8fab7e23)
-the compiler is now a self hosting compiler in the sense that the compiled version of the compiler (with its source
-as input) when used to compile its source, will return the same output.
-fixes some bugs, such that compiling `stack_c.c` with the `tcc_cc` compiler, the resulting program produces the
-same output when executed on the output of `tcc_cc`.
-
-## 23 July 2025: Stack_c interpreter
-
-The [commit 54fc4685](https://github.com/FransFaase/MES-replacement/commit/54fc46851f0d25b7da7a75814c0d20180dcfaf76)
-gives an interpreter voor the Stack_c language.
+For a first feasability study to analyzing what part of the C-grammar
+that is needed for compiling TCC. For this I wrote a minimal C preprocessor:
+`min_tcc_preprocessor.cpp` and `CParser.c` that is heavily based on
+[RawParser](https://github.com/FransFaase/RawParser).
 
 # Acknowledgments
 
-The work in this repository falls under the project [Verifying and documenting live-bootstrap](https://nlnet.nl/project/live-bootstrap/),
+The work in this repository falls under the project
+[Verifying and documenting live-bootstrap](https://nlnet.nl/project/live-bootstrap/),
 which was funded through the [NGI0 Core](https://nlnet.nl/core/) Fund, a fund established by
 [NLnet](https://nlnet.nl) with financial support from the European Commission's
 [Next Generation Internet](https://ngi.eu) programme, under the aegis of
