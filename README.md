@@ -18,8 +18,8 @@ project see the section 'Live-bootstrap' on [this page](https://www.iwriteiam.nl
 The first stage of this project is to implement said C-compiler for i386.
 The source of the C-compiler is the file `tcc_cc.c`. This
 compiler produces intermediate code in a stack based language.
-The intermediage code can be compiled with the program `stack_c.c`
-to assembly or interpretted with the program `stack_c_interpreter.c`
+The intermediate code can be compiled with the program `stack_c.c`
+to assembly or interpreted with the program `stack_c_interpreter.c`
 
 This stage depends on a number of executables from stage0. Namely:
 - hex2
@@ -51,6 +51,8 @@ for the various steps using `tcc_g` and `tcc_c`.
 Remark: The `test.sh` script assumes that this repository is cloned
 in the `git` directory in the home directory. Please update the
 `BINDIR` to point to the repository containing the repository.
+
+This stage has been implemented.
 
 ## Stage 2
 
