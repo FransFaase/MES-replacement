@@ -18,7 +18,7 @@ project see the section 'Live-bootstrap' on [this page](https://www.iwriteiam.nl
 The first stage of this project is to implement said C-compiler for i386.
 The source of the C-compiler is the file [`tcc_cc.c`](tcc_cc.c).
 This compiler produces intermediate code in a stack based language
-called [Stack-C]](Stack_C.md). The compiler also includes the file
+called [Stack-C](Stack_C.md). The compiler also includes the file
 [`stdlib.c`](stdlib.c), that contains a minimal version of the
 C standard library.
 
@@ -33,6 +33,7 @@ This stage depends on a number of executables from stage0. Namely:
 - catm
 - match
 - sha256sum
+
 These need to be present in the directory of the repository.
 
 Furthermore it requires the usual Linux commands and the GNU C compiler.
