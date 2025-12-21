@@ -16,10 +16,15 @@ project see the section 'Live-bootstrap' on [this page](https://www.iwriteiam.nl
 # Stage 1
 
 The first stage of this project is to implement said C-compiler for i386.
-The source of the C-compiler is the file `tcc_cc.c`. This
-compiler produces intermediate code in a stack based language.
-The intermediate code can be compiled with the program `stack_c.c`
-to assembly or interpreted with the program `stack_c_interpreter.c`
+The source of the C-compiler is the file [`tcc_cc.c`](tcc_cc.c).
+This compiler produces intermediate code in a stack based language
+called [Stack-C]](Stack_C.md). The compiler also includes the file
+[`stdlib.c`](stdlib.c), that contains a minimal version of the
+C standard library.
+
+The intermediage code can be compiled with the program
+[`stack_c.c`](stack_c.c) to M1 assembly or interpreted with the
+program [`stack_c_interpreter.c`](stack_c_interpreter.c).
 
 This stage depends on a number of executables from stage0. Namely:
 - hex2
@@ -31,7 +36,8 @@ This stage depends on a number of executables from stage0. Namely:
 These need to be present in the directory of the repository.
 
 Furthermore it requires the usual Linux commands and the GNU C compiler.
-A makefile is included to build and test the C-compiler `tcc_cc`.
+[A makefile](Makefile) is included to build and test the
+C-compiler `tcc_cc`.
 
 The sources of the Tiny C Compiler should be placed in a directory
 with the name `tcc_sources` that should also have sub directory
@@ -41,12 +47,13 @@ There should also be a directory `mes` with the contents of the
 GNU Mes compiler, which is needed to build the standard library
 that the Tiny C Compiler needs.
 
-To build and test the Tiny C Compiler, the `test.sh` shell script
-is provided. This script first compiles the Tiny C Compiler with
-GNU C-compiler, resulting in `tcc_g` and with tcc_cc compiler,
-resulting in `tcc_s`. Next is uses these to bootstrap the Tiny
-C Compiler from the sources. The script compares the results
-for the various steps using `tcc_g` and `tcc_c`.
+To build and test the Tiny C Compiler, the [`test.sh`](test.sh)
+shell script is provided. This script first compiles the Tiny C
+Compiler with GNU C-compiler, resulting in `tcc_g` and with
+tcc_cc compiler, resulting in `tcc_s`. Next is uses these to
+bootstrap the Tiny C Compiler from the sources. The script
+compares the results for the various steps using `tcc_g` and
+`tcc_c`.
 
 Remark: The `test.sh` script assumes that this repository is cloned
 in the `git` directory in the home directory. Please update the

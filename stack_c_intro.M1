@@ -86,7 +86,7 @@ DEFINE NULL 00000000
     # allocate memory for the second stack
     mov_eax, %100000
     push_eax                                    # (sys_malloc assums address)
-    call %sys_malloc
+    call %f_sys_malloc
     mov_ebp,eax
     
     # setup argc and argv for the main function
@@ -98,7 +98,7 @@ DEFINE NULL 00000000
     mov_eax,edx
 
     #call main
-    call %main
+    call %f_main
     
     # program completed Successfully
     mov_ebx,eax                                 # All is well
@@ -112,7 +112,7 @@ DEFINE NULL 00000000
 # address (which is stored in the eax register, the top of the stack)
 # needs to be popped as well.
 
-:sys_int80
+:f_sys_int80
     pop_edi               # Save return address from the stack
     pop_edx               # Get the arguments from the stack
     pop_ecx
@@ -122,7 +122,7 @@ DEFINE NULL 00000000
     push_edi              # restore return address to the stack
     ret
 
-:sys_malloc
+:f_sys_malloc
     pop_edi
     pop_eax
     mov_ebx,[DWORD] &SYS_MALLOC                 # Using the current pointer

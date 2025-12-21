@@ -555,7 +555,7 @@ int main(int argc, char *argv[])
 				}
 				//printf("start function %s\n", function_name);
 				// Copy return address to first location in variable stack
-				fprintf(fout, "\n:%s\n\tpop_eax\n\tmov_[ebp],eax\n\tpop_eax\n", function_name);
+				fprintf(fout, "\n:f_%s\n\tpop_eax\n\tmov_[ebp],eax\n\tpop_eax\n", function_name);
 				nesting_type[nesting_depth] = ' ';
 				nesting_nr_vars[nesting_depth] = nr_idents;
 				nesting_pos[nesting_depth] = pos;
@@ -767,7 +767,7 @@ int main(int argc, char *argv[])
 				fprintf(ferr, "ERROR %d.%d: Expecting label after 'goto'\n", cur_line, cur_column);
 				return 0;
 			}
-			fprintf(fout, "\tjmp %%%s_%s\n", token, function_name);
+			fprintf(fout, "\tjmp %%l_%s_%s\n", function_name, token);
 		}
 		else if (sym == 'A')
 		{
@@ -784,15 +784,15 @@ int main(int argc, char *argv[])
 				//	fprintf(fout, "\tvalue %d", idents[i].value);
 				//fprintf(fout, "\n");
 				if (idents[i].type == 'G')
-					fprintf(fout, "\tpush_eax              # %s (global)\n\tmov_eax, &%s\n", token, token);
+					fprintf(fout, "\tpush_eax              # %s (global)\n\tmov_eax, &g_%s\n", token, token);
 				else if (idents[i].type == 'F')
-					fprintf(fout, "\tpush_eax              # %s (function)\n\tmov_eax, &%s\n", token, token);
+					fprintf(fout, "\tpush_eax              # %s (function)\n\tmov_eax, &f_%s\n", token, token);
 				else if (idents[i].type == 'C')
 					fprintf(fout, "\tpush_eax              # %d (const %s)\n\tmov_eax, %%%d\n", idents[i].value, token, idents[i].value);
 				else if (idents[i].type == 'L')
 					fprintf(fout, "\tpush_eax              # %s (local)\n\tlea_eax,[ebp+DWORD] %%%d\n", token, 4 * idents[i].pos);
 				else if (idents[i].type == 'S')
-					fprintf(fout, "\tpush_eax              # %s (static)\n\tmov_eax, &_static_%d_%s\n", token, idents[i].value, token);
+					fprintf(fout, "\tpush_eax              # %s (static)\n\tmov_eax, &static_%d_%s\n", token, idents[i].value, token);
 			}
 			else
 			{
@@ -882,7 +882,7 @@ int main(int argc, char *argv[])
 				fprintf(ferr, "ERROR %d.%d: Expect identifier after ':", cur_line, cur_column);
 				return -1;
 			}
-			fprintf(fout, ":%s_%s\n", token, function_name);
+			fprintf(fout, ":l_%s_%s\n", function_name, token);
 		}
 		else if (sym == SYM_REV_ASS)
 		{
@@ -1066,14 +1066,14 @@ int main(int argc, char *argv[])
 	for (int i = 0; i < nr_idents; i++)
 		if (idents[i].type == 'G')
 		{
-			fprintf(fout, ":%s", idents[i].name);
+			fprintf(fout, ":g_%s", idents[i].name);
 			for (int j = 0; j < idents[i].size; j++)
 				fprintf(fout, "%sNULL", j % 8 == 0 ? "\n\t" : " ");
 			fprintf(fout, "\n");
 		}
 	for (int i = 0; i < nr_statics; i++)
 	{
-		fprintf(fout, ":_static_%d_%s", i, statics[i].name);
+		fprintf(fout, ":static_%d_%s", i, statics[i].name);
 		for (int j = 0; j < statics[i].size; j++)
 			fprintf(fout, "%sNULL", j % 8 == 0 ? "\n\t" : " ");
 		fprintf(fout, "\n");

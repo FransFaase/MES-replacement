@@ -80,4 +80,4 @@ tcc_g: tcc_sources/tcc.c
     -D ONE_SOURCE=1 tcc_sources/tcc.c -o tcc_g
 
 .PRECIOUS: %.sl %_s.M1 %.blood_elf %.macro
-.PHONY: all run_unittest_s stack_c_diff tcc_cc_diff x
+.PHONY: all run_unittest_s stack_c_diff tcc_cc_diff
