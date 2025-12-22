@@ -68,7 +68,6 @@ char* copystr(const char* str)
 		len = len + 1;
 	}
 	
-	//printf("copystr %d %ld\n", len + 1, strlen(str) + 1);
 	char* new_str = _malloc(len + 1);
 	
 	while (len >= 0)
@@ -82,7 +81,6 @@ char* copystr(const char* str)
 
 char* copystrlen(const char* str, int len)
 {
-	//printf("copystrlen %d %ld\n", len + 1, strlen(str) + 1);
 	char* new_str = _malloc(len + 1);
 	memcpy(new_str, str, len + 1);
 
@@ -94,6 +92,11 @@ char* copystrlen(const char* str, int len)
 bool opt_trace_parser = FALSE;
 
 // Preprocessor
+
+// The preprocessor is implemented with the use of iterators.
+// There are character iterators and token iterators.
+
+// The base character iterator:
 
 typedef struct char_iterator_s char_iterator_t;
 typedef struct char_iterator_s* char_iterator_p;
@@ -107,13 +110,21 @@ struct char_iterator_s
 	char_next_p next;
 };
 
+// The file iterator
+
+// On creation it points to the first character of the file
+// and on each call to the next function it returns the next
+// character of the file, where the file is thought to be
+// extended with an infinite number of null ('\0') characters
+// and carriage return characters ('\r') are skipped.
+// The line and column members are updated according to
+// line feed ('\n') characters in the file.
 
 struct file_iterator_s
 {
 	char_iterator_t base;
 	FILE* _f;
 };
-typedef struct file_iterator_s file_iterator_t;
 typedef struct file_iterator_s* file_iterator_p;
 
 void file_iterator_next(char_iterator_p char_it)
@@ -164,6 +175,15 @@ file_iterator_p new_file_iterator(const char* fn)
 	return it;
 }
 
+// The line splice iterator
+
+// The line splice iterator takes care that lines that end
+// with a back-slash ('\\') character are joined with the
+// next line. On creation the iterator points to the first
+// character in the file, assuming that pairs of a
+// back-slash charater and line-feed characters are ignored.
+// On each call of the next function, the following character
+// ignoring such pairs is returned.
 
 struct line_splice_iterator_s
 {
@@ -213,6 +233,16 @@ line_splice_iterator_p new_line_splice_iterator(char_iterator_p source_it)
 }
 
 
+// The comment strip iterator
+
+// The comment strip iterator removes all comments from the input.
+// It supports both the original comments which are delimited by
+// '/*' and '*/' and the new comments with are delimited by '//'
+// and a new-line character. The original comments are replaced
+// by a space character and the new comments are replace by a
+// new-line character.
+// The function comment_strip_iterator_next is implemented as a
+// co-routine with the help of goto statements.
 
 struct comment_strip_iterator_s
 {
@@ -227,7 +257,7 @@ void comment_strip_iterator_next(char_iterator_p char_it)
 {
 	comment_strip_iterator_p it = (comment_strip_iterator_p)char_it;
 	char_next_p _source_it_next; _source_it_next = it->_source_it->next;
-	//fprintf(stderr, "_source_it_next %p\n", _source_it_next);
+
     switch (it->_state)
     {
         case 0: goto s0;
@@ -369,6 +399,12 @@ comment_strip_iterator_p new_comment_strip_iterator(char_iterator_p source_it)
 	return it;
 }
 
+// The include iterator
+
+// The include iterator allows character of another character
+// iterator to be included in an existing stream by calling
+// the function 'include_iterator_add'. Recursive including
+// is supported.
 
 struct include_iterator_s
 {
@@ -382,20 +418,17 @@ typedef struct include_iterator_s* include_iterator_p;
 void include_iterator_next(char_iterator_p char_it)
 {
 	include_iterator_p it = (include_iterator_p)char_it;
-	//printf("include_iterator_next %d\n", it->_source_it->ch);
 	char_next_p _source_it_next; _source_it_next = it->_source_it->next;
 	_source_it_next(it->_source_it);
 	it->base.ch = it->_source_it->ch;
 	if (it->base.ch == 0)
 	{
-		//printf("include_iterator_next end %s %d\n", it->base.filename, it->_nr_parents); 
 		if (it->_nr_parents == 0)
 		{
 			it->base.ch = 0;
 			return;
 		}
 		it->base.ch = '\n';
-		//free(it->_source_it);
 		it->_nr_parents = it->_nr_parents - 1;
 		it->_source_it = it->_parent_source_its[it->_nr_parents];
 		it->base.filename = it->_source_it->filename;
@@ -403,12 +436,10 @@ void include_iterator_next(char_iterator_p char_it)
 	it->base.filename = it->_source_it->filename;
 	it->base.line = it->_source_it->line;
 	it->base.column = it->_source_it->column;
-	//printf(it->base.ch < ' ' ? "= %d\n" : "= '%c'\n", it->base.ch);
 }			
 
 void include_iterator_add(include_iterator_p it, char_iterator_p include_it)
 {
-	//printf("include_iterator_add %d\n", it->_nr_parents);
 	it->_parent_source_its[it->_nr_parents] = it->_source_it;
 	it->_nr_parents = it->_nr_parents + 1;
 	it->_source_it = include_it;
@@ -416,7 +447,6 @@ void include_iterator_add(include_iterator_p it, char_iterator_p include_it)
 	it->base.line = it->_source_it->line;
 	it->base.column = it->_source_it->column;
 	it->base.ch = it->_source_it->ch;
-	//printf("Next char %d\n", it->base.ch);
 }
 
 include_iterator_p new_include_iterator(char_iterator_p include_it)
@@ -432,6 +462,10 @@ include_iterator_p new_include_iterator(char_iterator_p include_it)
 	return it;
 }
 
+// Token definitions
+
+// Definition of defines for tokens that are not represented
+// by a single character. 
 
 #define TK_D_HASH	 500
 #define TK_EQ		 501
@@ -504,6 +538,8 @@ include_iterator_p new_include_iterator(char_iterator_p include_it)
 #define TK_H_UNDEF		1038
 #define TK_H_ERROR		1039
 
+// The base token iterator
+
 typedef struct token_iterator_s token_iterator_t;
 typedef struct token_iterator_s* token_iterator_p;
 typedef token_iterator_p (*token_next_p)(token_iterator_p, bool);
@@ -518,6 +554,14 @@ struct token_iterator_s
 	token_next_p next;
 };
 
+// The tokenizer iterator
+
+// The tokenizer iterator recognizes the C tokens from the
+// stream of characters returned by a character iterator.
+// On creation it is on the first recognized token and
+// on each call to the next function it returns the next
+// recognized token.
+
 struct tokenizer_s
 {
 	token_iterator_t base;
@@ -527,7 +571,6 @@ typedef struct tokenizer_s *tokenizer_p;
 
 void tokenizer_skip_white_space(tokenizer_p tokenizer, bool skip_nl)
 {
-	//printf("tokenizer_skip_white_space %p %d\n", tokenizer, skip_nl);
 	char_iterator_p it; it = tokenizer->_char_iterator;
 	char_next_p it_next = it->next;
 	char ch = it->ch;
@@ -925,7 +968,6 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 	token_it->length = i;
 	if (opt_trace_parser)
 		printf("tokenizer_next %d: %d '%s'\n", token_it->line, token_it->kind, token_it->token);
-	//printf("tokenizer result %d '%s' %d\n", token_it->kind, token_it->token, token_it->length);
 	return token_it;
 }
 
@@ -994,6 +1036,8 @@ tokenizer_p new_tokenizer(char_iterator_p char_iterator)
 	return tokenizer;
 }
 
+// List of tokens
+
 struct tokens_s
 {
 	int kind;
@@ -1041,7 +1085,8 @@ tokens_p new_token_from_it(token_iterator_p it)
 	token->column = it->column;
 	return token;
 }
-	
+
+// The enironment for defined symbols and macros
 
 struct env_s {
 	char* name;
@@ -1072,19 +1117,12 @@ env_p get_env(char* name, bool create)
 	while (env != NULL)
 	{
 		if (eqstr(env->name, name))
-		{
-			//printf("get_env(%s): found\n", name);
 			return env;
-		}
 		prev_env = env;
 		env = env->next;
 	}
 	if (!create)
-	{
-		//printf("get_env(%s): not found\n", name);
 		return NULL;
-	}
-	//printf("get_env(%s): create\n", name);
 	env = _malloc(sizeof(struct env_s));
 	env->name = copystr(name);
 	env->nr_args = 0;
@@ -1124,6 +1162,12 @@ void del_env(char* name)
 	}
 }
 
+// The conditional iterator
+
+// The conditional iterator deals with all conditional compilation
+// directives, such as '#if', and also the directives
+// `#define`, `#undef`, `#include`, and `#error`.
+
 typedef struct conditional_iterator_s* conditional_iterator_p;
 typedef int (*parse_expr_function_p)(conditional_iterator_p it);
 
@@ -1138,6 +1182,15 @@ struct conditional_iterator_s
 	bool _if_done[40];
 	int _if_level;
 };
+
+/*
+	conditional_primary
+		: '(' conditional_or_exp ')'
+		| 'defined' ( '(' ident ')' |  ident )
+		| integer
+		| ident
+		.
+*/
 
 int conditional_iterator_parse_primary(conditional_iterator_p it)
 {
@@ -1196,6 +1249,13 @@ int conditional_iterator_parse_primary(conditional_iterator_p it)
 	return result;
 }
 
+/*
+	conditional_unary_expr
+		: '!' conditional_primary
+		| conditional_primary
+		.
+*/
+
 int conditional_iterator_parse_unary_expr(conditional_iterator_p it)
 {
 	token_next_p token_it_next = it->_token_it->next;
@@ -1203,11 +1263,18 @@ int conditional_iterator_parse_unary_expr(conditional_iterator_p it)
 	{
 		token_it_next(it->_token_it, FALSE);
 		int result = conditional_iterator_parse_primary(it);
-		//printf("xx ! %d = %d\n", result, !result);
 		return !result; //!conditional_iterator_parse_primary(it);
 	}
 	return conditional_iterator_parse_primary(it);
 }
+
+/*
+	conditional_compare_expr
+		: conditional_unary_expr
+		  ('==' conditional_unary_expr 
+		  |'!=' conditional_unary_expt ) OPT
+		.
+*/
 
 int conditional_iterator_parse_compare_expr(conditional_iterator_p it)
 {
@@ -1226,6 +1293,10 @@ int conditional_iterator_parse_compare_expr(conditional_iterator_p it)
 	return value;
 }
 
+/*
+	conditional_and_expr : conditional_compare_expr CHAIN '&&' .
+*/
+
 int conditional_iterator_parse_and_expr(conditional_iterator_p it)
 {
 	token_next_p token_it_next = it->_token_it->next;
@@ -1234,12 +1305,14 @@ int conditional_iterator_parse_and_expr(conditional_iterator_p it)
 	{
 		token_it_next(it->_token_it, FALSE);
 		int value2 = conditional_iterator_parse_compare_expr(it);
-		//printf("xx %d && %d = ", value, value2);
-		value = value && value2; //conditional_iterator_parse_primary(it);
-		//printf("%d\n", value);
+		value = value && value2;
 	}
 	return value;
 }
+
+/*
+	conditional_or_expr : conditional_and_expr CHAIN '||' .
+*/
 
 int conditional_iterator_parse_or_expr(conditional_iterator_p it)
 {
@@ -1273,10 +1346,8 @@ token_iterator_p conditional_iterator_next(token_iterator_p token_it, bool dummy
 	token_it_next(it->_token_it, TRUE);
 	while (TRUE)
 	{
-		if (it->_token_it->token[0] == '#')
-		{
-			//printf("%s.%d %s (%d)\n", it->_token_it->filename, it->_token_it->line, it->_token_it->token, it->_skip_level);
-		}
+		//if (it->_token_it->token[0] == '#')
+		//	printf("%s.%d %s (%d)\n", it->_token_it->filename, it->_token_it->line, it->_token_it->token, it->_skip_level);
 		kind = it->_token_it->kind;
 		if (it->_skip_level > 0)
 		{
@@ -1375,10 +1446,8 @@ token_iterator_p conditional_iterator_next(token_iterator_p token_it, bool dummy
 			prev_token = NULL;
 			token_it_next(it->_token_it, FALSE);
 			env = get_env(it->_token_it->token, TRUE);
-			//printf("%s is now defined\n", env->name);
 			if (it->_source_it->base.ch == '(')
 			{
-				//printf("Arguments");
 				token_it_next(it->_token_it, FALSE);
 				while (TRUE)
 				{
@@ -1415,16 +1484,6 @@ token_iterator_p conditional_iterator_next(token_iterator_p token_it, bool dummy
 				token_it_next(it->_token_it, FALSE);
 			}
 			token_it_next(it->_token_it, TRUE);
-			
-			//printf("define of %s (", env->name);
-			//for (int i = 0; i < env->nr_args; i++)
-			//	printf("%s ", env->args[i]);
-			//printf(") ");
-			//for (tokens_p t = env->tokens; t != 0; t = t->next)
-			//{
-			//	printf(" %d:%s", t->kind, t->token);
-			//}
-			//printf("\n");
 		}
 		else if (kind == TK_H_UNDEF)
 		{
@@ -1505,6 +1564,14 @@ conditional_iterator_p new_conditional_iterator(include_iterator_p source_it, to
 	}
 	return it;
 }
+
+// The expand macro iterator
+
+// This iterator implements the expansion of a macro with a list
+// of tokens for the arguments. It also implements processing of
+// the '#' and `##` operators during expansion. After expansion
+// has been completed, it returns the token iterator for the
+// remaining part.
 
 #define APPENDED_TOKEN_LEN 50
 
@@ -1663,6 +1730,11 @@ token_iterator_p new_exapnd_macro_iterator(env_p macro, tokens_p *args, token_it
 	return expand_macro_iterator_next(&it->base, FALSE);
 }
 
+// The expand iterator
+
+// This iterator takes care of expanding all defined symbols and macros.
+// For the expansion of these the expand macro iterator is used.
+
 typedef struct expand_iterator_s* expand_iterator_p;
 struct expand_iterator_s
 {
@@ -1754,49 +1826,10 @@ expand_iterator_p new_expand_iterator(token_iterator_p source_it)
 	it->base.next = expand_iterator_next;
 	return it;
 }
-/*
-struct tokens_iterator_s 
-{
-	token_iterator_t base;
-	token_iterator_p _next;
-};
-typedef struct tokens_iterator_s *tokens_iterator_p;
-
-tokens_iterator_p alloced_tokens_iterators = NULL;
-
-tokens_iterator_p tokens_iterator_next(tokens_iterator_p it, bool skip_nl)
-{
-	tokens_iterator_p next = it->_next;
-	it->_next = alloced_tokens_iterators;
-	alloced_tokens_iterators = it;
-	return next;	
-}
-
-tokens_iterator_p new_tokens_iterator(token_iterator_p it, bool skip_nl)
-{
-	tokens_iterator_p new_it;
-	if (alloced_tokens_iterators != NULL)
-	{
-		new_it = alloced_tokens_iterators;
-		alloced_tokens_iterators = new_it->_next;
-	}
-	else
-	{
-		new_it = _malloc(sizeof(struct token_s));
-	}
-	new_it->base.kind = it->base.kind;
-	new_it->base.token = it->base.token;
-	new_it->base.length = it->base.length;
-	new_it->base.filenam = it->base.filenam;
-	new_it->base.line = it->base.line;
-	new_it->base.column = it->base.column;
-	new_it->base.next = new_token_iterator;
-	new_it->_next = NULL;
-	return new_it;
-}
-*/
 
 token_iterator_p token_it = NULL;
+
+// Output the C-preprocessor output.
 
 void output_preprocessor(const char *filename)
 {
@@ -1958,8 +1991,6 @@ type_p new_type(type_kind_e kind, int size, int nr_members)
 	type->decls = NULL;
 	type->nr_elems = 0;
 	type->typedef_decl = NULL;
-	//if (token_it != NULL)
-	//	printf("new_type %p %d (%s %d)\n", type, kind, token_it->filename, token_it->line);
 	return type;
 }
 
@@ -1985,13 +2016,8 @@ void type_set_decls(type_p type, int nr_decls, decl_p* decls)
 		type->nr_decls = nr_decls;
 		type->decls = (decl_p*)malloc(nr_decls * sizeof(decl_p));
 	}
-	//printf("Decls of type %p:", type);
 	for (int i = 0; i < nr_decls; i++)
-	{
-		//printf(" %s", decls[i] != NULL ? decls[i]->name : "...");
 		type->decls[i] = decls[i];
-	}
-	//printf("\n");
 }
 
 type_p base_type_void = NULL;
@@ -2065,6 +2091,8 @@ type_p base_signed_type(type_p int_type)
 // Expressions
 
 #define LOCATION_IN_EXPR 
+
+// The expression kind uses the token type or one of the following:
 
 #define OPER_POST_INC    2000
 #define OPER_POST_DEC    2001
@@ -2287,6 +2315,7 @@ decl_p find_or_add_decl(decl_kind_e kind, char *name)
 	return add_decl(kind, name, NULL);
 }
 
+// Labels
 
 typedef struct label_s *label_p;
 struct label_s
@@ -2433,6 +2462,16 @@ expr_p parse_unary_expr(void);
 
 static char strbuf[MAX_CONST_STRLEN];
 
+/*
+	primary_expr 
+		: identifier
+		| integer
+		| char
+		| string
+		| '(' expr ')'
+		.
+*/
+
 expr_p parse_primary_expr(void)
 {
 	if (token_it->kind == 'i')
@@ -2529,7 +2568,17 @@ expr_p parse_primary_expr(void)
 
 expr_p parse_assignment_expr(void);
 
-//int inside_low_level_men = 0;
+/*
+	postfix_expr
+		: primary_expr
+		| postfix_expr '[' expr ']'
+		| postfix_expr '(' assignment_expr LIST ')'
+		| postfix_expr '.' ident
+		| postfix_expr '->' ident
+		| postfix_expr '++'
+		| postfix_expr '--'
+		.
+*/
 
 expr_p parse_postfix_expr(void)
 {
@@ -2628,6 +2677,22 @@ expr_p parse_postfix_expr(void)
 }
 
 type_p parse_sizeof_type(void);
+
+/*
+	unary_expr
+		: '++' unary_expr
+		| '--' unary_expr
+		| '&' cast_expr
+		| '*' cast_expr
+		| '+' cast_expr
+		| '-' cast_expr
+		| '~' cast_expr
+		| '!' cast_expr
+		| 'sizeof' '(' sizeof_type ')'
+		| 'sizeof' unary_expr
+		| postfix_expr
+		.
+*/
 
 expr_p parse_unary_expr(void)
 {
@@ -2752,6 +2817,19 @@ expr_p parse_unary_expr(void)
 	return parse_postfix_expr();
 }
 
+/*
+	sizeof_type
+		: 'char'
+		| 'int'
+		| 'unsigned' ('int') OPT
+		| 'double'
+		| 'void' ('*') OPT
+		| 'struct' ident
+		| ident
+		| sizeof_type '*'
+		.
+*/
+
 type_p parse_sizeof_type(void)
 {
 	type_p type = NULL;
@@ -2801,10 +2879,10 @@ type_p parse_sizeof_type(void)
 }
 
 /*
-
-	NT_DEF("cast_expr")
-		RULE CHAR_WS('(') NT("abstract_declaration") CHAR_WS(')') NT("cast_expr") TREE("cast")
-		RULE NTP("unary_expr")
+	cast_expr
+		: '(' abstract_declaration ')' cast_expr
+		| unary_expr
+		.
 */
 
 void expr_dioper_set_type(expr_p expr)
@@ -2838,6 +2916,15 @@ void expr_dioper_set_type(expr_p expr)
 		printf("\n");
 	}
 }
+
+/*
+	l_expr1
+		: cast_expr
+		| l_expr1 '*' cast_expr
+		| l_expr1 '/' cast_expr
+		| l_expr1 '%' cast_expr
+		.
+*/
 
 expr_p parse_expr1(void)
 {
@@ -2883,6 +2970,14 @@ expr_p parse_expr1(void)
 	return expr;
 }
 
+/*
+	l_expr2
+		: l_expr1
+		| l_expr2 '+' l_expr1
+		| l_expr2 '-' l_expr1
+		.
+*/
+
 expr_p parse_expr2(void)
 {
 	expr_p expr = parse_expr1();
@@ -2916,6 +3011,14 @@ expr_p parse_expr2(void)
 	return expr;
 }
 
+/*
+	l_expr3
+		: l_expr2
+		| l_expr3 '<<' l_expr2
+		| l_expr3 '>>' l_expr2
+		.
+*/
+
 expr_p parse_expr3(void)
 {
 	expr_p expr = parse_expr2();
@@ -2948,6 +3051,18 @@ expr_p parse_expr3(void)
 	
 	return expr;
 }
+
+/*
+	l_expr4
+		: l_expr3
+		| expr4 '<=' l_expr3
+		| expr4 '>=' l_expr3
+		| expr4 '<' l_expr3
+		| expr4 '>' l_expr3
+		| expr4 '==' l_expr3
+		| expr4 '!=' l_expr3
+		.
+*/
 
 expr_p parse_expr4(void)
 {
@@ -3022,6 +3137,13 @@ expr_p parse_expr4(void)
 	return expr;
 }
 
+/*
+	l_expr5
+		: l_expr4
+		| l_expr5 '^' l_expr4
+		.
+*/
+
 expr_p parse_expr5(void)
 {
 	expr_p expr = parse_expr4();
@@ -3044,6 +3166,13 @@ expr_p parse_expr5(void)
 	
 	return expr;
 }
+
+/*
+	l_expr6
+		: l_expr5
+		| l_expr6 '&' l_expr5
+		.
+*/
 
 expr_p parse_expr6(void)
 {
@@ -3068,6 +3197,13 @@ expr_p parse_expr6(void)
 	return expr;
 }
 
+/*
+	l_expr7
+		: l_expr6
+		| l_expr7 '|' l_expr6
+		.
+*/
+
 expr_p parse_expr7(void)
 {
 	expr_p expr = parse_expr6();
@@ -3090,6 +3226,13 @@ expr_p parse_expr7(void)
 	
 	return expr;
 }
+
+/*
+	l_expr8
+		: l_expr7
+		| l_expr8 '&&' l_expr7
+		.
+*/
 
 expr_p parse_expr8(void)
 {
@@ -3114,6 +3257,13 @@ expr_p parse_expr8(void)
 	return expr;
 }
 
+/*
+	l_expr9
+		: l_expr8
+		| l_expr9 '||' l_expr8
+		.
+*/
+
 expr_p parse_expr9(void)
 {
 	expr_p expr = parse_expr8();
@@ -3136,6 +3286,13 @@ expr_p parse_expr9(void)
 	
 	return expr;
 }
+
+/*
+	conditional_expr
+		: l_expr9 '?' l_expr9 ':' conditional_expr
+		| l_expr9
+		.
+*/
 
 expr_p parse_conditional_expr(void)
 {
@@ -3160,6 +3317,15 @@ expr_p parse_conditional_expr(void)
 	
 	return expr;
 }
+
+/*
+	assignment_expr
+		: conditional_expr 
+		  (( '=' | '*=' | '/=' | '%=' | '+=' | '-=' | '<<=' | '>>=' | '&=' | '|=' | '^=')
+		   assignment_expr
+		  ) SEQ
+		.
+*/
 
 expr_p parse_assignment_expr(void)
 {
@@ -3189,6 +3355,9 @@ expr_p parse_assignment_expr(void)
 	return expr;
 }
 
+/*
+	expr : assignment_expr LIST
+*/
 
 expr_p parse_expr(void)
 {
@@ -3214,11 +3383,6 @@ expr_p parse_expr(void)
 	}
 	return expr;
 }
-
-/*
-	NT_DEF("constant_expr")
-		RULE NTP("conditional_expr")
-*/
 
 bool parse_statements(expr_p continue_expr);
 expr_p parse_initializer(void);
@@ -3246,6 +3410,10 @@ int array_element_size(type_p type)
 		   : round_up_word(type->size);
 }
 
+/*
+	array_indexes : expr ']' ('[' array_indexes) OPT .
+*/
+
 bool parse_array_indexes(type_p type, type_p *arr_type)
 {
 	expr_p expr = parse_expr();
@@ -3267,6 +3435,28 @@ bool parse_array_indexes(type_p type, type_p *arr_type)
 	(*arr_type)->size = nr_elems * array_element_size(type);
 	return TRUE;
 }
+
+/*
+	declaration
+		: ('typedef' | 'extern' | 'inline' | 'static' ) SEQ OPT
+		  type_specifier
+		  ( ';'
+		  | func_declarator '(' declaration LIST (',' '...') OPT ')'
+		    ( ';'
+			| '{' statements '}'
+			)
+		  | ( declarator ( '=' initializer ) OPT ) LIST ";"
+		  )
+		.
+	func_declarator
+		: '*' OPT SEQ ( ident | '(' '*' ident ')')
+		.
+	declarator
+		: '*' OPT SEQ
+		  ( ident | '(' '*' ident ')')
+		  ( ('[' ']') OPT '[' array_indexes ) OPT
+		.
+*/
 
 bool parse_declaration(bool is_param)
 {
@@ -3511,35 +3701,28 @@ bool parse_declaration(bool is_param)
 				gen_variable_decl(decl);
 		}
 	} while (!is_param && accept_term(','));
-/*
-	NT_DEF("declaration")
-		RULE
-		{ GROUPING
-			RULE NTP("storage_class_specifier")
-		} SEQL OPTN ADD_CHILD
-		NT("type_specifier")
-		{ GROUPING
-			RULE NT("func_declarator") CHAR_WS('(')
-			{ GROUPING
-				RULE NTP("parameter_declaration_list") OPTN
-				//RULE KEYWORD("void") TREE("voidx")
-			} ADD_CHILD
-			CHAR_WS(')')
-			{ GROUPING
-				RULE CHAR_WS(';') TREE("forward")
-				RULE CHAR_WS('{') NTP("decl_or_stat") CHAR_WS('}')
-			} ADD_CHILD TREE("new_style") WS
-			RULE
-			{ GROUPING
-				RULE NT("declarator")
-				{ GROUPING
-					RULE WS CHAR_WS('=') NTP("initializer")
-				} OPTN ADD_CHILD TREE("decl_init")
-			} SEQL OPTN ADD_CHILD { CHAIN CHAR_WS(',') } CHAR_WS(';') TREE("decl")
-		}
-*/
+
 	return is_param || accept_term(';');
 }
+
+/*
+	type_specifier
+		: 'const' OPT
+		  ( 'char' 'const' OPT
+		  | 'unsigned' ('char' | 'short' | 'long' 'long' OPT | 'int') OPT
+		  | 'short'
+		  | 'int'
+		  | 'long' ('double' | 'long') OPT
+		  | 'float'
+		  | 'double'
+		  | 'void'
+		  | 'struct' struct_or_union_specifier
+		  | 'union' struct_or_union_specifier
+		  | 'enum' enum_specifier
+		  | ident
+		  )
+		.
+*/
 
 type_p parse_struct_or_union_specifier(decl_kind_e decl_kind);
 type_p parse_enum_specifier(void);
@@ -3654,6 +3837,10 @@ type_p parse_type_specifier(storage_type_e *ref_storage_type)
 	FAIL_NULL
 }
 
+/*
+	struct_or_union_specifier : ident OPT ('{' declaration SEQ OPT "}") OPT .
+*/
+
 type_p parse_struct_or_union_specifier(decl_kind_e decl_kind)
 {
 	type_kind_e type_kind = decl_kind == DK_STRUCT ? TYPE_KIND_STRUCT : TYPE_KIND_UNION;
@@ -3708,65 +3895,7 @@ type_p parse_struct_or_union_specifier(decl_kind_e decl_kind)
 }
 
 /*
-	NT_DEF("type_specifier")
-		RULE KEYWORD("const") KEYWORD("char") TREE("const_char")
-		RULE KEYWORD("const") KEYWORD("int") TREE("const_int")
-		RULE KEYWORD("const") KEYWORD("unsigned") KEYWORD("char") TREE("const_u_char")
-		RULE KEYWORD("const") KEYWORD("void") TREE("const_void")
-		RULE KEYWORD("const") IDENT TREE("const")
-		RULE KEYWORD("const") NTP("struct_or_union_specifier")
-		RULE KEYWORD("char") KEYWORD("const") TREE("const_char")
-		RULE KEYWORD("char") TREE("char")
-		RULE KEYWORD("unsigned") KEYWORD("char") TREE("u_char")
-		RULE KEYWORD("unsigned") KEYWORD("short") TREE("u_short")
-		RULE KEYWORD("unsigned") KEYWORD("long") KEYWORD("long") TREE("u_long_long_int")
-		RULE KEYWORD("unsigned") KEYWORD("long") TREE("u_long_int")
-		RULE KEYWORD("unsigned") KEYWORD("int") TREE("u_int")
-		RULE KEYWORD("unsigned") TREE("u_int")
-		RULE KEYWORD("short") TREE("short")
-		RULE KEYWORD("int") TREE("int")
-		RULE KEYWORD("long") KEYWORD("double") TREE("long_double")
-		RULE KEYWORD("long") KEYWORD("long") TREE("long_long_int")
-		RULE KEYWORD("long") TREE("long")
-		//RULE KEYWORD("float") TREE("float")
-		RULE KEYWORD("double") TREE("double")
-		RULE KEYWORD("void") TREE("void")
-		RULE NTP("struct_or_union_specifier")
-		RULE NTP("enum_specifier")
-		RULE IDENT PASS
-
-	NT_DEF("struct_or_union_specifier")
-		RULE KEYWORD("struct") IDENT_OPT
-		{ GROUPING
-			RULE CHAR_WS('{')
-			{ GROUPING
-				RULE NTP("struct_declaration_or_anon")
-			} SEQL ADD_CHILD
-			CHAR_WS('}') PASS
-		} OPTN ADD_CHILD TREE("struct")
-		RULE KEYWORD("union") IDENT_OPT
-		{ GROUPING
-			RULE CHAR_WS('{')
-			{ GROUPING
-				RULE NTP("struct_declaration_or_anon")
-			} SEQL ADD_CHILD
-			CHAR_WS('}') PASS
-		} OPTN ADD_CHILD TREE("union")
-
-	NT_DEF("struct_declaration_or_anon")
-		RULE NTP("struct_or_union_specifier") CHAR_WS(';')
-		RULE NTP("struct_declaration")
-
-	NT_DEF("struct_declaration")
-		RULE NT("type_specifier") NT("declarator") SEQL { CHAIN CHAR_WS(',') } CHAR_WS(';') TREE("struct_declaration")
-		//RULE NT("type_specifier") NT("struct_declaration") TREE("type")
-		//RULE NT("struct_declarator") SEQL { CHAIN CHAR_WS(',') } CHAR_WS(';') TREE("strdec")
-
-	//NT_DEF("struct_declarator")
-	//	RULE NT("declarator")
-	//	{ GROUPING
-	//		RULE CHAR_WS(':') NT("constant_expr")
-	//	} OPTN ADD_CHILD TREE("record_field")
+	enum_specifier : ident OPT ('{' ident ('=' constant_expr) OPT ) LIST '}') OPT .
 */
 
 void gen_enum_decl(decl_p decl);
@@ -3818,82 +3947,10 @@ type_p parse_enum_specifier(void)
 }
 
 /*
-	NT_DEF("enum_specifier")
-		RULE KEYWORD("enum") IDENT_OPT CHAR_WS('{') NT("enumerator") SEQL { CHAIN CHAR_WS(',') } CHAR_WS('}') TREE("enum")
-
-	NT_DEF("enumerator")
-		RULE IDENT
-		{ GROUPING
-			RULE CHAR_WS('=') NTP("constant_expr")
-		} OPTN ADD_CHILD TREE("enumerator")
-
-	NT_DEF("func_declarator")
-		RULE CHAR_WS('*')
-		{ GROUPING
-			RULE KEYWORD("const") TREE("const")
-		} OPTN ADD_CHILD NT("func_declarator") TREE("pointdecl")
-		RULE CHAR_WS('(') NT("func_declarator") CHAR_WS(')')
-		RULE IDENT PASS
-
-	NT_DEF("declarator")
-		RULE CHAR_WS('*')
-		{ GROUPING
-			RULE KEYWORD("const") TREE("const")
-		} OPTN ADD_CHILD NT("declarator") TREE("pointdecl")
-		RULE CHAR_WS('(') NT("declarator") CHAR_WS(')') TREE("brackets")
-		RULE WS IDENT PASS
-		REC_RULEC CHAR_WS('[') NT("constant_expr") OPTN CHAR_WS(']') TREE("array")
-		REC_RULEC CHAR_WS('(') NT("abstract_declaration_list") OPTN CHAR_WS(')') TREE("function")
-
-	NT_DEF("abstract_declaration_list")
-		RULE
-			NT("abstract_declaration") SEQL BACK_TRACKING { CHAIN CHAR_WS(',') }
-			{ GROUPING
-				RULE CHAR_WS(',') CHAR('.') CHAR('.') CHAR_WS('.') TREE("varargs")
-			} OPTN ADD_CHILD TREE("abstract_declaration_list")
-
-	NT_DEF("parameter_declaration_list")
-		RULE
-			NT("parameter_declaration") SEQL BACK_TRACKING { CHAIN CHAR_WS(',') }
-			{ GROUPING
-				RULE CHAR_WS(',') CHAR('.') CHAR('.') CHAR_WS('.') TREE("varargs")
-			} OPTN ADD_CHILD TREE("parameter_declaration_list")
-
-	NT_DEF("ident_list")
-		RULE IDENT
-		{ GROUPING
-			RULE CHAR_WS(',')
-			{ GROUPING
-				RULE CHAR('.') CHAR('.') CHAR_WS('.') TREE("varargs")
-				RULE NT("ident_list") TREE("ident_list")
-			}
-		} OPTN ADD_CHILD TREE("ident_list")
-
-	NT_DEF("parameter_declaration")
-		RULE NT("type_specifier")
-		{ GROUPING
-			RULE NTP("declarator")
-			RULE NTP("abstract_declarator")
-		} ADD_CHILD TREE("parameter_declaration")
-
-	NT_DEF("abstract_declaration")
-		RULE NT("type_specifier")
-		{ GROUPING
-			RULE NTP("declarator")
-			RULE NTP("abstract_declarator")
-		} ADD_CHILD TREE("abstract_declarator")
-		//RULE NT("type_specifier") NT("parameter_declaration") TREE("type")
-		//RULE NTP("abstract_declarator")
-
-	NT_DEF("abstract_declarator")
-		RULE CHAR_WS('*')
-		{ GROUPING
-			RULE KEYWORD("const") TREE("const")
-		} OPTN ADD_CHILD NT("abstract_declarator") TREE("abs_pointdecl")
-		RULE CHAR_WS('(') NT("abstract_declarator") CHAR_WS(')') TREE("abs_brackets")
-		RULE
-		REC_RULEC CHAR_WS('[') NT("constant_expr") OPTN CHAR_WS(']') TREE("abs_array")
-		REC_RULEC CHAR_WS('(') NT("parameter_declaration_list") CHAR_WS(')') TREE("abs_func")
+	initializer
+		: '{' initializer LIST OPT ',' OPT '}'
+		| assignment_expr
+		.
 */
 
 expr_p parse_initializer(void)
@@ -3921,6 +3978,25 @@ expr_p parse_initializer(void)
 }
 
 bool run_tracing = FALSE;
+
+/*
+	statement
+		: (ident ':') SEQ OPT
+		  ( 'if' '(' expr ')' statement ('else' statement) OPT
+		  | 'while' '(' expr ')' statement
+		  | 'do' statement 'while' '(' expr ')' ';'
+		  | 'for' '(' (declaration | expr ';') expr ';' expr ')' statement
+		  | 'break' ';'
+		  | 'continue' ';'
+		  | 'switch' '(' expr ')' '{'
+		  	 ( ( 'case' expr ':' | 'default' ':') SEQ statement SEQ ) SEQ '}'
+		  | 'return' expr OPT ';'
+		  | 'goto' ident ';'
+		  | '{' statements '}'
+		  | expr ';'
+		  )
+		.
+*/
 
 int default_case_nr = 0;
 int fall_through_case_nr = 0;
@@ -4243,6 +4319,10 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 	return TRUE;
 }
 
+/*
+	statements : (declaration | statement) SEQ OPT .
+*/
+
 bool parse_statements(expr_p continue_expr)
 {
 	decl_p save_ident_decls = cur_ident_decls;
@@ -4253,52 +4333,6 @@ bool parse_statements(expr_p continue_expr)
 	return TRUE;
 }
 
-/*
-	NT_DEF("decl_or_stat")
-		RULE NT("declaration") SEQL OPTN NT("statement") SEQL OPTN TREE("decl_or_stat")
-
-	NT_DEF("statement")
-		RULE
-		{ GROUPING
-			RULE
-			{ GROUPING
-				RULE IDENT TREE("open_label")
-				RULE KEYWORD("case") NT("constant_expr") TREE("case")
-				RULE KEYWORD("default") TREE("default")
-			} ADD_CHILD CHAR_WS(':') NT("statement") TREE("label")
-			RULE CHAR_WS('{') NTP("decl_or_stat") CHAR_WS('}')
-		}
-		RULE
-		{ GROUPING
-			RULE NTP("expr") OPTN CHAR_WS(';')
-			RULE KEYWORD("if") WS CHAR_WS('(') NT("expr") CHAR_WS(')') NT("statement")
-			{ GROUPING
-				RULE KEYWORD("else") NTP("statement")
-			} OPTN ADD_CHILD TREE("if")
-			RULE KEYWORD("switch") WS CHAR_WS('(') NT("expr") CHAR_WS(')') NT("statement") TREE("switch")
-			RULE KEYWORD("while") WS CHAR_WS('(') NT("expr") CHAR_WS(')') NT("statement") TREE("while")
-			RULE KEYWORD("do") NT("statement") KEYWORD("while") WS CHAR_WS('(') NT("expr") CHAR_WS(')') CHAR_WS(';') TREE("do")
-			RULE KEYWORD("for") WS CHAR_WS('(') NT("expr") OPTN CHAR_WS(';')
-			{ GROUPING
-				RULE WS NTP("expr")
-			} OPTN ADD_CHILD CHAR_WS(';')
-			{ GROUPING
-				RULE WS NTP("expr")
-			} OPTN ADD_CHILD CHAR_WS(')') NT("statement") TREE("for")
-			RULE KEYWORD("goto") IDENT CHAR_WS(';') TREE("goto")
-			//RULE KEYWORD("continue") CHAR_WS(';') TREE("cont")
-			//RULE KEYWORD("break") CHAR_WS(';') TREE("break")
-			RULE KEYWORD("return") NT("expr") OPTN CHAR_WS(';') TREE("ret")
-		}
-
-	NT_DEF("root")
-		RULE
-		WS
-		{ GROUPING
-			RULE NT("declaration")
-		} SEQL OPTN END PASS
-
-*/
 
 
 void add_base_type(const char *name, type_p base_type)

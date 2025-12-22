@@ -16,8 +16,8 @@ project see the section 'Live-bootstrap' on [this page](https://www.iwriteiam.nl
 # Stage 1
 
 The first stage of this project is to implement said C-compiler for i386.
-The source of the C-compiler is the file [`tcc_cc.c`](tcc_cc.c).
-This compiler produces intermediate code in a stack based language
+The source of the [C-compiler](tcc_cc.md) is the file [`tcc_cc.c`](tcc_cc.c).
+This compiler produces intermediate code for a stack based language
 called [Stack-C](Stack_C.md). The compiler also includes the file
 [`stdlib.c`](stdlib.c), that contains a minimal version of the
 C standard library.
