@@ -13,7 +13,7 @@ The motivation for this project is given in the presentation
 For blog article related to reviewing the live bootstrap project and this
 project see the section 'Live-bootstrap' on [this page](https://www.iwriteiam.nl/Software.html).
 
-# Stage 1
+# Task 1: Compile the Tiny C Compiler correctly
 
 The first stage of this project is to implement said C-compiler for i386.
 The source of the [C-compiler](tcc_cc.md) is the file [`tcc_cc.c`](tcc_cc.c).
@@ -62,10 +62,44 @@ in the `git` directory in the home directory. Please update the
 
 This stage has been implemented.
 
-## Stage 2
+## Task 2: Compile the required utilities
 
-The second stage will focus on removing the dependency of the
+This task will focus on removing the dependency of the
 executables from stage0 by building these with the C-compiler.
+These also include compiling some utilities, such as ungz and untar,
+from C sources that are needed, for example, to unpack the sources
+of the Tiny C Compiler, such that they can be compiled.
+
+## Task 3: New kaem scripts
+
+Develop the kaem scripts for the new C compiler. This probably have
+to be done in parallel with Task 2, because it is not clear which
+utilities exactly will be needed.
+
+## Task 4: versions for hex0 and M1
+
+Write a C version for M1 that retains the comments to facilitate
+the review of the generated intermediate files. Write a C version
+for hex0, that might be a bit longer than the current 'minimal' hex0,
+but might be more easily to review.
+
+## Task 5: Implement support for other targets
+
+Write versions of the program converting the intermediate stack language
+for other targets besides x86. For x86_64 this will be relatively simply.
+For the other targets this requires some investigation, also figuring out
+how to test this, for example, using some form of emulation, such as QEMU.
+
+Targets:
+* x86_64
+* arm
+* riscv64
+
+## Taks 6: Presentation and documentation
+
+Write the necessary MarkDown/HTML files with the alternative git repository
+for stage0 and add comments to the source files where needed. Write or
+give a presentation about the achievements.
 
 ## Older files
 
