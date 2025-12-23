@@ -2868,12 +2868,7 @@ void expr_dioper_set_type(expr_p expr)
 }
 
 /*
-	l_expr1
-		: cast_expr
-		| l_expr1 '*' cast_expr
-		| l_expr1 '/' cast_expr
-		| l_expr1 '%' cast_expr
-		.
+	l_expr1 : cast_expr (('*' | '/' | '%') cast_expr) SEQ OPT .
 */
 
 expr_p parse_expr1(void)
@@ -2881,39 +2876,20 @@ expr_p parse_expr1(void)
 	expr_p expr = parse_unary_expr();
 	for (;;)
 	{
-		if (accept_term('*'))
+		int kind = token_it->kind;
+		if (accept_term('*') || accept_term('/') || accept_term('%'))
 		{
 			expr_p lhs = expr;
 			expr_p rhs = parse_unary_expr();
 			if (rhs == NULL)
 				FAIL_NULL
-			expr = new_expr('*', 2);
+			expr = new_expr(kind, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
-		}
-		else if (accept_term('/'))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_unary_expr();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr('/', 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
-		}
-		else if (accept_term('%'))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_unary_expr();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr('%', 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
+			expr_dioper_set_type(expr);
 		}
 		else
 			break;
-		expr_dioper_set_type(expr);
 	}
 	
 	if (expr != NULL && expr->type == NULL) printf("parse_expr1 has no type\n");
@@ -2921,11 +2897,7 @@ expr_p parse_expr1(void)
 }
 
 /*
-	l_expr2
-		: l_expr1
-		| l_expr2 '+' l_expr1
-		| l_expr2 '-' l_expr1
-		.
+	l_expr2 : l_expr1 (('+' | '-') l_expr1) SEQ OPT .
 */
 
 expr_p parse_expr2(void)
@@ -2933,40 +2905,27 @@ expr_p parse_expr2(void)
 	expr_p expr = parse_expr1();
 	for (;;)
 	{
-		if (accept_term('+'))
+		int kind = token_it->kind;
+		if (accept_term('+') || accept_term('-'))
 		{
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr1();
 			if (rhs == NULL)
 				FAIL_NULL
-			expr = new_expr('+', 2);
+			expr = new_expr(kind, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
-		}
-		else if (accept_term('-'))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_expr1();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr('-', 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
+			expr_dioper_set_type(expr);
 		}
 		else
 			break;
-		expr_dioper_set_type(expr);
 	}
 	
 	return expr;
 }
 
 /*
-	l_expr3
-		: l_expr2
-		| l_expr3 '<<' l_expr2
-		| l_expr3 '>>' l_expr2
-		.
+	l_expr3 : l_expr2 (('<<' | '>>') l_expr2) SEQ OPT .
 */
 
 expr_p parse_expr3(void)
@@ -2974,44 +2933,27 @@ expr_p parse_expr3(void)
 	expr_p expr = parse_expr2();
 	for (;;)
 	{
-		if (accept_term(TK_SHL))
+		int kind = token_it->kind;
+		if (accept_term(TK_SHL) || accept_term(TK_SHR))
 		{
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr2();
 			if (rhs == NULL)
 				FAIL_NULL
-			expr = new_expr(TK_SHL, 2);
+			expr = new_expr(kind, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
-		}
-		else if (accept_term(TK_SHR))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_expr2();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr(TK_SHR, 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
+			expr->type = expr->children[0]->type;
 		}
 		else
 			break;
-		expr->type = expr->children[0]->type;
 	}
 	
 	return expr;
 }
 
 /*
-	l_expr4
-		: l_expr3
-		| expr4 '<=' l_expr3
-		| expr4 '>=' l_expr3
-		| expr4 '<' l_expr3
-		| expr4 '>' l_expr3
-		| expr4 '==' l_expr3
-		| expr4 '!=' l_expr3
-		.
+	l_expr4 : l_expr3 (('<=' | '>=' | '<' | '>' | '==' | '!=') l_expr3) SEQ OPT .
 */
 
 expr_p parse_expr4(void)
@@ -3019,98 +2961,43 @@ expr_p parse_expr4(void)
 	expr_p expr = parse_expr3();
 	for (;;)
 	{
-		if (accept_term(TK_EQ))
+		int kind = token_it->kind;
+		if (   accept_term(TK_EQ) || accept_term(TK_NE)
+			|| accept_term(TK_LE) || accept_term(TK_GE)
+			|| accept_term('<')   || accept_term('>'))
 		{
 			expr_p lhs = expr;
 			expr_p rhs = parse_expr3();
 			if (rhs == NULL)
 				FAIL_NULL
-			expr = new_expr(TK_EQ, 2);
+			expr = new_expr(kind, 2);
 			expr->children[0] = lhs;
 			expr->children[1] = rhs;
-		}
-		else if (accept_term(TK_NE))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_expr3();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr(TK_NE, 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
-		}
-		else if (accept_term(TK_LE))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_expr3();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr(TK_LE, 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
-		}
-		else if (accept_term(TK_GE))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_expr3();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr(TK_GE, 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
-		}
-		else if (accept_term('<'))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_expr3();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr('<', 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
-		}
-		else if (accept_term('>'))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_expr3();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr('>', 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
+			expr->type = base_type_bool;
 		}
 		else
 			break;
-		expr->type = base_type_bool;
 	}
 	
 	return expr;
 }
 
 /*
-	l_expr5
-		: l_expr4
-		| l_expr5 '^' l_expr4
-		.
+	l_expr5 : l_expr4 ('^' l_expr4) SEQ OPT .
 */
 
 expr_p parse_expr5(void)
 {
 	expr_p expr = parse_expr4();
-	for (;;)
+	while (accept_term('^'))
 	{
-		if (accept_term('^'))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_expr4();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr('^', 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
-		}
-		else
-			break;
+		expr_p lhs = expr;
+		expr_p rhs = parse_expr4();
+		if (rhs == NULL)
+			FAIL_NULL
+		expr = new_expr('^', 2);
+		expr->children[0] = lhs;
+		expr->children[1] = rhs;
 		expr_dioper_set_type(expr);
 	}
 	
@@ -3118,29 +3005,21 @@ expr_p parse_expr5(void)
 }
 
 /*
-	l_expr6
-		: l_expr5
-		| l_expr6 '&' l_expr5
-		.
+	l_expr6 : l_expr5 ('&' l_expr5) SEQ OPT .
 */
 
 expr_p parse_expr6(void)
 {
 	expr_p expr = parse_expr5();
-	for (;;)
+	while (accept_term('&'))
 	{
-		if (accept_term('&'))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_expr5();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr('&', 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
-		}
-		else
-			break;
+		expr_p lhs = expr;
+		expr_p rhs = parse_expr5();
+		if (rhs == NULL)
+			FAIL_NULL
+		expr = new_expr('&', 2);
+		expr->children[0] = lhs;
+		expr->children[1] = rhs;
 		expr_dioper_set_type(expr);
 	}
 	
@@ -3148,29 +3027,21 @@ expr_p parse_expr6(void)
 }
 
 /*
-	l_expr7
-		: l_expr6
-		| l_expr7 '|' l_expr6
-		.
+	l_expr7 : l_expr6 ('|' l_expr6) SEQ OPT .
 */
 
 expr_p parse_expr7(void)
 {
 	expr_p expr = parse_expr6();
-	for (;;)
+	while (accept_term('|'))
 	{
-		if (accept_term('|'))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_expr6();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr('|', 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
-		}
-		else
-			break;
+		expr_p lhs = expr;
+		expr_p rhs = parse_expr6();
+		if (rhs == NULL)
+			FAIL_NULL
+		expr = new_expr('|', 2);
+		expr->children[0] = lhs;
+		expr->children[1] = rhs;
 		expr_dioper_set_type(expr);
 	}
 	
@@ -3178,29 +3049,21 @@ expr_p parse_expr7(void)
 }
 
 /*
-	l_expr8
-		: l_expr7
-		| l_expr8 '&&' l_expr7
-		.
+	l_expr8 : l_expr7 ('&&' l_expr7) SEQ OPT .
 */
 
 expr_p parse_expr8(void)
 {
 	expr_p expr = parse_expr7();
-	for (;;)
+	while (accept_term(TK_AND))
 	{
-		if (accept_term(TK_AND))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_expr7();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr(TK_AND, 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
-		}
-		else
-			break;
+		expr_p lhs = expr;
+		expr_p rhs = parse_expr7();
+		if (rhs == NULL)
+			FAIL_NULL
+		expr = new_expr(TK_AND, 2);
+		expr->children[0] = lhs;
+		expr->children[1] = rhs;
 		expr->type = base_type_bool;
 	}
 	
@@ -3208,29 +3071,21 @@ expr_p parse_expr8(void)
 }
 
 /*
-	l_expr9
-		: l_expr8
-		| l_expr9 '||' l_expr8
-		.
+	l_expr9 : l_expr8 ('||' l_expr8) SEQ OPT .
 */
 
 expr_p parse_expr9(void)
 {
 	expr_p expr = parse_expr8();
-	for (;;)
+	while (accept_term(TK_OR))
 	{
-		if (accept_term(TK_OR))
-		{
-			expr_p lhs = expr;
-			expr_p rhs = parse_expr8();
-			if (rhs == NULL)
-				FAIL_NULL
-			expr = new_expr(TK_OR, 2);
-			expr->children[0] = lhs;
-			expr->children[1] = rhs;
-		}
-		else
-			break;
+		expr_p lhs = expr;
+		expr_p rhs = parse_expr8();
+		if (rhs == NULL)
+			FAIL_NULL
+		expr = new_expr(TK_OR, 2);
+		expr->children[0] = lhs;
+		expr->children[1] = rhs;
 		expr->type = base_type_bool;
 	}
 	
