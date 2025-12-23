@@ -13,7 +13,7 @@ The motivation for this project is given in the presentation
 For blog article related to reviewing the live bootstrap project and this
 project see the section 'Live-bootstrap' on [this page](https://www.iwriteiam.nl/Software.html).
 
-# Task 1: Compile the Tiny C Compiler correctly
+## Task 1: Compile the Tiny C Compiler correctly
 
 The first stage of this project is to implement said C-compiler for i386.
 The source of the [C-compiler](tcc_cc.md) is the file [`tcc_cc.c`](tcc_cc.c).
