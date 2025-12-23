@@ -1,19 +1,9 @@
-// -------- File IO --------
-
-#define STDIN_FILENO 0
-#define STDOUT_FILENO 1
-#define STDERR_FILENO 2
-
 #include <stdio.h>
 #include <malloc.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
-
-// ----- Malloc ----
-
-#define _malloc malloc
 
 // ----- bool -----
 
@@ -25,63 +15,23 @@ typedef char bool;
 
 bool eqstr(char* s, char* t)
 {
-	while (*s == *t)
-	{
-		if (*s == 0)
-		{
-			return TRUE;
-		}
-		s = s + 1;
-		t = t + 1;
-	}
-	return FALSE;
+	return strcmp(s, t) == 0;
 } 
 
 // ----- Strings ----
 
-void _strcpy(char* trg, char* src)
-{
-	int i = 0;
-	while (*src != 0)
-	{
-		trg[i] = *src;
-		i = i + 1;
-		src = src + 1;
-	}
-	trg[i] = 0;
-}
-
-void _strcat(char* trg, char* src)
-{
-	while (*trg != 0)
-	{
-		trg = trg + 1;
-	}
-	_strcpy(trg, src);
-}
-
 char* copystr(const char* str)
 {
-	int len = 0;
-	while (str[len] != 0)
-	{
-		len = len + 1;
-	}
-	
-	char* new_str = _malloc(len + 1);
-	
-	while (len >= 0)
-	{
-		new_str[len] = str[len];
-		len = len - 1;
-	}
+	int len = strlen(str);
+	char* new_str = malloc(len + 1);
+	strcpy(new_str, str);
 
 	return new_str;
 }
 
 char* copystrlen(const char* str, int len)
 {
-	char* new_str = _malloc(len + 1);
+	char* new_str = malloc(len + 1);
 	memcpy(new_str, str, len + 1);
 
 	return new_str;
@@ -160,7 +110,7 @@ void file_iterator_next(char_iterator_p char_it)
 
 file_iterator_p new_file_iterator(const char* fn)
 {
-	file_iterator_p it = _malloc(sizeof(struct file_iterator_s));
+	file_iterator_p it = malloc(sizeof(struct file_iterator_s));
 	it->_f = fopen(fn, "r");
 	it->base.ch = '\n';
 	if (it->_f == 0)
@@ -223,7 +173,7 @@ void line_splice_iterator_next(char_iterator_p char_it)
 
 line_splice_iterator_p new_line_splice_iterator(char_iterator_p source_it)
 {
-	line_splice_iterator_p it = _malloc(sizeof(struct line_splice_iterator_s));
+	line_splice_iterator_p it = malloc(sizeof(struct line_splice_iterator_s));
 	it->_source_it = source_it;
 	it->base.filename = source_it->filename;
 	it->base.next = line_splice_iterator_next;
@@ -389,7 +339,7 @@ void comment_strip_iterator_next(char_iterator_p char_it)
 
 comment_strip_iterator_p new_comment_strip_iterator(char_iterator_p source_it)
 {
-	comment_strip_iterator_p it = _malloc(sizeof(struct comment_strip_iterator_s));
+	comment_strip_iterator_p it = malloc(sizeof(struct comment_strip_iterator_s));
 	it->_source_it = source_it;
 	it->base.filename = source_it->filename;
 	it->base.next = comment_strip_iterator_next;
@@ -451,7 +401,7 @@ void include_iterator_add(include_iterator_p it, char_iterator_p include_it)
 
 include_iterator_p new_include_iterator(char_iterator_p include_it)
 {
-	include_iterator_p it = _malloc(sizeof(struct include_iterator_s));
+	include_iterator_p it = malloc(sizeof(struct include_iterator_s));
 	it->base.filename = include_it->filename;
 	it->base.line = include_it->line;
 	it->base.column = include_it->column;
@@ -1028,9 +978,9 @@ int token_it_int_value(token_iterator_p it)
 
 tokenizer_p new_tokenizer(char_iterator_p char_iterator)
 {
-	tokenizer_p tokenizer = _malloc(sizeof(struct tokenizer_s));
+	tokenizer_p tokenizer = malloc(sizeof(struct tokenizer_s));
 	tokenizer->_char_iterator = char_iterator;
-	tokenizer->base.token = _malloc(MAX_TOKEN_LEN);
+	tokenizer->base.token = malloc(MAX_TOKEN_LEN);
 	tokenizer->base.filename = NULL;
 	tokenizer->base.next = tokenizer_next;
 	return tokenizer;
@@ -1052,7 +1002,7 @@ typedef struct tokens_s* tokens_p;
 
 tokens_p new_token(int kind)
 {
-	tokens_p token = _malloc(sizeof(struct tokens_s));
+	tokens_p token = malloc(sizeof(struct tokens_s));
 	token->kind = kind;
 	token->token = 0;
 	token->length = 0;
@@ -1102,7 +1052,7 @@ env_p environment = NULL;
 
 env_p new_env(char* name, char* value)
 {
-	env_p env = _malloc(sizeof(struct env_s));
+	env_p env = malloc(sizeof(struct env_s));
 	env->name = name;
 	env->nr_args = 0;
 	env->tokens = NULL;
@@ -1123,7 +1073,7 @@ env_p get_env(char* name, bool create)
 	}
 	if (!create)
 		return NULL;
-	env = _malloc(sizeof(struct env_s));
+	env = malloc(sizeof(struct env_s));
 	env->name = copystr(name);
 	env->nr_args = 0;
 	env->tokens = NULL;
@@ -1496,8 +1446,8 @@ token_iterator_p conditional_iterator_next(token_iterator_p token_it, bool dummy
 			token_it_next(it->_token_it, TRUE);
 			if (it->_token_it->kind == '"')
 			{
-				_strcpy(include_path, "tcc_sources/");
-				_strcat(include_path, it->_token_it->token);
+				strcpy(include_path, "tcc_sources/");
+				strcat(include_path, it->_token_it->token);
 				while (it->_token_it->kind != '\n')
 				{
 					token_it_next(it->_token_it, FALSE);
@@ -1551,7 +1501,7 @@ token_iterator_p conditional_iterator_next(token_iterator_p token_it, bool dummy
 
 conditional_iterator_p new_conditional_iterator(include_iterator_p source_it, token_iterator_p token_it)
 {
-	conditional_iterator_p it = _malloc(sizeof(struct conditional_iterator_s));
+	conditional_iterator_p it = malloc(sizeof(struct conditional_iterator_s));
 	it->_source_it = source_it;
 	it->_token_it = token_it;
 	it->_parse_or_expr = conditional_iterator_parse_or_expr;
@@ -1560,7 +1510,7 @@ conditional_iterator_p new_conditional_iterator(include_iterator_p source_it, to
 	it->base.next = conditional_iterator_next;
 	if (include_path == 0)
 	{
-		include_path = _malloc(100);
+		include_path = malloc(100);
 	}
 	return it;
 }
@@ -1719,7 +1669,7 @@ token_iterator_p expand_macro_iterator_next(token_iterator_p token_it, bool dumm
 
 token_iterator_p new_exapnd_macro_iterator(env_p macro, tokens_p *args, token_iterator_p rest_it)
 {
-	expand_macro_iterator_p it = _malloc(sizeof(struct expand_macro_iterator_s));
+	expand_macro_iterator_p it = malloc(sizeof(struct expand_macro_iterator_s));
 	it->base.next = expand_macro_iterator_next;
 	it->param_tokens = NULL;
 	it->tokens = macro->tokens;
@@ -1821,7 +1771,7 @@ token_iterator_p expand_iterator_next(token_iterator_p token_it, bool dummy)
 
 expand_iterator_p new_expand_iterator(token_iterator_p source_it)
 {
-	expand_iterator_p it = _malloc(sizeof(struct expand_iterator_s));
+	expand_iterator_p it = malloc(sizeof(struct expand_iterator_s));
 	it->_source_it = source_it;
 	it->base.next = expand_iterator_next;
 	return it;
@@ -4546,7 +4496,7 @@ void gen_expr(expr_p expr, bool as_value)
 			fprintf(fcode, "%s ", expr->str_val);
 			break;
 		case '0':
-			fprintf(fcode, "%d ", expr->int_val);
+			fprintf(fcode, "%u ", expr->int_val);
 			break;
 		case '"':
 			fprintf(fcode, "\"");

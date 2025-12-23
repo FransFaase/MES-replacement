@@ -43,8 +43,8 @@ diff4 : stack_c.sl stack_c_t.sl
 diff5 : tcc_cc.sl tcc_cc_t.sl
 	./run.sh diff tcc_cc.sl tcc_cc_t.sl
 
-tcc.sl : tcc_cc tcc_sources/tcc.c
-	./tcc_cc \
+tcc.sl : tcc_cc_s tcc_sources/tcc.c
+	./tcc_cc_s \
     -DBOOTSTRAP=1 \
     -DHAVE_LONG_LONG=0 \
     -DTCC_TARGET_I386=1 \

@@ -1,9 +1,9 @@
 # The C-compiler to compile the Tiny C Compiler
 
-This C-compiler presumes that the input is correct. It only
-reports warning or errors when an internal limit is being
-exceeded, such as the maximum length of a token, or when
-parsing cannot proceed.
+This C-compiler with build-in C-preprocessor presumes that the
+input is correct. It only reports warning or errors when an
+internal limit is being exceeded, such as the maximum length of
+a token, or when parsing cannot proceed.
 
 A list of limitations:
 - No support for floats.

@@ -202,8 +202,8 @@ int main (int argc, char *argv[])
 	is_true(-1 / -1 == 1, "-1 / -1 == 1");
 	is_true(-1 / 1 == -1, "-1 / 1 == -1");
 	is_true(-1 / 10 == 0, "-1 / 10 == 0");
-	//is_true(4294967295 / 10 == 429496729, "4294967295 / 10 == 429496729");
-	//is_true((unsigned int)-1 / 1 == (unsigned int)-1, "(unsigned int)-1 / 1 == (unsigned int)-1");
+	is_true(4294967295 / 10 == 429496729, "4294967295 / 10 == 429496729");
+	is_true((unsigned int)-1 / 1 == (unsigned int)-1, "(unsigned int)-1 / 1 == (unsigned int)-1");
 	unsigned int negu = -1;
 	is_true(negu > 0, "negu > 0");
 	int (*func)(void) = one;

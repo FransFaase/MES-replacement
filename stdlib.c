@@ -1,4 +1,4 @@
-// Functions defined in stack_c_intro.M1
+// Functions implemented in stack_c_intro.M1
 
 int sys_int80(int a, int b, int c, int d); // https://faculty.nps.edu/cseagle/assembly/sys_call.html
 void *sys_malloc(size_t size);
@@ -82,6 +82,7 @@ size_t strlen(const char *s)
 		len++;
 	return len;
 }
+
 char *strcpy(char *dest, const char *src)
 {
 	char *result = dest;
@@ -101,6 +102,11 @@ char *strncpy(char *dest, const char *src, size_t n)
 		if (s[i] == '\0')
 			break;
 	}
+}
+
+char *strcat(char *dest, const char *src)
+{
+	strcpy(dest + strlen(dest), src);
 }
 
 char *strchr(const char *s, int c)
@@ -213,8 +219,7 @@ long strtoull(const char *nptr, char **endptr, int base)
 
 float strtof(const char* str, char **endptr)
 {
-	// TODO
-	//fprintf(stderr, "TODO strtof\n"); exit(1);
+	// TODO: implement float parsing to int?
 	*endptr = str;
 	return 0;
 }
@@ -222,13 +227,9 @@ float strtof(const char* str, char **endptr)
 void *malloc(size_t size)
 {
 	size = (size + 3) & ~3;
-	int *result = sys_malloc(size + 4); //(sys_malloc(size + 3) + 3) & ~3;
+	int *result = sys_malloc(size + 4);
 	*result = size;
 	result++;
-	//memset(result, 0, size);
-	//for (size_t i = 0; i < size; i++)
-	//	((char*)result)[i] = 0;
-	//return (result + 3) & ~3;
 	return result;
 }
 
@@ -604,7 +605,7 @@ double ldexp(double x, int exp)
 
 time_t time(time_t *tloc)
 {
-	// TODO
+	// TODO (function is used, but not called)
 	fprintf(stderr, "TODO time\n"); exit(1);
 }
 
@@ -621,7 +622,7 @@ struct tm {
 };
 struct tm *localtime(const time_t *timep)
 {
-	// TODO
+	// TODO (function is used, but not called)
 	fprintf(stderr, "TODO localtime\n"); exit(1);
 }
 
@@ -716,20 +717,20 @@ void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, co
 
 time_t time(time_t *tloc)
 {
-	// TODO
+	// TODO (function is used, but not called)
 	fprintf(stderr, "TODO time\n"); exit(1);
 }
 
 int setjmp(jmp_buf env)
 {
-	// TODO
+	// TODO (function is used, but not called)
 	fprintf(stderr, "TODO setjmp\n"); exit(1);
 	return 0;
 }
 
 void longjmp(jmp_buf env, int val)
 {
-	// TODO
+	// TODO (function is used, but not called)
 	fprintf(stderr, "TODO longjmp\n"); exit(0);
 	exit(-1);
 }
@@ -783,7 +784,7 @@ int sscanf(const char *str, const char *format, ...)
 
 int atoi(const char *nptr)
 {
-	// TODO
+	// TODO (function is used, but not called)
 	fprintf(stderr, "TODO atoi\n"); exit(1);
 }
 
@@ -794,7 +795,7 @@ int remove(const char *pathname)
 
 int execvp(const char *file, char * argv[])
 {
-	// TODO
+	// TODO (function is used, but not called)
 	fprintf(stderr, "TODO execvp\n"); exit(1);
 }
 
