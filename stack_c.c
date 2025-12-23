@@ -856,11 +856,11 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == '/')
 		{
-			fprintf(fout, "\tmov_ebx,eax           # /\n\tpop_eax\n\tcdq\n\tdiv_ebx\n");
+			fprintf(fout, "\tmov_ebx,eax           # /\n\tpop_eax\n\tmov_edx, %%0\n\tdiv_ebx\n");
 		}
 		else if (sym == '%')
 		{
-			fprintf(fout, "\tmov_ebx,eax           # %%\n\tpop_eax\n\tcdq\n\tdiv_ebx\n\tmov_eax,edx\n");
+			fprintf(fout, "\tmov_ebx,eax           # %%\n\tpop_eax\n\tmov_edx, %%0\n\tdiv_ebx\n\tmov_eax,edx\n");
 		}
 		else if (sym == '<')
 		{
