@@ -4,10 +4,10 @@ all : tcc_cc stack_c run_unittest_s stack_c_s stack_c_diff tcc_cc_s tcc_cc_diff 
 	./run.sh gcc $(basename $@)
 
 %.sl : %.c tcc_cc stdlib.c
-	./tcc_cc $< -o $@
+	./tcc_cc -o $@ stdlib.c $<
 
 %_t.sl : %.c tcc_cc_s stdlib.c
-	./tcc_cc_s $< -o $@
+	./tcc_cc_s -o $@ stdlib.c $< 
 
 %_s.M1 : %.sl stack_c stack_c_intro.M1
 	./stack_c $< -o $@
@@ -59,7 +59,7 @@ tcc.sl : tcc_cc_s tcc_sources/tcc.c
     -DCONFIG_TCC_STATIC=1 \
     -DCONFIG_USE_LIBGCC=1 \
     -DTCC_VERSION=\"0.9.26\" \
-    -DONE_SOURCE=1 tcc_sources/tcc.c -o tcc.sl
+    -DONE_SOURCE=1 -o tcc.sl stdlib.c tcc_sources/tcc.c
 
 tcc_g: tcc_sources/tcc.c
 	gcc  \

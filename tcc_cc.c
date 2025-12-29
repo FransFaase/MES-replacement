@@ -1050,16 +1050,6 @@ typedef struct env_s *env_p;
 
 env_p environment = NULL;
 
-env_p new_env(char* name, char* value)
-{
-	env_p env = malloc(sizeof(struct env_s));
-	env->name = name;
-	env->nr_args = 0;
-	env->tokens = NULL;
-	env->next = NULL;
-	return env;
-}
-
 env_p get_env(char* name, bool create)
 {
 	env_p prev_env = NULL;
@@ -3782,7 +3772,7 @@ expr_p parse_initializer(void)
 	return parse_assignment_expr();
 }
 
-bool run_tracing = FALSE;
+bool add_tracing = FALSE;
 
 /*
 	statement
@@ -4088,7 +4078,7 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 			gen_expr(ret_value, TRUE);
 		else
 			fprintf(fcode, "0 ");
-		if (run_tracing)
+		if (add_tracing)
 			fprintf(fcode, "\"Exit\\n\" stdout ? fputs () ; \n");
 		fprintf(fcode, "return\n");
 		if (!accept_term(';'))
@@ -4283,7 +4273,7 @@ void gen_function_start(decl_p decl)
 		gen_indent();
 		fprintf(fcode, "_sys_env argv ? argc ? 4 * 4 + + = ;\n");
 	}
-	if (run_tracing)
+	if (add_tracing)
 	{
 		gen_indent();
 		fprintf(fcode, "\"Enter %s\\n\" stdout ? fputs () ;\n", decl->name);
@@ -4296,7 +4286,7 @@ void gen_function_end(void)
 	inside_function = FALSE;
 	indent--;
 	fprintf(fcode, "\t");
-	if (run_tracing)
+	if (add_tracing)
 		fprintf(fcode, "\"Exit\\n\" stdout ? fputs () ; \n");
 	fprintf(fcode, "0 return\n}\n");
 }
@@ -4766,12 +4756,14 @@ void gen_init_globals(void)
 
 int main(int argc, char *argv[])
 {
-	fcode = stdout;
-	char *input_filename = "tcc_sources/tcc.c";
-	bool only_preprocess = FALSE;
-	bool add_tracing = FALSE;
+	get_env("__TCC_CC__", TRUE);
+	define_base_types();
+	add_predefined_types();
 
-	for (int i = 0; i < argc; i++)
+	fcode = stdout;
+	bool only_preprocess = FALSE;
+
+	for (int i = 1; i < argc; i++)
 		if (strcmp(argv[i], "-E") == 0)
 			only_preprocess = TRUE;
 		else if (strcmp(argv[i], "-T") == 0)
@@ -4824,26 +4816,16 @@ int main(int argc, char *argv[])
 			}
 		}
 		else
-			input_filename = argv[i];
-
-	define_base_types();
-	add_predefined_types();
-
-	if (only_preprocess)
-	{
-		if (!parse_file(input_filename, TRUE))
-			return 1;
-		return 0;
-	}
-
-	if (!parse_file("stdlib.c", FALSE))
-		return 1;
-	run_tracing = add_tracing;
-	if (!parse_file(input_filename, FALSE))
-		return 1;
+		{
+			if (!parse_file(argv[i], only_preprocess))
+				return 1;
+		}
 
 	if (has_error)
 		return -1;
+
+	if (only_preprocess)
+		return 0;
 
 	gen_init_globals();
 
