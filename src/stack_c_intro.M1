@@ -92,7 +92,7 @@ DEFINE NULL 00000000
     # setup argc and argv for the main function
     mov_edx,eax
     pop_eax
-    mov_ebx,esp  #89E3
+    mov_ebx,esp
     push_eax
     push_ebx
     mov_eax,edx
