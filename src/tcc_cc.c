@@ -1268,6 +1268,7 @@ int conditional_iterator_parse_or_expr(conditional_iterator_p it)
 }
 
 char *include_path = 0;
+char *end_include_prefix = 0;
 
 token_iterator_p conditional_iterator_next(token_iterator_p token_it, bool dummy)
 {
@@ -1436,8 +1437,7 @@ token_iterator_p conditional_iterator_next(token_iterator_p token_it, bool dummy
 			token_it_next(it->_token_it, TRUE);
 			if (it->_token_it->kind == '"')
 			{
-				strcpy(include_path, "tcc_sources/");
-				strcat(include_path, it->_token_it->token);
+				strcpy(end_include_prefix, it->_token_it->token);
 				while (it->_token_it->kind != '\n')
 				{
 					token_it_next(it->_token_it, FALSE);
@@ -1498,10 +1498,6 @@ conditional_iterator_p new_conditional_iterator(include_iterator_p source_it, to
 	it->_skip_level = 0;
 	it->_if_level = 0;
 	it->base.next = conditional_iterator_next;
-	if (include_path == 0)
-	{
-		include_path = malloc(100);
-	}
 	return it;
 }
 
@@ -4158,6 +4154,12 @@ void add_predefined_types(void)
 
 bool parse_file(const char *input_filename, bool only_preprocess)
 {
+	strcpy(include_path, input_filename);
+	end_include_prefix = include_path;
+	for (char *s = include_path; *s != '\0'; s++)
+		if (*s == '/')
+			end_include_prefix = s + 1;
+
 	file_iterator_p input_it = new_file_iterator(input_filename);
 	line_splice_iterator_p splice_it = new_line_splice_iterator(&input_it->base);
 	comment_strip_iterator_p comment_it = new_comment_strip_iterator(&splice_it->base);
@@ -4756,6 +4758,8 @@ void gen_init_globals(void)
 
 int main(int argc, char *argv[])
 {
+	include_path = malloc(100);
+
 	get_env("__TCC_CC__", TRUE);
 	define_base_types();
 	add_predefined_types();
