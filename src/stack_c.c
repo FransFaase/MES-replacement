@@ -456,6 +456,7 @@ int main(int argc, char *argv[])
 	ferr = stderr;
 	fout = stdout;
 	fin = stdin;
+	FILE *fintro = NULL;
 	
 	for (int i = 1; i < argc; i++)
 		if (i + 1 < argc && strcmp(argv[i], "-o") == 0)
@@ -464,6 +465,15 @@ int main(int argc, char *argv[])
 			if (fout == 0)
 			{
 				fprintf(ferr, "ERROR: Cannot open file '%s' for writing\n", argv[i]);
+				return 1;
+			}
+		}
+		else if (i + 1 < argc && strcmp(argv[i], "-i") == 0)
+		{
+			fintro = fopen(argv[++i], "r");
+			if (fintro == 0)
+			{
+				fprintf(ferr, "ERROR: Cannot open file '%s' for input\n", argv[i]);
 				return 1;
 			}
 		}
@@ -482,20 +492,17 @@ int main(int argc, char *argv[])
 	add_function("sys_int80");
 	add_function("sys_malloc");
 
-	// Copy contents of stack_c_intro.M1
+	// Copy contents of intro file
+	if (fintro != 0)
 	{
-		FILE *fintro = fopen("stack_c_intro.M1", "r");
-		if (fintro != 0)
+		for (;;)
 		{
-			for (;;)
-			{
-				cur_char = fgetc(fintro);
-				if (feof(fintro))
-					break;
-				fputc(cur_char, fout);
-			}
-			fclose(fintro);
+			cur_char = fgetc(fintro);
+			if (feof(fintro))
+				break;
+			fputc(cur_char, fout);
 		}
+		fclose(fintro);
 	}
 	
 	int id;
