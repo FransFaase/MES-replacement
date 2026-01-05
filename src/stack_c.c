@@ -1047,7 +1047,7 @@ int main(int argc, char *argv[])
 		for (int i = 0; i < string->length; i++)
 		{
 			char ch = string->value[i];
-			if (ch == '"' || (ch < ' ' && ch != '\n' && ch != '\t'))
+			if (ch == '"' || ch < ' ')
 			{
 				safe_string = FALSE;
 				break;
@@ -1058,7 +1058,7 @@ int main(int argc, char *argv[])
 		else
 		{
 			for (int i = 0; i < string->length; i++)
-				fprintf(fout, "!%u ", string->value[i]);
+				fprintf(fout, "!%u%s", string->value[i], i % 20 == 16 ? "\n  " : " ");
 			fprintf(fout, "!0");
 		}
 		fprintf(fout, "\n");
