@@ -259,10 +259,9 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
 
 int fputc(int c, FILE *stream)
 {
-	int buffer[1];
-	buffer[0] = c;
-	return sys_int80(4, stream->fh, buffer, 1);
+	return sys_int80(4, stream->fh, &c, 1);
 }
+
 int fputs(const char *s, FILE *stream)
 {
 	return sys_int80(4, stream->fh, s, strlen(s));
@@ -593,7 +592,6 @@ int fgetc(FILE *stream)
 	}
 	return buffer[0];
 }
-
 
 double ldexp(double x, int exp)
 {
