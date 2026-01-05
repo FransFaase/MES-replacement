@@ -16,15 +16,15 @@ project see the section 'Live-bootstrap' on [this page](https://www.iwriteiam.nl
 ## Task 1: Compile the Tiny C Compiler correctly
 
 The first stage of this project is to implement said C-compiler for i386.
-The source of the [C-compiler](tcc_cc.md) is the file [`tcc_cc.c`](tcc_cc.c).
+The source of the [C-compiler](tcc_cc.md) is the file [`src/tcc_cc.c`](src/tcc_cc.c).
 This compiler produces intermediate code for a stack based language
 called [Stack-C](Stack_C.md). The compiler also includes the file
-[`stdlib.c`](stdlib.c), that contains a minimal version of the
+[`src/stdlib.c`](src/stdlib.c), that contains a minimal version of the
 C standard library.
 
 The intermediage code can be compiled with the program
-[`stack_c.c`](stack_c.c) to M1 assembly or interpreted with the
-program [`stack_c_interpreter.c`](stack_c_interpreter.c).
+[`src/stack_c.c`](src/stack_c.c) to M1 assembly or interpreted with the
+program [`src/stack_c_interpreter.c`](src/stack_c_interpreter.c).
 
 This stage depends on a number of executables from stage0. Namely:
 - hex2
@@ -34,11 +34,11 @@ This stage depends on a number of executables from stage0. Namely:
 - match
 - sha256sum
 
-These need to be present in the directory of the repository.
+These need to be present in the directory `org_stage0`.
 
 Furthermore it requires the usual Linux commands and the GNU C compiler.
-[A makefile](Makefile) is included to build and test the
-C-compiler `tcc_cc`.
+[A makefile](src\Makefile) is included in the `src` directory to build
+and test the C-compiler `tcc_cc`.
 
 The sources of the Tiny C Compiler should be placed in a directory
 with the name `tcc_sources` that should also have sub directory
@@ -48,17 +48,13 @@ There should also be a directory `mes` with the contents of the
 GNU Mes compiler, which is needed to build the standard library
 that the Tiny C Compiler needs.
 
-To build and test the Tiny C Compiler, the [`test.sh`](test.sh)
+To build and test the Tiny C Compiler, the [`task1/test.sh`](task1/test.sh)
 shell script is provided. This script first compiles the Tiny C
 Compiler with GNU C-compiler, resulting in `tcc_g` and with
 tcc_cc compiler, resulting in `tcc_s`. Next is uses these to
 bootstrap the Tiny C Compiler from the sources. The script
 compares the results for the various steps using `tcc_g` and
 `tcc_c`.
-
-Remark: The `test.sh` script assumes that this repository is cloned
-in the `git` directory in the home directory. Please update the
-`BINDIR` to point to the repository containing the repository.
 
 This stage has been implemented.
 
@@ -76,12 +72,26 @@ Develop the kaem scripts for the new C compiler. This probably have
 to be done in parallel with Task 2, because it is not clear which
 utilities exactly will be needed.
 
+The shell script `build.sh` contains an initial version for this
+task. It expects the directories `tmp` (for intermediage results)
+and `bin` (for the compiled executables). It uses several files
+from the `src` directory which can be considered as the 'seed'
+files.
+
 ## Task 4: versions for hex0 and M1
 
 Write a C version for M1 that retains the comments to facilitate
 the review of the generated intermediate files. Write a C version
 for hex0, that might be a bit longer than the current 'minimal' hex0,
 but might be more easily to review.
+
+C files for alternatives for `hex0`, `hex2`, `M1`, and `blood-elf`
+can be found in the `src` directory. The sources for `bloof-elf` are
+based on those from live-bootstrap with some small modifications such
+that they can be compiled with `tcc_cc`. The others are new with some
+modifications. When `hex2` is called to output a file with the `hex0`
+extension it produces a `hex0` file with comments based on the output
+of `stack_c` containing references to the C sources.
 
 ## Task 5: Implement support for other targets
 

@@ -593,6 +593,7 @@ int fgetc(FILE *stream)
 	return buffer[0];
 }
 
+
 double ldexp(double x, int exp)
 {
 	double result = x;

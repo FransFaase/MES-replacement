@@ -44,7 +44,6 @@ void add_define(const char* name, const char *value)
     strncpy(new_define->value, value, 19);
     new_define->value[19] = '\0';
     new_define->next = defines;
-    //printf("define '%s' %s'\n", new_define->name, new_define->value);
     defines = new_define;
 }
 
