@@ -9,14 +9,17 @@ set -ex
 
 ARCH=x86
 pkg=tcc-0.9.26
+BIN_DIFF=diff
 
 # Vars
+
 ORG_STAGE0=${PWD}/../org_stage0
 TCC_PKG=${PWD}/../tcc_sources/tcc-0.9.26-1147-gee75a10c
 MES_PKG=${PWD}/../mes
 BINDIR=${PWD}
 LIBDIR=${TCC_PKG}/lib
 TCC_BOOT=${BINDIR}/tcc_s
+TTC_G_BOOT=${BINDIR}/tcc_g
 SRCDIR=${PWD}/../src
 
 # Create config.h
@@ -43,28 +46,44 @@ fi
 # Building tcc_s compiled with tcc_cc
 
 ${SRCDIR}/tcc_cc_s \
-    -o ${BINDIR}/tcc.sl \
-    -D BOOTSTRAP=1 \
-    -D HAVE_LONG_LONG=${HAVE_LONG_LONG} \
-    -D TCC_TARGET_${TCC_TARGET_ARCH}=1 \
-    -D CONFIG_TCCDIR=\"${LIBDIR}/tcc\" \
-    -D CONFIG_SYSROOT=\"root\" \
-    -D CONFIG_TCC_CRTPREFIX=\"${LIBDIR}\" \
-    -D CONFIG_TCC_ELFINTERP=\"/mes/loader\" \
-    -D CONFIG_TCC_SYSINCLUDEPATHS=\"${MES_PKG}/include/mes\" \
-    -D TCC_LIBGCC=\"${LIBDIR}/libc.a\" \
-    -D CONFIG_TCC_LIBTCC1_MES=0 \
-    -D CONFIG_TCCBOOT=1 \
-    -D CONFIG_TCC_STATIC=1 \
-    -D CONFIG_USE_LIBGCC=1 \
-    -D TCC_VERSION=\"0.9.26\" \
-    -D ONE_SOURCE=1 \
-    ${SRCDIR}/stdlib.c ${TCC_PKG}/tcc.c
+    -DBOOTSTRAP=1 \
+    -DHAVE_LONG_LONG=${HAVE_LONG_LONG} \
+    -DTCC_TARGET_${TCC_TARGET_ARCH}=1 \
+    -DCONFIG_TCCDIR=\"lib/tcc\" \
+    -DCONFIG_SYSROOT=\"root\" \
+    -DCONFIG_TCC_CRTPREFIX=\"lib\" \
+    -DCONFIG_TCC_ELFINTERP=\"/mes/loader\" \
+    -DCONFIG_TCC_SYSINCLUDEPATHS=\"root/include/mes\" \
+    -DTCC_LIBGCC=\"lib/libc.a\" \
+    -DCONFIG_TCC_LIBTCC1_MES=0 \
+    -DCONFIG_TCCBOOT=1 \
+    -DCONFIG_TCC_STATIC=1 \
+    -DCONFIG_USE_LIBGCC=1 \
+    -DTCC_VERSION=\"0.9.26\" \
+    -DONE_SOURCE=1 -o ${BINDIR}/tcc.sl ${SRCDIR}/stdlib.c ${TCC_PKG}/tcc.c
 ${SRCDIR}/stack_c -i ${SRCDIR}/stack_c_intro.M1 ${BINDIR}/tcc.sl -o ${BINDIR}/tcc_s.M1
 ${SRCDIR}/blood-elf --file ${BINDIR}/tcc_s.M1 --little-endian --output ${BINDIR}/tcc_s.blood_elf
 ${SRCDIR}/M1 ${BINDIR}/tcc_s.M1 -o ${BINDIR}/tcc_s.macro
 ${SRCDIR}/hex2 -o ${BINDIR}/tcc_s ${BINDIR}/../M2libc/x86/ELF-x86-debug.hex2 ${BINDIR}/tcc_s.macro ${BINDIR}/tcc_s.blood_elf
 
+#Building tcc_g compiled with gcc
+
+gcc  \
+    -D BOOTSTRAP=1 \
+    -D HAVE_LONG_LONG=${HAVE_LONG_LONG} \
+    -D TCC_TARGET_${TCC_TARGET_ARCH}=1 \
+    -D CONFIG_TCCDIR=\"lib/tcc\" \
+    -D CONFIG_SYSROOT=\"root\" \
+    -D CONFIG_TCC_CRTPREFIX=\"lib\" \
+    -D CONFIG_TCC_ELFINTERP=\"/mes/loader\" \
+    -D CONFIG_TCC_SYSINCLUDEPATHS=\"root/include/mes\" \
+    -D TCC_LIBGCC=\"lib/libc.a\" \
+    -D CONFIG_TCC_LIBTCC1_MES=0 \
+    -D CONFIG_TCCBOOT=1 \
+    -D CONFIG_TCC_STATIC=1 \
+    -D CONFIG_USE_LIBGCC=1 \
+    -D TCC_VERSION=\"0.9.26\" \
+    -D ONE_SOURCE=1 ${TCC_PKG}/tcc.c -o ${BINDIR}/tcc_g
 
 # Clean previous runs
 
@@ -79,40 +98,87 @@ ${ORG_STAGE0}/catm ../unified-libc.c ctype/isalnum.c ctype/isalpha.c ctype/isasc
 cd ..
 pwd
 
+${TTC_G_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crt1_g.o lib/linux/${MES_ARCH}-mes-gcc/crt1.c
 ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crt1.o lib/linux/${MES_ARCH}-mes-gcc/crt1.c
+${SRCDIR}/stack_c_interpreter ${BINDIR}/tcc.sl -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crt1_s_i.o lib/linux/${MES_ARCH}-mes-gcc/crt1.c
+
+${BIN_DIFF} ${LIBDIR}/crt1.o ${LIBDIR}/crt1_g.o
+${BIN_DIFF} ${LIBDIR}/crt1.o ${LIBDIR}/crt1_s_i.o
 
 ${ORG_STAGE0}/catm ${LIBDIR}/crtn.o
 ${ORG_STAGE0}/catm ${LIBDIR}/crti.o
 if ${ORG_STAGE0}/match ${ARCH} x86; then
     # crtn.o
+    ${TTC_G_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crtn_g.o lib/linux/${MES_ARCH}-mes-gcc/crtn.c
     ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crtn.o lib/linux/${MES_ARCH}-mes-gcc/crtn.c
- 
+    ${BIN_DIFF} ${LIBDIR}/crtn.o ${LIBDIR}/crtn_g.o
+
     # crti.o
+    ${TTC_G_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crti_g.o lib/linux/${MES_ARCH}-mes-gcc/crti.c
     ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crti.o lib/linux/${MES_ARCH}-mes-gcc/crti.c
+    ${BIN_DIFF} ${LIBDIR}/crti.o ${LIBDIR}/crti_g.o
 fi
 
 # libc+gcc.a
+${TTC_G_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o unified-libc_g.o unified-libc.c
 ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o unified-libc.o unified-libc.c
+${BIN_DIFF} unified-libc.o unified-libc_g.o
+${TTC_G_BOOT} -ar cr ${LIBDIR}/libc_g.a unified-libc.o
 ${TCC_BOOT} -ar cr ${LIBDIR}/libc.a unified-libc.o
+${BIN_DIFF} ${LIBDIR}/libc.a ${LIBDIR}/libc_g.a
 
 # libtcc1.a
 mkdir ${LIBDIR}/tcc
+${TTC_G_BOOT} -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o libtcc1_g.o lib/libtcc1.c
 ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o libtcc1.o lib/libtcc1.c
-if ${ORG_STAGE0}/match ${ARCH} riscv64; then
-    ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ../${TCC_PKG}/lib/lib-arm64.c
-    ${TCC_BOOT} -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o lib-arm64.o
-else
-    ${TCC_BOOT} -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o
-fi
+${BIN_DIFF} libtcc1.o libtcc1_g.o
+${TTC_G_BOOT} -ar cr ${LIBDIR}/tcc/libtcc1_g.a libtcc1.o
+${TCC_BOOT} -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o
+${BIN_DIFF} ${LIBDIR}/tcc/libtcc1.a ${LIBDIR}/tcc/libtcc1_g.a
+
 
 # libgetopt.a
+${TTC_G_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o getopt_g.o lib/posix/getopt.c
 ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o getopt.o lib/posix/getopt.c
+diff getopt_g.o getopt_g.o
+${TTC_G_BOOT}  -ar cr ${LIBDIR}/libgetopt_g.a getopt.o
 ${TCC_BOOT} -ar cr ${LIBDIR}/libgetopt.a getopt.o
+${BIN_DIFF} ${LIBDIR}/libgetopt.a ${LIBDIR}/libgetopt_g.a
 
 cd ${TCC_PKG}
 
 # boot0 (ref comments here for all boot*)
 # compile
+${TTC_G_BOOT} \
+    -g \
+    -v \
+    -static \
+    -o tcc-boot0_g \
+    -D BOOTSTRAP=1 \
+    -D HAVE_FLOAT=1 \
+    -D HAVE_BITFIELD=1 \
+    -D HAVE_LONG_LONG=1 \
+    -D HAVE_SETJMP=1 \
+    -I . \
+    -I ${MES_PKG}/include \
+    -I ${MES_PKG}/include/mes \
+    -D TCC_TARGET_${TCC_TARGET_ARCH}=1 \
+    -D CONFIG_TCCDIR=\"${LIBDIR}/tcc\" \
+    -D CONFIG_TCC_CRTPREFIX=\"${LIBDIR}\" \
+    -D CONFIG_TCC_ELFINTERP=\"/mes/loader\" \
+    -D CONFIG_TCC_LIBPATHS=\"${LIBDIR}:${LIBDIR}/tcc\" \
+    -D CONFIG_TCC_SYSINCLUDEPATHS=\"${MES_PKG}/include:${MES_PKG}/include/mes\" \
+    -D TCC_LIBGCC=\"${LIBDIR}/libc.a\" \
+    -D TCC_LIBTCC1=\"libtcc1.a\" \
+    -D CONFIG_TCCBOOT=1 \
+    -D CONFIG_TCC_STATIC=1 \
+    -D CONFIG_USE_LIBGCC=1 \
+    -D TCC_VERSION=\"0.9.26\" \
+    -D ONE_SOURCE=1 \
+    -L . \
+    -L ${LIBDIR} \
+    tcc.c >/dev/null
+
 ${TCC_BOOT} \
     -g \
     -v \
@@ -142,6 +208,7 @@ ${TCC_BOOT} \
     -L . \
     -L ${LIBDIR} \
     tcc.c >/dev/null
+${BIN_DIFF} tcc-boot0 tcc-boot0_g
 
 # Install
 cp tcc-boot0 ${BINDIR}/
