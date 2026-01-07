@@ -1,31 +1,23 @@
+#!/bin/sh
 clear
-echo src/hex0_s src/hex0_s.hex0 bin/hex0 
-src/hex0_s      src/hex0_s.hex0 bin/hex0
+set -x
 
-echo bin/hex0 src/hex2_s.hex0 bin/hex2 
-bin/hex0      src/hex2_s.hex0 bin/hex2
+src/hex0_s src/hex0_s.hex0 bin/hex0
 
-echo bin/hex2 -o bin/blood-elf M2libc/x86/ELF-x86-debug.hex2 src/blood-elf_s.macro src/blood-elf_s.blood_elf
-bin/hex2      -o bin/blood-elf M2libc/x86/ELF-x86-debug.hex2 src/blood-elf_s.macro src/blood-elf_s.blood_elf
+bin/hex0 src/hex2_s.hex0 bin/hex2
 
-echo bin/hex2 -o bin/M1 M2libc/x86/ELF-x86-debug.hex2 src/M1_s.macro src/M1_s.blood_elf
-bin/hex2      -o bin/M1 M2libc/x86/ELF-x86-debug.hex2 src/M1_s.macro src/M1_s.blood_elf
+bin/hex2 -o bin/blood-elf M2libc/x86/ELF-x86-debug.hex2 src/blood-elf_s.macro src/blood-elf_s.blood_elf
 
-echo bin/blood-elf --file src/stack_c_s.M1 --little-endian --output tmp/stack_c_s.blood_elf
-bin/blood-elf      --file src/stack_c_s.M1 --little-endian --output tmp/stack_c_s.blood_elf
-echo bin/M1 src/stack_c_s.M1 -o tmp/stack_c_s.macro
-bin/M1      src/stack_c_s.M1 -o tmp/stack_c_s.macro
-echo bin/hex2 M2libc/x86/ELF-x86-debug.hex2 tmp/stack_c_s.macro tmp/stack_c_s.blood_elf -o bin/stack_c
-bin/hex2      M2libc/x86/ELF-x86-debug.hex2 tmp/stack_c_s.macro tmp/stack_c_s.blood_elf -o bin/stack_c
+bin/hex2 -o bin/M1 M2libc/x86/ELF-x86-debug.hex2 src/M1_s.macro src/M1_s.blood_elf
 
-echo bin/stack_c -i src/stack_c_intro.M1 src/tcc_cc.sl -o tmp/tcc_cc.M1 
-bin/stack_c      -i src/stack_c_intro.M1 src/tcc_cc.sl -o tmp/tcc_cc.M1 
-echo bin/blood-elf --file tmp/tcc_cc.M1 --little-endian --output tmp/tcc_cc.blood_elf
-bin/blood-elf      --file tmp/tcc_cc.M1 --little-endian --output tmp/tcc_cc.blood_elf
-echo bin/M1 tmp/tcc_cc.M1 -o tmp/tcc_cc.macro
-bin/M1      tmp/tcc_cc.M1 -o tmp/tcc_cc.macro
-echo bin/hex2 M2libc/x86/ELF-x86-debug.hex2 tmp/tcc_cc.macro tmp/tcc_cc.blood_elf -o bin/tcc_cc
-bin/hex2      M2libc/x86/ELF-x86-debug.hex2 tmp/tcc_cc.macro tmp/tcc_cc.blood_elf -o bin/tcc_cc
+bin/blood-elf --file src/stack_c_s.M1 --little-endian --output tmp/stack_c_s.blood_elf
+bin/M1 src/stack_c_s.M1 -o tmp/stack_c_s.macro
+bin/hex2 M2libc/x86/ELF-x86-debug.hex2 tmp/stack_c_s.macro tmp/stack_c_s.blood_elf -o bin/stack_c
+
+bin/stack_c -i src/stack_c_intro.M1 src/tcc_cc.sl -o tmp/tcc_cc.M1
+bin/blood-elf --file tmp/tcc_cc.M1 --little-endian --output tmp/tcc_cc.blood_elf
+bin/M1 tmp/tcc_cc.M1 -o tmp/tcc_cc.macro
+bin/hex2 M2libc/x86/ELF-x86-debug.hex2 tmp/tcc_cc.macro tmp/tcc_cc.blood_elf -o bin/tcc_cc
 
 echo Done
 #echo gcc
