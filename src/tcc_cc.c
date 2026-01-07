@@ -4774,38 +4774,40 @@ int main(int argc, char *argv[])
 			add_tracing = TRUE;
 		else if (strcmp(argv[i], "-dp") == 0)
 			opt_trace_parser = TRUE;
-		else if (argv[i][0] == '-' && argv[i][1] == 'D')
+		else if (strcmp(argv[i], "-D") == 0 && i + 1 < argc)
 		{
-			const char *def = argv[i] + 2;
+			i++;
+			const char *s = argv[i];
 			char name[100];
-			int i = 0;
-			const char *s = def;
-			for (s = def; *s != '\0' && *s != '='; s++)
-				if (i < 99)
-					name[i++] = *s;
-			name[i] = '\0';
+			int j = 0;
+			for (; *s != '\0' && *s != '='; s++)
+				if (j < 99)
+					name[j++] = *s;
+			name[j] = '\0';
 			env_p env = get_env(name, TRUE);
 			if (*s == '=')
 			{
 				s++;
-				char value[100];
-				i = 0;
+				char value[200];
+				j = 0;
 				if (*s == '"')
 				{
 					s++;
-					for (; *s != '"' && *s != '='; s++)
-						if (i < 99)
-							value[i++] = *s;
-					value[i] = '\0';
+					for (; *s != '"' && *s != '\0'; s++)
+						if (j < 199)
+							value[j++] = *s;
+					value[j] = '\0';
 					env->tokens = new_str_token(value);
+					printf("- string value '%s'\n", value);
 				}
 				else
 				{
 					for (; '0' <= *s && *s <= '9'; s++)
-						if (i < 99)
-							value[i++] = *s;
-					value[i] = '\0';
+						if (j < 199)
+							value[j++] = *s;
+					value[j] = '\0';
 					env->tokens = new_int_token(value);
+					printf("- int value '%s'\n", value);
 				}
 			}
 			printf("\n");
