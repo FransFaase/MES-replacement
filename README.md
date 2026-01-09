@@ -45,8 +45,9 @@ with the name `tcc_sources` that should also have sub directory
 `lib`.
 
 There should also be a directory `mes` with the contents of the
-GNU Mes compiler, which is needed to build the standard library
-that the Tiny C Compiler needs.
+GNU Mes compiler 0.27.1, which is needed to build the standard library
+that the Tiny C Compiler needs. It is sufficient to extract the
+directories `lib` and `include` from `mes-0.27.1.tar.gz`.
 
 To build and test the Tiny C Compiler, the [`task1/test.sh`](task1/test.sh)
 shell script is provided. This script first compiles the Tiny C
@@ -56,7 +57,16 @@ bootstrap the Tiny C Compiler from the sources. The script
 compares the results for the various steps using `tcc_g` and
 `tcc_c`.
 
-This stage has been implemented.
+This stage has been implemented and it has been verified that
+although the resulting `tcc` executable is not the same as the
+one produced with the live-bootstrap project, it seems that the
+differences are only due to some global variables being a bit
+larger. The cause of this has not been established, but it could
+be due to the fact that it is compiled in a different environment.
+The program [`asmdiff.c`](task1/asmdiff.c) has been developed for
+verifying this. It seems that only instructions that move data
+from and to fixed memory locations are used. The program outputs
+the regions that have been offset and verifies that they do not overlap.
 
 ## Task 2: Compile the required utilities
 
