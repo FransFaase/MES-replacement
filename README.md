@@ -76,6 +76,9 @@ These also include compiling some utilities, such as ungz and untar,
 from C sources that are needed, for example, to unpack the sources
 of the Tiny C Compiler, such that they can be compiled.
 
+The following utilities have been compiled successful:
+- `kaem-minimal`
+
 ## Task 3: New kaem scripts
 
 Develop the kaem scripts for the new C compiler. This probably have

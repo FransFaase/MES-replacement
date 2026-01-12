@@ -129,6 +129,7 @@ int main(int argc, char *argv[])
         }
     }
 
+    // Sort regions by offset
     qsort(offsets, nr_offsets, sizeof(struct offset_t), compare_diff);
 
     int min_v1 = offsets[0].min_v1;

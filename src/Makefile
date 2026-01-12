@@ -2,7 +2,8 @@ all : hex2 M1 blood-elf tcc_cc stack_c run_unittest_s stack_c_s stack_c_diff tcc
       hex0_s hex0_s.hex0 hex2_s.hex0 \
 	  blood-elf_s.macro blood-elf_s.blood_elf \
 	  M1_s.macro M1_s.blood_elf \
-	  stack_c_s.M1 tcc_cc.sl
+	  stack_c_s.M1 tcc_cc.sl \
+	  kaem-minimal_s
 
 % : %.c
 	./run.sh gcc $(basename $@)
@@ -11,6 +12,9 @@ hex0.sl : hex0.c tcc_cc
 	./tcc_cc -o $@ $<
 
 hex2.sl : hex2.c tcc_cc
+	./tcc_cc -o $@ $<
+
+kaem-minimal.sl : kaem-minimal.c tcc_cc
 	./tcc_cc -o $@ $<
 
 %.sl : %.c tcc_cc stdlib.c

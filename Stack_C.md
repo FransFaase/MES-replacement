@@ -110,7 +110,7 @@ The following special operators are defined:
 * `char`: Replaces the top of the stack with the sign extended
   value of the least significant byte.
 
-## Statments
+## Statements
 
 ### Constant definition
 
@@ -208,6 +208,19 @@ a single function.)
 
 For each constant string, it will introduce a label of the form
 `string_%d`, where the `%d` is replaced by a unique number.
+
+## x86 implementation
+
+The implementation makes use of two stack. One stack contains
+the temporary values used for the evaluation of expressions,
+including arguments passed to functions and results returned
+by functions. For this the normal stack is used. The other
+stack is used for local variables and also the return address
+for functions being called. This is stored in the `ebp`
+register. All local variables are given a positive index with
+respect to the second stack pointer. The stack pointer is
+moved on function call and exit. Before `main` is called,
+100.000 bytes are allocated for it.
 
 # stack-c interpreter
 
