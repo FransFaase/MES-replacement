@@ -4,7 +4,8 @@ all : hex2 M1 blood-elf tcc_cc stack_c run_unittest_s stack_c_s stack_c_diff tcc
 	  M1_s.macro M1_s.blood_elf \
 	  stack_c_s.M1 tcc_cc.sl \
 	  kaem-minimal_s \
-	  kaem_s
+	  kaem_s \
+	  catm_s
 
 % : %.c
 	./run.sh gcc $(basename $@)
