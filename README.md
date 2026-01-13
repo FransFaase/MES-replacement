@@ -78,6 +78,7 @@ of the Tiny C Compiler, such that they can be compiled.
 
 The following utilities have been compiled successful:
 - `kaem-minimal`
+- `kaem`
 
 ## Task 3: New kaem scripts
 
