@@ -4184,7 +4184,7 @@ bool parse_file(const char *input_filename, bool only_preprocess)
 
 	if (token_it != 0 && token_it->kind != 0)
 	{
-		printf("Parsed %s till %s: %d %d: %d '%s'\n", input_filename, token_it->filename, token_it->line, token_it->column, token_it->kind, token_it->token);
+		printf("Parsed %s till %s:%d.%d: kind:%d token:'%s'\n", input_filename, token_it->filename, token_it->line, token_it->column, token_it->kind, token_it->token);
 		return FALSE;
 	}
 	return TRUE;
