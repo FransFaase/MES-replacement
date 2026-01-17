@@ -548,7 +548,7 @@ typedef struct label_s *label_p;
 struct label_s
 {
 	char *name;
-	bool defined;
+	bool is_defined;
 	command_p jump_to;            // The command following the label
 	jump_command_p jump_commands; // List of commands that jump to this label
 	label_p for_next_command;     // Used in list for labels_next_command
@@ -572,7 +572,7 @@ label_p find_label(const char *fmt, ...)
 			return label;
 	label_p label = (label_p)malloc(sizeof(struct label_s));
 	label->name = copystr(name);
-	label->defined = FALSE;
+	label->is_defined = FALSE;
 	label->jump_to = NULL;
 	label->jump_commands = NULL;
 	label->for_next_command = NULL;
@@ -586,12 +586,12 @@ bool opt_trace_labels = FALSE;
 void add_label(label_p label)
 {
 	if (opt_trace_labels) printf("## Add label %s\n", label->name);
-	if (label->defined)
+	if (label->is_defined)
 	{
 		fprintf(ferr, "Error %d.%d: Label %s is defined more than once", cur_line, cur_column, label->name);
 		exit(1);
 	}
-	label->defined = TRUE;
+	label->is_defined = TRUE;
 	label->for_next_command = labels_next_command;
 	labels_next_command = label;
 }
@@ -628,7 +628,7 @@ command_p add_command(char sym)
 
 void add_jump_command(char sym, label_p label)
 {
-	if (opt_trace_labels) printf("## Add jump to label %s (%sdefined)\n", label->name, label->defined ? "" : "not ");
+	if (opt_trace_labels) printf("## Add jump to label %s (%sdefined)\n", label->name, label->is_defined ? "" : "not ");
 	command_p command = add_command(sym);
 	if (label->jump_to != NULL)
 	{
@@ -961,7 +961,12 @@ bool opt_trace_assignments = FALSE;
 
 void copy_cell(cell_p dst, cell_p src, bool set_command)
 {
-	memcpy(dst, src, sizeof(struct cell_s));
+	dst->kind = src->kind;
+	dst->int_value = src->int_value;
+	dst->locals_offset = src->locals_offset;
+	dst->memory = src->memory;
+	dst->command = src->command;
+
 	if (set_command)
 	{
 		if (opt_trace_assignments)
@@ -1480,7 +1485,7 @@ int main(int argc, char *argv[])
 			{
 				if (opt_trace_parsing) printf("End function\n");
 				for (label_p label = func_labels; label != NULL; label = label->prev)
-					if (!label->defined)
+					if (!label->is_defined)
 						report_error("Label %s is never defined\n", label->name);
 			}
 		}
