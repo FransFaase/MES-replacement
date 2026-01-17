@@ -1939,8 +1939,9 @@ void populate_env(char** envp)
 	n->next = NULL;
 }
 
-int main(int argc, char** argv, char** envp)
+int main(int argc, char** argv)
 {
+	char** envp = argv + (argc + 1);
 	VERBOSE = FALSE;
 	VERBOSE_EXIT = FALSE;
 	STRICT = TRUE;
