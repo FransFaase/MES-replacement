@@ -106,7 +106,7 @@ char *strncpy(char *dest, const char *src, size_t n)
 
 char *strcat(char *dest, const char *src)
 {
-	strcpy(dest + strlen(dest), src);
+	return strcpy(dest + strlen(dest), src);
 }
 
 char *strchr(const char *s, int c)
