@@ -102,11 +102,13 @@ char *strncpy(char *dest, const char *src, size_t n)
 		if (s[i] == '\0')
 			break;
 	}
+	return dest;
 }
 
 char *strcat(char *dest, const char *src)
 {
-	return strcpy(dest + strlen(dest), src);
+	strcpy(dest + strlen(dest), src);
+	return dest;
 }
 
 char *strchr(const char *s, int c)
