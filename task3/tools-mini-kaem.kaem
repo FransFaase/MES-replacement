@@ -1,0 +1,40 @@
+#! /usr/bin/env bash
+
+./usr/bin/hex0 ./x86/hex2_s.hex0 ./usr/bin/hex2
+
+./usr/bin/hex2 -o ./usr/bin/blood-elf ./x86/ELF-x86-debug.hex2 ./x86/blood-elf_s.macro ./x86/blood-elf_s.blood_elf
+
+./usr/bin/hex2 -o ./usr/bin/M1 ./x86/ELF-x86-debug.hex2 ./x86/M1_s.macro ./x86/M1_s.blood_elf
+
+./usr/bin/blood-elf --file ./x86/stack_c_s.M1 --little-endian --output ./tmp/stack_c_s.blood_elf
+./usr/bin/M1 -o ./tmp/stack_c_s.macro ./x86/stack_c_s.M1
+./usr/bin/hex2 -o ./usr/bin/stack_c ./x86/ELF-x86-debug.hex2 ./tmp/stack_c_s.macro ./tmp/stack_c_s.blood_elf
+
+./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./src/tcc_cc.sl -o tmp/tcc_cc.M1
+./usr/bin/blood-elf --file tmp/tcc_cc.M1 --little-endian --output ./tmp/tcc_cc.blood_elf
+./usr/bin/M1 ./tmp/tcc_cc.M1 -o ./tmp/tcc_cc.macro
+./usr/bin/hex2 -o ./usr/bin/tcc_cc ./x86/ELF-x86-debug.hex2 ./tmp/tcc_cc.macro ./tmp/tcc_cc.blood_elf
+
+./usr/bin/tcc_cc -o ./tmp/kaem.sl ./src/stdlib.c ./src/kaem.c
+./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./tmp/kaem.sl -o tmp/kaem.M1
+./usr/bin/blood-elf --file tmp/kaem.M1 --little-endian --output ./tmp/kaem.blood_elf
+./usr/bin/M1 ./tmp/kaem.M1 -o ./tmp/kaem.macro
+./usr/bin/hex2 -o ./usr/bin/kaem ./x86/ELF-x86-debug.hex2 ./tmp/kaem.macro ./tmp/kaem.blood_elf
+
+./usr/bin/tcc_cc -o ./tmp/catm.sl ./src/stdlib.c ./src/catm.c
+./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./tmp/catm.sl -o tmp/catm.M1
+./usr/bin/blood-elf --file tmp/catm.M1 --little-endian --output ./tmp/catm.blood_elf
+./usr/bin/M1 ./tmp/catm.M1 -o ./tmp/catm.macro
+./usr/bin/hex2 -o ./usr/bin/catm ./x86/ELF-x86-debug.hex2 ./tmp/catm.macro ./tmp/catm.blood_elf
+
+./usr/bin/tcc_cc -o ./tmp/stack_c_interpreter.sl ./src/stdlib.c ./src/stack_c_interpreter.c
+./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./tmp/stack_c_interpreter.sl -o tmp/stack_c_interpreter.M1
+./usr/bin/blood-elf --file tmp/stack_c_interpreter.M1 --little-endian --output ./tmp/stack_c_interpreter.blood_elf
+./usr/bin/M1 ./tmp/stack_c_interpreter.M1 -o ./tmp/stack_c_interpreter.macro
+./usr/bin/hex2 -o ./usr/bin/stack_c_interpreter ./x86/ELF-x86-debug.hex2 ./tmp/stack_c_interpreter.macro ./tmp/stack_c_interpreter.blood_elf
+
+./usr/bin/tcc_cc -o ./tmp/match.sl ./src/stdlib.c ./src/match.c
+./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./tmp/match.sl -o tmp/match.M1
+./usr/bin/blood-elf --file tmp/match.M1 --little-endian --output ./tmp/match.blood_elf
+./usr/bin/M1 ./tmp/match.M1 -o ./tmp/match.macro
+./usr/bin/hex2 -o ./usr/bin/match ./x86/ELF-x86-debug.hex2 ./tmp/match.macro ./tmp/match.blood_elf

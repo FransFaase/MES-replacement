@@ -26,7 +26,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifndef __TCC_CC__
 #include "M2libc/bootstrappable.h"
+#endif
 
 int main(int argc, char **argv)
 {
@@ -49,5 +51,5 @@ int main(int argc, char **argv)
 		return 3;
 	}
 
-	return strcmp(argv[1], argv[2]) == 0;
+	return strcmp(argv[1], argv[2]) != 0;
 }
