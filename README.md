@@ -87,11 +87,13 @@ Develop the kaem scripts for the new C compiler. This probably have
 to be done in parallel with Task 2, because it is not clear which
 utilities exactly will be needed.
 
-The shell script `build.sh` contains an initial version for this
-task. It expects the directories `tmp` (for intermediage results)
-and `bin` (for the compiled executables). It uses several files
-from the `src` directory which can be considered as the 'seed'
-files.
+The shell script `task3_init.sh` creates the `rootfs` directory with
+additional subdirectories and files, such that the script `task3.sh`
+can execute it and use it as a change root environment. In the `task3`
+directory the various kaem scripts are found that are executed.
+After execution the `rootfs/usr/bin` directory contains the `tcc-boot2`
+executable, which is the same as the `tcc` executable build by the
+live-bootstrap project (in a change root environment).
 
 ## Task 4: versions for hex0 and M1
 
