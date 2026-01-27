@@ -4798,7 +4798,6 @@ int main(int argc, char *argv[])
 							value[j++] = *s;
 					value[j] = '\0';
 					env->tokens = new_str_token(value);
-					printf("- string value '%s'\n", value);
 				}
 				else
 				{
@@ -4807,10 +4806,8 @@ int main(int argc, char *argv[])
 							value[j++] = *s;
 					value[j] = '\0';
 					env->tokens = new_int_token(value);
-					printf("- int value '%s'\n", value);
 				}
 			}
-			printf("\n");
 		}
 		else if (i + 1 < argc && strcmp(argv[i],"-o") == 0)
 		{	
