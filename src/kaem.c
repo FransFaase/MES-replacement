@@ -44,7 +44,7 @@
 // CONSTANT FAILURE 1
 #define FAILURE 1
 #define MAX_STRING 4096
-#define MAX_ARRAY 256
+#define MAX_ARRAY 300
 
 
 /*
@@ -131,7 +131,14 @@ struct Token* alias;
 #define EOF -1
 #define EXIT_FAILURE -1
 #define EXIT_SUCCESS 0
-#define calloc(N,S) malloc((N)*(S))
+void *calloc(int N, int S)
+{
+	int len = N * S;
+	char *r = (char*)malloc(len);
+	for (int i = 0; i < len; i++)
+		r[i] = '\0';
+	return r;
+}
 #endif
 
 #define TRUE 1
