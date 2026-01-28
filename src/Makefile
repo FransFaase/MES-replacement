@@ -30,15 +30,12 @@ kaem-minimal.sl : kaem-minimal.c tcc_cc
 	./stack_c -i stack_c_intro.M1 $< -o $@
 
 %.blood_elf : %.M1
-	#../org_stage0/blood-elf --file $< --little-endian --output $@
 	./blood-elf --file $< --little-endian --output $@
 
 %.macro : %.blood_elf
-	#../org_stage0/M1 --file $(basename $@).M1 --little-endian --architecture x86 --file $< --output $@
 	./M1 $(basename $@).M1 -o $@
 
 % : %.macro
-	#../org_stage0/hex2 --file ../M2libc/x86/ELF-x86-debug.hex2 --file $< --output $@ --architecture x86 --base-address 0x8048000 --little-endian 
 	./hex2 -o $@ ../M2libc/x86/ELF-x86-debug.hex2 $(basename $@).macro $(basename $@).blood_elf
 	objdump -d $@ >$@.txt
 
