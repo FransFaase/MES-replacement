@@ -143,4 +143,4 @@ which was funded through the [NGI0 Core](https://nlnet.nl/core/) Fund, a fund es
 [NLnet](https://nlnet.nl) with financial support from the European Commission's
 [Next Generation Internet](https://ngi.eu) programme, under the aegis of
 [DG Communications Networks, Content and Technology](https://commission.europa.eu/about-european-commission/departments-and-executive-agencies/communications-networks-content-and-technology_en) under grant agreement
-Nₒ [101092990](https://cordis.europa.eu/project/id/101092990").
+Nₒ [101092990](https://cordis.europa.eu/project/id/101092990).
