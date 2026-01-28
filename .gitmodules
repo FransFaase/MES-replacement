@@ -1,0 +1,9 @@
+[submodule "src/M2libc"]
+	path = src/M2libc
+	url = https://github.com/oriansj/M2libc.git
+[submodule "M2libc"]
+	path = M2libc
+	url = https://github.com/oriansj/M2libc.git
+[submodule "mes"]
+	path = mes
+	url = https://git.savannah.gnu.org/git/mes.git

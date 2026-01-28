@@ -57,6 +57,7 @@ mkdir -p rootfs/steps
 mkdir -p rootfs/steps/tcc-0.9.26/
 mkdir -p rootfs/steps/tcc-0.9.26/build
 cp -rf -t rootfs/steps/tcc-0.9.26/build tcc_sources/tcc-0.9.26-1147-gee75a10c
+patch rootfs/steps/tcc-0.9.26/build/tcc-0.9.26-1147-gee75a10c/tcctools.c task3/tcctools_c.patch 
 
 MES_PKG=rootfs/mes
 TCC_PKG=rootfs/tcc
