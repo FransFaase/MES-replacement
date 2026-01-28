@@ -26,47 +26,39 @@ The intermediage code can be compiled with the program
 [`src/stack_c.c`](src/stack_c.c) to M1 assembly or interpreted with the
 program [`src/stack_c_interpreter.c`](src/stack_c_interpreter.c).
 
-This stage depends on a number of executables from stage0. Namely:
-- hex2
-- M1
-- blood-elf
-- catm
-- match
-- sha256sum
+To verify the correct compilation, already some parts of Task 2 and 3 were
+developed, because a change root environment needed to be used to get the
+correct paths into the compiled executables.
 
-These need to be present in the directory `org_stage0`.
+The following Linux programs are required (most of which should already
+be available in a default development environment): `git`, `wget`, `gcc`, `make`,
+`diff`, `patch`, `chroot`, `tar`, and `gunzip`.
 
-Furthermore it requires the usual Linux commands and the GNU C compiler.
-[A makefile](src\Makefile) is included in the `src` directory to build
-and test the C-compiler `tcc_cc`.
-
-The sources of the Tiny C Compiler should be placed in a directory
-with the name `tcc_sources` that should also have sub directory
-`lib`.
-
-There should also be a directory `mes` with the contents of the
-GNU Mes compiler 0.27.1, which is needed to build the standard library
-that the Tiny C Compiler needs. It is sufficient to extract the
-directories `lib` and `include` from `mes-0.27.1.tar.gz`.
-
-To build and test the Tiny C Compiler, the [`task1/test.sh`](task1/test.sh)
-shell script is provided. This script first compiles the Tiny C
-Compiler with GNU C-compiler, resulting in `tcc_g` and with
-tcc_cc compiler, resulting in `tcc_s`. Next is uses these to
-bootstrap the Tiny C Compiler from the sources. The script
-compares the results for the various steps using `tcc_g` and
-`tcc_c`.
-
-This stage has been implemented and it has been verified that
-although the resulting `tcc` executable is not the same as the
-one produced with the live-bootstrap project, it seems that the
-differences are only due to some global variables being a bit
-larger. The cause of this has not been established, but it could
-be due to the fact that it is compiled in a different environment.
-The program [`asmdiff.c`](task1/asmdiff.c) has been developed for
-verifying this. It seems that only instructions that move data
-from and to fixed memory locations are used. The program outputs
-the regions that have been offset and verifies that they do not overlap.
+If you have not cloned the repository with the `--recurse-submodules` command line
+option, issue the command:
+```sh
+git submodule update --init --recursive
+```
+This will retrieve the submodules `M2libc` and GNU Mes sources. To also retrieve
+the correct Tiny C Compilers sources, issue the command:
+```sh
+./download_tcc.sh
+```
+Next build the necessary seeds and source files in the `src` directory with the
+commands:
+```sh
+cd src
+make
+cd ..
+```
+Finally, give the following command, which will create a change root environment
+in the directory `rootfs` and execute a `chroot` command to build the Tiny C Compiler in
+that directory:
+```sh
+./task1.sh
+```
+Now the file `rootfs/bin/usr/tcc-boot2` should be equal to the `tcc-0.0.26` executable
+build during the execution of live-bootstrap.
 
 ## Task 2: Compile the required utilities
 
