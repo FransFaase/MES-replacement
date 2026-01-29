@@ -57,8 +57,27 @@ that directory:
 ```sh
 ./task1.sh
 ```
-Now the file `rootfs/bin/usr/tcc-boot2` should be equal to the `tcc-0.0.26` executable
-build during the execution of live-bootstrap.
+The output should end with:
+```
+ +> /usr/bin/sha256sum -c /steps/tcc-0.9.26/tcc-0.9.26.x86.checksums 
+/usr/bin/tcc-boot0: FAILED
+Wanted:   25698c9689995cad9dcf3dd834526e7ef97fba27cef6367c0e618b9ad6c0657d
+Received: 632799650bc185e815a863796a80b5f43199a2796ba9bd2872ff97ca91c3003f
+/usr/bin/tcc-boot1: OK
+/usr/bin/tcc-boot2: OK
+/usr/lib/mes/libc.a: OK
+/usr/lib/mes/libgetopt.a: OK
+/usr/lib/mes/crt1.o: OK
+/usr/lib/mes/crti.o: OK
+/usr/lib/mes/crtn.o: OK
+/usr/lib/mes/tcc/libtcc1.a: OK
+Subprocess error 1
+ABORTING HARD
+```
+This shows that the `rootfs/bin/usr/tcc-boot2` is equal to the `tcc-0.0.26` executable
+build during the execution of live-bootstrap. That `tcc-boot0` is different can
+probably be explained by the fact that the GNU Mes compiler has support of 64 bits integers
+while `tcc_cc` lacks this.
 
 ## Task 2: Compile the required utilities
 
