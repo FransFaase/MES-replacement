@@ -9,6 +9,7 @@ set -ex
 # Vars
 
 ARCH=x86
+pkg=tcc-0.9.26
 
 MES_PKG=/mes
 TCC_PKG=/steps/tcc-0.9.26/build/tcc-0.9.26-1147-gee75a10c
@@ -278,15 +279,13 @@ ${BINDIR}/tcc-boot2 -version
 #cp ${BINDIR}/tcc ${BINDIR}/tcc-0.9.26
 #chmod 755 ${BINDIR}/tcc-0.9.26
 
-exit
-
 # Also recompile getopt, we don't need to do this during the boot* stages
 # because nothing is linked against it
 cd ${MES_PKG}
-${BINDIR}/tcc -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} lib/posix/getopt.c
-${BINDIR}/tcc -ar cr ${LIBDIR}/libgetopt.a getopt.o
+${BINDIR}/tcc-boot2 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} lib/posix/getopt.c
+${BINDIR}/tcc-boot2 -ar cr ${LIBDIR}/libgetopt.a getopt.o
 
-cd ${BINDIR}
+cd /
 
 # Checksums
 #if ${BINDIR}/match x${UPDATE_CHECKSUMS} xTrue; then
@@ -304,5 +303,5 @@ cd ${BINDIR}
 #
 #    cp ${pkg}.${ARCH}.checksums ${SRCDIR}
 #else
-#    ${BINDIR}/sha256sum -c ${pkg}.${ARCH}.checksums
+    ${BINDIR}/sha256sum -c /steps/${pkg}/${pkg}.${ARCH}.checksums
 #fi

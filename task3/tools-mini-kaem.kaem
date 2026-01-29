@@ -38,3 +38,10 @@
 ./usr/bin/blood-elf --file tmp/match.M1 --little-endian --output ./tmp/match.blood_elf
 ./usr/bin/M1 ./tmp/match.M1 -o ./tmp/match.macro
 ./usr/bin/hex2 -o ./usr/bin/match ./x86/ELF-x86-debug.hex2 ./tmp/match.macro ./tmp/match.blood_elf
+
+./usr/bin/tcc_cc -o ./tmp/sha256sum.sl ./src/stdlib.c ./src/sha256sum.c
+./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./tmp/sha256sum.sl -o tmp/sha256sum.M1
+./usr/bin/blood-elf --file tmp/sha256sum.M1 --little-endian --output ./tmp/sha256sum.blood_elf
+./usr/bin/M1 ./tmp/sha256sum.M1 -o ./tmp/sha256sum.macro
+./usr/bin/hex2 -o ./usr/bin/sha256sum ./x86/ELF-x86-debug.hex2 ./tmp/sha256sum.macro ./tmp/sha256sum.blood_elf
+

@@ -6,7 +6,9 @@ all : hex2 M1 blood-elf tcc_cc stack_c run_unittest_s stack_c_s stack_c_diff tcc
 	  kaem-minimal_s kaem-minimal_s.hex0 \
 	  kaem_s \
 	  catm_s \
-	  match_s
+	  match_s \
+	  sha256sum_s
+ 
 
 % : %.c
 	./run.sh gcc $(basename $@)

@@ -50,6 +50,8 @@ cp -f -t rootfs/src \
     src/kaem.c \
     src/catm.c \
     src/match.c \
+    src/sha256sum.c \
+    src/bootstrappable.c \
     src/stack_c_interpreter.c
 
 # Copy GNU mes sources
@@ -64,6 +66,7 @@ mkdir -p rootfs/steps/tcc-0.9.26/
 mkdir -p rootfs/steps/tcc-0.9.26/build
 cp -rf -t rootfs/steps/tcc-0.9.26/build tcc_sources/tcc-0.9.26-1147-gee75a10c
 patch rootfs/steps/tcc-0.9.26/build/tcc-0.9.26-1147-gee75a10c/tcctools.c task3/tcctools_c.patch 
+cp task1/tcc-0.9.26.x86.checksums rootfs/steps/tcc-0.9.26
 
 # Create some additional directories
 mkdir -p rootfs/usr/lib/tcc
