@@ -558,11 +558,13 @@ long ftell(FILE *stream)
 
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
+	char *s = (char*)ptr;
 	for (int i = 0; i < nmemb; i++)
 	{
-		size_t r = read(stream->fh, ptr, size);
+		size_t r = read(stream->fh, s, size);
 		if (r < size)
 			return i;
+		s += size;
 	}
 	return nmemb;
 }
