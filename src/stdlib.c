@@ -596,14 +596,14 @@ int fgetc(FILE *stream)
 {
 	if (stream->at_eof)
 		return -1;
-	char buffer[0];
-	int ret = sys_int80(3, stream->fh, buffer, 1);
+	unsigned char ch;
+	int ret = sys_int80(3, stream->fh, &ch, 1);
 	if (ret <= 0)
 	{
 		stream->at_eof = 1;
 		return -1;
 	}
-	return buffer[0];
+	return ch;
 }
 
 
