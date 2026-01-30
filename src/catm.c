@@ -22,12 +22,6 @@
 
 #define BUFFER_SIZE 4096
 
-#ifdef __TCC_CC__
-#define calloc(N,S) malloc((N)*(S))
-#define EXIT_FAILURE 1
-#define EXIT_SUCCESS 0
-#endif
-
 int main(int argc, char** argv)
 {
 	if(2 > argc)

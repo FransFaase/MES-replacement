@@ -248,6 +248,15 @@ void *realloc(void *ptr, size_t size)
 	return result;
 }
 
+void *calloc(int N, int S)
+{
+	int len = N * S;
+	char *r = (char*)malloc(len);
+	for (int i = 0; i < len; i++)
+		r[i] = '\0';
+	return r;
+}
+
 void free(void *ptr)
 {
 	// Do freeing of memory
@@ -804,3 +813,8 @@ int execvp(const char *file, char * argv[])
 
 
 #define __linux__
+
+#define EOF -1
+#define EXIT_FAILURE -1
+#define EXIT_SUCCESS 0
+

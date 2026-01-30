@@ -18,20 +18,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef __TCC_CC__
-#define EOF -1
-#define EXIT_FAILURE -1
-#define EXIT_SUCCESS 0
-void *calloc(int N, int S)
-{
-	int len = N * S;
-	char *r = (char*)malloc(len);
-	for (int i = 0; i < len; i++)
-		r[i] = '\0';
-	return r;
-}
-#endif
-
 #define TRUE 1
 #define FALSE 0
 

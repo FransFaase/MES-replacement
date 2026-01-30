@@ -23,12 +23,6 @@
 #include <stdlib.h>
 #include "bootstrappable.c"
 
-#ifdef __TCC_CC__
-
-#define TRUE 1
-#define FALSE 0
-
-#endif
 
 #define CHUNK_SIZE 64
 #define TOTAL_LEN_LEN 8
