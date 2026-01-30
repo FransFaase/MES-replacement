@@ -21,30 +21,27 @@ TCC_BOOT=${BINDIR}/tcc_s
 LIBDIR=/usr/lib/mes
 PREFIX=/usr
 
-echo catm
-
 # Create config.h
 ${BINDIR}/catm ${MES_PKG}/include/mes/config.h
 ${BINDIR}/catm ${TCC_PKG}/config.h
 cd ${TCC_PKG}
 
-#if ${BINDIR}/match ${ARCH} x86; then
+if ${BINDIR}/match ${ARCH} x86; then
     MES_ARCH=x86
     TCC_TARGET_ARCH=I386
     HAVE_LONG_LONG=0
-#fi
+fi
 
-#if ${BINDIR}/match ${ARCH} amd64; then
-#    MES_ARCH=x86_64
-#    TCC_TARGET_ARCH=X86_64
-#    HAVE_LONG_LONG=1
-#fi
-#if ${BINDIR}/match ${ARCH} riscv64; then
-#    MES_ARCH=riscv64
-#    TCC_TARGET_ARCH=RISCV64
-#    HAVE_LONG_LONG=1
-#fi
-
+if ${BINDIR}/match ${ARCH} amd64; then
+    MES_ARCH=x86_64
+    TCC_TARGET_ARCH=X86_64
+    HAVE_LONG_LONG=1
+fi
+if ${BINDIR}/match ${ARCH} riscv64; then
+    MES_ARCH=riscv64
+    TCC_TARGET_ARCH=RISCV64
+    HAVE_LONG_LONG=1
+fi
 
 # Building tcc_s compiled with tcc_cc
 
@@ -87,13 +84,13 @@ ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${L
 
 ${BINDIR}/catm ${LIBDIR}/crtn.o
 ${BINDIR}/catm ${LIBDIR}/crti.o
-#if ${BINDIR}/match ${ARCH} x86; then
+if ${BINDIR}/match ${ARCH} x86; then
     # crtn.o
     ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crtn.o lib/linux/${MES_ARCH}-mes-gcc/crtn.c
 
     # crti.o
     ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crti.o lib/linux/${MES_ARCH}-mes-gcc/crti.c
-#fi
+fi
 
 # libc+gcc.a
 ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o unified-libc.o unified-libc.c
@@ -102,12 +99,12 @@ ${TCC_BOOT} -ar cr ${LIBDIR}/libc.a unified-libc.o
 # libtcc1.a
 #mkdir -p ${LIBDIR}/tcc
 ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o libtcc1.o lib/libtcc1.c
-#if ${BINDIR}/match ${ARCH} riscv64; then
-#    ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ../${TCC_PKG}/lib/lib-arm64.c
-#    ${TCC_BOOT} -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o lib-arm64.o
-#else
+if ${BINDIR}/match ${ARCH} riscv64; then
+    ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ../${TCC_PKG}/lib/lib-arm64.c
+    ${TCC_BOOT} -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o lib-arm64.o
+else
     ${TCC_BOOT} -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o
-#fi
+fi
 
 # libgetopt.a
 ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} lib/posix/getopt.c
@@ -150,18 +147,18 @@ ${TCC_BOOT} \
 cd ${MES_PKG}
 # Recompile libc: crt{1,n,i}, libtcc.a, libc.a
 ${BINDIR}/tcc-boot0 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crt1.o lib/linux/${MES_ARCH}-mes-gcc/crt1.c
-#if ${BINDIR}/match ${ARCH} x86; then
+if ${BINDIR}/match ${ARCH} x86; then
     ${BINDIR}/tcc-boot0 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crtn.o lib/linux/${MES_ARCH}-mes-gcc/crtn.c
     ${BINDIR}/tcc-boot0 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crti.o lib/linux/${MES_ARCH}-mes-gcc/crti.c
-#fi
+fi
 
 ${BINDIR}/tcc-boot0 -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o libtcc1.o lib/libtcc1.c
-#if ${BINDIR}/match ${ARCH} riscv64; then
-#    ${BINDIR}/tcc-boot0 -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ../${TCC_PKG}/lib/lib-arm64.c
-#    ${BINDIR}/tcc-boot0 -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o lib-arm64.o
-#else
+if ${BINDIR}/match ${ARCH} riscv64; then
+    ${BINDIR}/tcc-boot0 -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ../${TCC_PKG}/lib/lib-arm64.c
+    ${BINDIR}/tcc-boot0 -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o lib-arm64.o
+else
     ${BINDIR}/tcc-boot0 -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o
-#fi
+fi
 
 ${BINDIR}/tcc-boot0 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o unified-libc.o unified-libc.c
 ${BINDIR}/tcc-boot0 -ar cr ${LIBDIR}/libc.a unified-libc.o
@@ -201,18 +198,18 @@ ${BINDIR}/tcc-boot0 \
 
 cd ${MES_PKG}
 ${BINDIR}/tcc-boot1 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crt1.o lib/linux/${MES_ARCH}-mes-gcc/crt1.c
-#if ${BINDIR}/match ${ARCH} x86; then
+if ${BINDIR}/match ${ARCH} x86; then
     ${BINDIR}/tcc-boot1 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crtn.o lib/linux/${MES_ARCH}-mes-gcc/crtn.c
     ${BINDIR}/tcc-boot1 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crti.o lib/linux/${MES_ARCH}-mes-gcc/crti.c
-#fi
+fi
 
 ${BINDIR}/tcc-boot1 -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o libtcc1.o lib/libtcc1.c
-#if ${BINDIR}/match ${ARCH} riscv64; then
-#    ${BINDIR}/tcc-boot1 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ../${TCC_PKG}/lib/lib-arm64.c
-#    ${BINDIR}/tcc-boot1 -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o lib-arm64.o
-#else
+if ${BINDIR}/match ${ARCH} riscv64; then
+    ${BINDIR}/tcc-boot1 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ../${TCC_PKG}/lib/lib-arm64.c
+    ${BINDIR}/tcc-boot1 -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o lib-arm64.o
+else
     ${BINDIR}/tcc-boot1 -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o
-#fi
+fi
 
 ${BINDIR}/tcc-boot1 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o unified-libc.o unified-libc.c
 ${BINDIR}/tcc-boot1 -ar cr ${LIBDIR}/libc.a unified-libc.o
@@ -252,18 +249,18 @@ ${BINDIR}/tcc-boot1 \
 
 cd ${MES_PKG}
 ${BINDIR}/tcc-boot2 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crt1.o lib/linux/${MES_ARCH}-mes-gcc/crt1.c
-#if ${BINDIR}/match ${ARCH} x86; then
+if ${BINDIR}/match ${ARCH} x86; then
     ${BINDIR}/tcc-boot2 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crtn.o lib/linux/${MES_ARCH}-mes-gcc/crtn.c
     ${BINDIR}/tcc-boot2 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crti.o lib/linux/${MES_ARCH}-mes-gcc/crti.c
-#fi
+fi
 
 ${BINDIR}/tcc-boot2 -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o libtcc1.o lib/libtcc1.c
-#if ${BINDIR}/match ${ARCH} riscv64; then
-#    ${BINDIR}/tcc-boot2 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ../${TCC_PKG}/lib/lib-arm64.c
-#    ${BINDIR}/tcc-boot2 -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o lib-arm64.o
-#else
+if ${BINDIR}/match ${ARCH} riscv64; then
+    ${BINDIR}/tcc-boot2 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ../${TCC_PKG}/lib/lib-arm64.c
+    ${BINDIR}/tcc-boot2 -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o lib-arm64.o
+else
     ${BINDIR}/tcc-boot2 -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o
-#fi
+fi
 
 ${BINDIR}/tcc-boot2 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o unified-libc.o unified-libc.c
 ${BINDIR}/tcc-boot2 -ar cr ${LIBDIR}/libc.a unified-libc.o
@@ -288,20 +285,20 @@ ${BINDIR}/tcc-boot2 -ar cr ${LIBDIR}/libgetopt.a getopt.o
 cd /
 
 # Checksums
-#if ${BINDIR}/match x${UPDATE_CHECKSUMS} xTrue; then
-#    ${BINDIR}/sha256sum -o ${pkg}.${ARCH}.checksums \
-#        /usr/bin/tcc-mes \
-#        /usr/bin/tcc-boot0 \
-#        /usr/bin/tcc-boot1 \
-#        /usr/bin/tcc \
-#        /usr/lib/mes/libc.a \
-#        /usr/lib/mes/libgetopt.a \
-#        /usr/lib/mes/crt1.o \
-#        /usr/lib/mes/crti.o \
-#        /usr/lib/mes/crtn.o \
-#        /usr/lib/mes/tcc/libtcc1.a
-#
-#    cp ${pkg}.${ARCH}.checksums ${SRCDIR}
-#else
+if ${BINDIR}/match x${UPDATE_CHECKSUMS} xTrue; then
+    ${BINDIR}/sha256sum -o ${pkg}.${ARCH}.checksums \
+        /usr/bin/tcc-mes \
+        /usr/bin/tcc-boot0 \
+        /usr/bin/tcc-boot1 \
+        /usr/bin/tcc \
+        /usr/lib/mes/libc.a \
+        /usr/lib/mes/libgetopt.a \
+        /usr/lib/mes/crt1.o \
+        /usr/lib/mes/crti.o \
+        /usr/lib/mes/crtn.o \
+        /usr/lib/mes/tcc/libtcc1.a
+
+    cp ${pkg}.${ARCH}.checksums ${SRCDIR}
+else
     ${BINDIR}/sha256sum -c /steps/${pkg}/${pkg}.${ARCH}.checksums
-#fi
+fi
