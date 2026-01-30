@@ -42,9 +42,13 @@ cp -f -t rootfs/src \
     src/tcc_cc.sl \
     src/kaem.c \
     src/catm.c \
-    src/match.c \
-    src/sha256sum.c \
     src/bootstrappable.c \
+    src/match.c \
+    src/mkdir.c \
+    src/cp.c \
+    src/chmod.c \
+    src/rm.c \
+    src/sha256sum.c \
     src/stack_c_interpreter.c
 
 
@@ -67,7 +71,6 @@ TCC_PKG=rootfs/tcc
 MES_ARCH=x86
 
 # To replace a mkdir statement in kaem.run
-mkdir -p rootfs/usr/lib/tcc
 mkdir -p rootfs/usr/lib/mes/tcc
 
 # Fill arch directory with architecture specific includes

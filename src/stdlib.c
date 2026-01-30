@@ -811,6 +811,26 @@ int execvp(const char *file, char * argv[])
 	fprintf(stderr, "TODO execvp\n"); exit(1);
 }
 
+int mkdir(const char *pathname, int mode)
+{
+	return sys_int80(39, pathname, mode, 0);
+}
+
+int chdir(const char *path)
+{
+	sys_int80(12, path, 0, 0);
+}
+
+int access(const char *filename, int mode)
+{
+	return sys_int80(33, filename, mode, 0);
+}
+
+int chmod(const char *filename, int mode)
+{
+	return sys_int80(15, filename, mode, 0);
+}
+
 
 #define __linux__
 

@@ -97,7 +97,7 @@ ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o uni
 ${TCC_BOOT} -ar cr ${LIBDIR}/libc.a unified-libc.o
 
 # libtcc1.a
-#mkdir -p ${LIBDIR}/tcc
+mkdir -p ${LIBDIR}/tcc
 ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o libtcc1.o lib/libtcc1.c
 if ${BINDIR}/match ${ARCH} riscv64; then
     ${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ../${TCC_PKG}/lib/lib-arm64.c
@@ -270,17 +270,17 @@ cd ${TCC_PKG}
 ${BINDIR}/tcc-boot2 -version
 
 # We have our final tcc 0.9.26!
-#catm ${BINDIR}/tcc-boot2 ${BINDIR}/tcc
-#chmod 755 ${BINDIR}/tcc
-#rm ${BINDIR}/tcc-boot2
-#cp ${BINDIR}/tcc ${BINDIR}/tcc-0.9.26
-#chmod 755 ${BINDIR}/tcc-0.9.26
+cp ${BINDIR}/tcc-boot2 ${BINDIR}/tcc
+chmod 755 ${BINDIR}/tcc
+rm ${BINDIR}/tcc-boot2
+cp ${BINDIR}/tcc ${BINDIR}/tcc-0.9.26
+chmod 755 ${BINDIR}/tcc-0.9.26
 
 # Also recompile getopt, we don't need to do this during the boot* stages
 # because nothing is linked against it
 cd ${MES_PKG}
-${BINDIR}/tcc-boot2 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} lib/posix/getopt.c
-${BINDIR}/tcc-boot2 -ar cr ${LIBDIR}/libgetopt.a getopt.o
+${BINDIR}/tcc -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} lib/posix/getopt.c
+${BINDIR}/tcc -ar cr ${LIBDIR}/libgetopt.a getopt.o
 
 cd /
 

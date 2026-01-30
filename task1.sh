@@ -49,9 +49,13 @@ cp -f -t rootfs/src \
     src/tcc_cc.sl \
     src/kaem.c \
     src/catm.c \
-    src/match.c \
-    src/sha256sum.c \
     src/bootstrappable.c \
+    src/match.c \
+    src/mkdir.c \
+    src/cp.c \
+    src/chmod.c \
+    src/rm.c \
+    src/sha256sum.c \
     src/stack_c_interpreter.c
 
 # Copy GNU mes sources
