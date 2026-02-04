@@ -248,6 +248,29 @@ void get_token(void)
 					cur_char = '\r';
 				else if (cur_char == 't')
 					cur_char = '\t';
+				else if (cur_char == 'x')
+				{
+					read_char();
+					int v = 0;
+					if ('0' <= cur_char && cur_char <= '9')
+						v = 16 * (cur_char - '0');
+					else if ('A' <= cur_char && cur_char <= 'F')
+						v = 16 * (cur_char - 'A' + 10);
+					else if ('a' <= cur_char && cur_char <= 'f')
+						v = 16 * (cur_char - 'a' + 10);
+					else
+						fprintf(ferr, "ERROR %d.%d: Illegal character '%c' after \\x\n", cur_line, cur_column, cur_char);
+					read_char();
+					if ('0' <= cur_char && cur_char <= '9')
+						v += cur_char - '0';
+					else if ('A' <= cur_char && cur_char <= 'F')
+						v += cur_char - 'A' + 10;
+					else if ('a' <= cur_char && cur_char <= 'f')
+						v += cur_char - 'a' + 10;
+					else
+						fprintf(ferr, "ERROR %d.%d: Illegal character '%c' after \\x\n", cur_line, cur_column, cur_char);
+					cur_char = v;
+				}
 				token[token_len++] = cur_char;
 			}
 			else

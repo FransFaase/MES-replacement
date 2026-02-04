@@ -596,6 +596,31 @@ char tokenizer_parse_char_literal(tokenizer_p tokenizer)
 	{
 		ch = '\v';
 	}
+	else if (ch == 'x')
+	{
+		int v = 0;
+		ch = it->ch;
+		if ('0' <= ch && ch <= '9')
+			v = 16 * (ch - '0');
+		else if ('A' <= ch && ch <= 'F')
+			v = 16 * (ch - 'A' + 10);
+		else if ('a' <= ch && ch <= 'f')
+			v = 16 * (ch - 'a' + 10);
+		else
+			printf("%s:%d.%d Warning: Invalid character '%c' after \\x\n", it->filename, (int)it->line, (int)it->column, ch);
+		it_next(it);
+		ch = it->ch;
+		if ('0' <= ch && ch <= '9')
+			v += ch - '0';
+		else if ('A' <= ch && ch <= 'F')
+			v += ch - 'A' + 10;
+		else if ('a' <= ch && ch <= 'f')
+			v += ch - 'a' + 10;
+		else
+			printf("%s:%d.%d Warning: Invalid character '%c' after \\x\n", it->filename, (int)it->line, (int)it->column, ch);
+		ch = v;
+		it_next(it);
+	}
 	else if (ch == '\'' || ch == '"' || ch == '\\')
 		;
 	else
@@ -4354,7 +4379,7 @@ void gen_expr(expr_p expr, bool as_value)
 			fprintf(fcode, "\"");
 			for (int i = 0; i < expr->int_val; i++)
 			{
-				const char ch = expr->str_val[i];
+				const unsigned char ch = expr->str_val[i];
 				if (ch == '\0')
 					fprintf(fcode, "\\0");
 				else if (ch == '\n')
@@ -4365,8 +4390,8 @@ void gen_expr(expr_p expr, bool as_value)
 					fprintf(fcode, "\\t");
 				else if (ch == '\"' || ch == '\\')
 					fprintf(fcode, "\\%c", ch);
-				else if (ch < ' ')
-					fprintf(fcode, "\\%3o", ch);
+				else if (ch < ' ' || ch >= 127)
+					fprintf(fcode, "\\x%x%x", (ch >> 4) & 0xF, ch & 0xF);
 				else
 					fprintf(fcode, "%c", ch);
 			}
