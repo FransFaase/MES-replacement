@@ -4161,6 +4161,11 @@ bool parse_file(const char *input_filename, bool only_preprocess)
 			end_include_prefix = s + 1;
 
 	file_iterator_p input_it = new_file_iterator(input_filename);
+	if (input_it->base.ch == '\0')
+	{
+		printf("ERROR: Could not open file %s or it was empty\n", input_filename);
+		return FALSE;
+	}
 	line_splice_iterator_p splice_it = new_line_splice_iterator(&input_it->base);
 	comment_strip_iterator_p comment_it = new_comment_strip_iterator(&splice_it->base);
 	include_iterator_p include_it = new_include_iterator(&comment_it->base);
