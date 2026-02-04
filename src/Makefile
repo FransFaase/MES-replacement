@@ -8,7 +8,9 @@ all : hex2 M1 blood-elf tcc_cc stack_c run_unittest_s stack_c_s stack_c_diff tcc
 	  catm_s \
 	  match_s \
 	  mkdir_s cp_s chmod_s rm_s \
-	  sha256sum_s
+	  untar_s ungz_s unxz_s unbz2_s \
+	  configurator_s script-generator_s \
+      sha256sum_s
  
 
 % : %.c

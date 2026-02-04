@@ -29,7 +29,7 @@
 /* This is for unlink() ; this may need to be changed for some platforms. */
 #include <unistd.h>  /* For unlink() */
 #include <stdlib.h>
-#include "M2libc/bootstrappable.h"
+#include "bootstrappable.c"
 
 void delete_dir(char* name)
 {

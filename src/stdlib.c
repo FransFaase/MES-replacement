@@ -831,6 +831,57 @@ int chmod(const char *filename, int mode)
 	return sys_int80(15, filename, mode, 0);
 }
 
+int symlink(const char *target, const char *linkpath)
+{
+	return sys_int80(83, target, linkpath, 0);
+}
+
+struct utsname {
+    char sysname[];    /* Operating system name (e.g., "Linux") */
+    char nodename[];   /* Name within communications network
+                          to which the node is attached, if any */
+    char release[];    /* Operating system release
+                          (e.g., "2.6.28") */
+    char version[];    /* Operating system version */
+    char machine[];    /* Hardware type identifier */
+#ifdef _GNU_SOURCE
+    char domainname[]; /* NIS or YP domain name */
+#endif
+};
+
+int uname(struct utsname *buf)
+{
+	return sys_int80(109, buf, 0, 0);
+}
+
+int execve(char *program, char **argv, char **env)
+{
+	return sys_int80(11, program, argv, env);
+}
+
+char *fgets(char *str, int len, FILE *f)
+{
+	if (feof(f))
+		return NULL;
+	
+	for (int i = 0; i < len - 1; i++)
+	{
+		int ch = fgetc(f);
+		if (ch < 0)
+		{
+			str[i] = '\0';
+			break;
+		}
+		str[i] = ch;
+		if (ch == '\n')
+		{
+			str[i+1] = '\0';
+			break;
+		}
+	}
+	return str;
+}
+
 
 #define __linux__
 
