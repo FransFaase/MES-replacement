@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2023 Samuel Tyler <samuel@samuelt.me>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# This file follows a very simple, human readable and machine parseable syntax.
+# Each line is in the format:
+# <directive>: <arguments> <predicate>
+#
+# The supported directives and arguments are:
+# - build; simply builds a particular package.
+#   eg, build: make-3.82
+# - improve; runs a script that makes a distinct and logical improvement to the system.
+#   eg, improve: use_fhs
+# - define: define a variable based upon other variables
+#   eg, define: BUILD_FIWIX = KERNEL_BOOTSTRAP == True || BUILD_KERNELS == True
+# - jump: jump (usually) to a new kernel, executes a script with that name
+#   eg, jump: fiwix
+# - uninstall; removes a package or filenames
+#   eg, uninstall: perl-5.6.2
+#   eg, uninstall: /usr/bin/lex /usr/bin/flex
+#
+# The following directives have special significance:
+# - build directives beginning with "bash" (as well as jumps) trigger the generation of
+#   a new script
+# - the first improve directive containing "network" is used by generator.py to deduce
+#   what source files need to be downloaded in advance (files referenced after that will
+#   be downloaded during bootstrap, unless --external-sources is given)
+#
+# Other features:
+# - predicate; based on variables set in bootstrap.cfg, require for something to execute
+#   must be enclosed in brackets with spaces padded
+#   eg, build: fiwix-1.5.0-lb1 ( BUILD_FIWIX == True )
+
+build: checksum-transcriber-1.0
+build: simple-patch-1.0
+build: tcc-0.9.26
+build: tcc-0.9.27
+

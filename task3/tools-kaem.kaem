@@ -1,0 +1,72 @@
+#! /usr/bin/env bash
+
+set +x
+
+./usr/bin/tcc_cc -o ./tmp/catm.sl ./src/stdlib.c ./src/catm.c
+./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./tmp/catm.sl -o tmp/catm.M1
+./usr/bin/blood-elf --file tmp/catm.M1 --little-endian --output ./tmp/catm.blood_elf
+./usr/bin/M1 ./tmp/catm.M1 -o ./tmp/catm.macro
+./usr/bin/hex2 -o ./usr/bin/catm ./x86/ELF-x86-debug.hex2 ./tmp/catm.macro ./tmp/catm.blood_elf
+
+./usr/bin/tcc_cc -o ./tmp/match.sl ./src/stdlib.c ./src/match.c
+./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./tmp/match.sl -o tmp/match.M1
+./usr/bin/blood-elf --file tmp/match.M1 --little-endian --output ./tmp/match.blood_elf
+./usr/bin/M1 ./tmp/match.M1 -o ./tmp/match.macro
+./usr/bin/hex2 -o ./usr/bin/match ./x86/ELF-x86-debug.hex2 ./tmp/match.macro ./tmp/match.blood_elf
+
+./usr/bin/tcc_cc -o ./tmp/sha256sum.sl ./src/stdlib.c ./src/sha256sum.c
+./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./tmp/sha256sum.sl -o tmp/sha256sum.M1
+./usr/bin/blood-elf --file tmp/sha256sum.M1 --little-endian --output ./tmp/sha256sum.blood_elf
+./usr/bin/M1 ./tmp/sha256sum.M1 -o ./tmp/sha256sum.macro
+./usr/bin/hex2 -o ./usr/bin/sha256sum ./x86/ELF-x86-debug.hex2 ./tmp/sha256sum.macro ./tmp/sha256sum.blood_elf
+
+./usr/bin/tcc_cc -o ./tmp/mkdir.sl ./src/stdlib.c ./src/mkdir.c
+./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./tmp/mkdir.sl -o tmp/mkdir.M1
+./usr/bin/blood-elf --file tmp/mkdir.M1 --little-endian --output ./tmp/mkdir.blood_elf
+./usr/bin/M1 ./tmp/mkdir.M1 -o ./tmp/mkdir.macro
+./usr/bin/hex2 -o ./usr/bin/mkdir ./x86/ELF-x86-debug.hex2 ./tmp/mkdir.macro ./tmp/mkdir.blood_elf
+
+./usr/bin/tcc_cc -o ./tmp/cp.sl ./src/stdlib.c ./src/cp.c
+./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./tmp/cp.sl -o tmp/cp.M1
+./usr/bin/blood-elf --file tmp/cp.M1 --little-endian --output ./tmp/cp.blood_elf
+./usr/bin/M1 ./tmp/cp.M1 -o ./tmp/cp.macro
+./usr/bin/hex2 -o ./usr/bin/cp ./x86/ELF-x86-debug.hex2 ./tmp/cp.macro ./tmp/cp.blood_elf
+
+./usr/bin/tcc_cc -o ./tmp/chmod.sl ./src/stdlib.c ./src/chmod.c
+./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./tmp/chmod.sl -o tmp/chmod.M1
+./usr/bin/blood-elf --file tmp/chmod.M1 --little-endian --output ./tmp/chmod.blood_elf
+./usr/bin/M1 ./tmp/chmod.M1 -o ./tmp/chmod.macro
+./usr/bin/hex2 -o ./usr/bin/chmod ./x86/ELF-x86-debug.hex2 ./tmp/chmod.macro ./tmp/chmod.blood_elf
+
+./usr/bin/tcc_cc -o ./tmp/rm.sl ./src/stdlib.c ./src/rm.c
+./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./tmp/rm.sl -o tmp/rm.M1
+./usr/bin/blood-elf --file tmp/rm.M1 --little-endian --output ./tmp/rm.blood_elf
+./usr/bin/M1 ./tmp/rm.M1 -o ./tmp/rm.macro
+./usr/bin/hex2 -o ./usr/bin/rm ./x86/ELF-x86-debug.hex2 ./tmp/rm.macro ./tmp/rm.blood_elf
+
+./usr/bin/tcc_cc -o ./tmp/untar.sl ./src/stdlib.c ./src/untar.c
+./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./tmp/untar.sl -o tmp/untar.M1
+./usr/bin/blood-elf --file tmp/untar.M1 --little-endian --output ./tmp/untar.blood_elf
+./usr/bin/M1 ./tmp/untar.M1 -o ./tmp/untar.macro
+./usr/bin/hex2 -o ./usr/bin/untar ./x86/ELF-x86-debug.hex2 ./tmp/untar.macro ./tmp/untar.blood_elf
+
+./usr/bin/tcc_cc -o ./tmp/ungz.sl ./src/stdlib.c ./src/ungz.c
+./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./tmp/ungz.sl -o tmp/ungz.M1
+./usr/bin/blood-elf --file tmp/ungz.M1 --little-endian --output ./tmp/ungz.blood_elf
+./usr/bin/M1 ./tmp/ungz.M1 -o ./tmp/ungz.macro
+./usr/bin/hex2 -o ./usr/bin/ungz ./x86/ELF-x86-debug.hex2 ./tmp/ungz.macro ./tmp/ungz.blood_elf
+
+./usr/bin/tcc_cc -o ./tmp/unxz.sl ./src/stdlib.c ./src/unxz.c
+./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./tmp/unxz.sl -o tmp/unxz.M1
+./usr/bin/blood-elf --file tmp/unxz.M1 --little-endian --output ./tmp/unxz.blood_elf
+./usr/bin/M1 ./tmp/unxz.M1 -o ./tmp/unxz.macro
+./usr/bin/hex2 -o ./usr/bin/unxz ./x86/ELF-x86-debug.hex2 ./tmp/unxz.macro ./tmp/unxz.blood_elf
+
+./usr/bin/tcc_cc -o ./tmp/unbz2.sl ./src/stdlib.c ./src/unbz2.c
+./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./tmp/unbz2.sl -o tmp/unbz2.M1
+./usr/bin/blood-elf --file tmp/unbz2.M1 --little-endian --output ./tmp/unbz2.blood_elf
+./usr/bin/M1 ./tmp/unbz2.M1 -o ./tmp/unbz2.macro
+./usr/bin/hex2 -o ./usr/bin/unbz2 ./x86/ELF-x86-debug.hex2 ./tmp/unbz2.macro ./tmp/unbz2.blood_elf
+
+
+

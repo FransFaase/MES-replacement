@@ -1,0 +1,41 @@
+#!/bin/sh
+
+# SPDX-FileCopyrightText: 2021 Andrius Štikonas <andrius@stikonas.eu>
+# SPDX-FileCopyrightText: 2021 Paul Dersey <pdersey@gmail.com>
+# SPDX-FileCopyrightText: 2020-2022 Samuel Tyler <samuel@samuelt.me>
+# SPDX-FileCopyrightText: 2022 Dor Askayo <dor.askayo@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+set -ex
+
+# mes envars
+MES_PKG=mes-0.27.1
+
+tcc_cc -o /tmp/configurator.sl /src/stdlib.c /src/configurator.c
+stack_c -i /x86/stack_c_intro.M1 /tmp/configurator.sl -o tmp/configurator.M1
+blood-elf --file tmp/configurator.M1 --little-endian --output /tmp/configurator.blood_elf
+M1 /tmp/configurator.M1 -o /tmp/configurator.macro
+hex2 -o /tmp/configurator /x86/ELF-x86-debug.hex2 /tmp/configurator.macro /tmp/configurator.blood_elf
+# Checksums
+if match x${UPDATE_CHECKSUMS} xTrue; then
+    sha256sum -o configurator.${ARCH}.checksums /tmp/configurator
+else
+    sha256sum -c configurator.${ARCH}.checksums
+fi
+/tmp/configurator /steps/configurator
+
+tcc_cc -o /tmp/script-generator.sl /src/stdlib.c /src/script-generator.c
+stack_c -i /x86/stack_c_intro.M1 /tmp/script-generator.sl -o tmp/script-generator.M1
+blood-elf --file tmp/script-generator.M1 --little-endian --output /tmp/script-generator.blood_elf
+M1 /tmp/script-generator.M1 -o /tmp/script-generator.macro
+hex2 -o /tmp/script-generator /x86/ELF-x86-debug.hex2 /tmp/script-generator.macro /tmp/script-generator.blood_elf
+# Checksums
+if match x${UPDATE_CHECKSUMS} xTrue; then
+    sha256sum -o script-generator.${ARCH}.checksums /tmp/script-generator
+else
+    sha256sum -c script-generator.${ARCH}.checksums
+fi
+/tmp/script-generator /steps/manifest
+
+kaem --file /steps/0.sh

@@ -29,8 +29,9 @@
 
 ./bootstrap-seeds/POSIX/x86/kaem-optional-seed ./x86/tools-seed-kaem.kaem
 ./x86/artifact/kaem-0 ./x86/tools-mini-kaem.kaem
+./usr/bin/kaem --file ./x86/tools-kaem.kaem
 
 #######################################
 # Run remaining phases with full kaem #
 #######################################
-./usr/bin/kaem --verbose --strict --file ./x86/kaem.run
+./usr/bin/kaem --verbose --strict --file ./x86/after.kaem

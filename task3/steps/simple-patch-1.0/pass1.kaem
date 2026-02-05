@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# SPDX-FileCopyrightText: 2023 Samuel Tyler <samuel@samuelt.me>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+set -ex
+
+# Build & install
+tcc_cc -o /tmp/simple-patch.sl /src/stdlib.c src/simple-patch.c
+stack_c -i /${ARCH}/stack_c_intro.M1 /tmp/simple-patch.sl -o /tmp/simple-patch.M1
+blood-elf --file /tmp/simple-patch.M1 --little-endian --output /tmp/simple-patch.blood_elf
+M1 /tmp/simple-patch.M1 -o /tmp/simple-patch.macro
+hex2 -o ${BINDIR}/simple-patch /${ARCH}/ELF-${ARCH}-debug.hex2 /tmp/simple-patch.macro /tmp/simple-patch.blood_elf
+
+# Checksums
+if match x${UPDATE_CHECKSUMS} xTrue; then
+    sha256sum -o ${pkg}.${ARCH}.checksums \
+        /usr/bin/simple-patch
+
+    cp ${pkg}.${ARCH}.checksums ${SRCDIR}
+else
+    sha256sum -c ${pkg}.${ARCH}.checksums
+fi

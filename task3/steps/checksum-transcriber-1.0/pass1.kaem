@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# SPDX-FileCopyrightText: 2023 Samuel Tyler <samuel@samuelt.me>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+set -ex
+
+# Build & install
+tcc_cc -o /tmp/checksum-transcriber.sl /src/stdlib.c src/checksum-transcriber.c
+stack_c -i /${ARCH}/stack_c_intro.M1 /tmp/checksum-transcriber.sl -o /tmp/checksum-transcriber.M1
+blood-elf --file /tmp/checksum-transcriber.M1 --little-endian --output /tmp/checksum-transcriber.blood_elf
+M1 /tmp/checksum-transcriber.M1 -o /tmp/checksum-transcriber.macro
+hex2 -o ${BINDIR}/checksum-transcriber /${ARCH}/ELF-${ARCH}-debug.hex2 /tmp/checksum-transcriber.macro /tmp/checksum-transcriber.blood_elf
+
+# Checksums
+if match x${UPDATE_CHECKSUMS} xTrue; then
+    sha256sum -o ${pkg}.${ARCH}.checksums \
+        /usr/bin/checksum-transcriber
+
+    cp ${pkg}.${ARCH}.checksums ${SRCDIR}
+else
+    sha256sum -c ${pkg}.${ARCH}.checksums
+fi

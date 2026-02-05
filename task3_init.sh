@@ -21,7 +21,8 @@ mkdir -p rootfs/x86
 mkdir -p rootfs/x86/artifact
 cp -f task3/tools-seed-kaem.kaem rootfs/x86
 cp -f task3/tools-mini-kaem.kaem rootfs/x86
-cp -f task3/kaem.run rootfs/x86
+cp -f task3/tools-kaem.kaem rootfs/x86
+cp -f task3/after.kaem rootfs/x86
 cp -f -t rootfs/x86 \
     src/hex0_s.hex0 \
     src/kaem-minimal_s.hex0 \
@@ -48,35 +49,46 @@ cp -f -t rootfs/src \
     src/cp.c \
     src/chmod.c \
     src/rm.c \
+    src/untar.c \
+    src/ungz.c \
+    src/unxz.c \
+    src/unbz2.c \
     src/sha256sum.c \
+    src/configurator.c \
+    src/script-generator.c \
     src/stack_c_interpreter.c
 
+cp -f task3/seed.kaem rootfs
+cp -f task3/configurator.x86.checksums rootfs
+cp -f task3/script-generator.x86.checksums rootfs
 
-mkdir -p rootfs/x86/artifact
+cp -r task3/steps rootfs
+mkdir rootfs/external
+cp -r task3/distfiles rootfs/external
 
-mkdir -p rootfs/mes
-cp -rf -t rootfs/mes mes/*
-mkdir -p rootfs/usr/include/mes
-cp -rf -t rootfs/usr/include/mes mes/include/*
+#mkdir -p rootfs/mes
+#cp -rf -t rootfs/mes mes/*
+#mkdir -p rootfs/usr/include/mes
+#cp -rf -t rootfs/usr/include/mes mes/include/*
 
-mkdir -p rootfs/steps
-mkdir -p rootfs/steps/tcc-0.9.26/
-mkdir -p rootfs/steps/tcc-0.9.26/build
-cp -rf -t rootfs/steps/tcc-0.9.26/build tcc_sources/tcc-0.9.26-1147-gee75a10c
-patch rootfs/steps/tcc-0.9.26/build/tcc-0.9.26-1147-gee75a10c/tcctools.c task3/tcctools_c.patch 
-cp task1/tcc-0.9.26.x86.checksums rootfs/steps/tcc-0.9.26
+#mkdir -p rootfs/steps
+#mkdir -p rootfs/steps/tcc-0.9.26/
+#mkdir -p rootfs/steps/tcc-0.9.26/build
+#cp -rf -t rootfs/steps/tcc-0.9.26/build tcc_sources/tcc-0.9.26-1147-gee75a10c
+#patch rootfs/steps/tcc-0.9.26/build/tcc-0.9.26-1147-gee75a10c/tcctools.c task3/tcctools_c.patch 
+#cp task1/tcc-0.9.26.x86.checksums rootfs/steps/tcc-0.9.26
 
-MES_PKG=rootfs/mes
-TCC_PKG=rootfs/tcc
-MES_ARCH=x86
+#MES_PKG=rootfs/mes
+#TCC_PKG=rootfs/tcc
+#MES_ARCH=x86
 
 # To replace a mkdir statement in kaem.run
-mkdir -p rootfs/usr/lib/mes/tcc
+#mkdir -p rootfs/usr/lib/mes/tcc
 
 # Fill arch directory with architecture specific includes
 
-mkdir -p ${MES_PKG}/include/arch
-cp -f ${MES_PKG}/include/linux/${MES_ARCH}/kernel-stat.h ${MES_PKG}/include/arch/kernel-stat.h
-cp -f ${MES_PKG}/include/linux/${MES_ARCH}/signal.h ${MES_PKG}/include/arch/signal.h
-cp -f ${MES_PKG}/include/linux/${MES_ARCH}/syscall.h ${MES_PKG}/include/arch/syscall.h
+#mkdir -p ${MES_PKG}/include/arch
+#cp -f ${MES_PKG}/include/linux/${MES_ARCH}/kernel-stat.h ${MES_PKG}/include/arch/kernel-stat.h
+#cp -f ${MES_PKG}/include/linux/${MES_ARCH}/signal.h ${MES_PKG}/include/arch/signal.h
+#cp -f ${MES_PKG}/include/linux/${MES_ARCH}/syscall.h ${MES_PKG}/include/arch/syscall.h
 
