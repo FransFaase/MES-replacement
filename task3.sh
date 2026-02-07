@@ -5,6 +5,7 @@ set -x
 cp -f task3/kaem.x86 rootfs/kaem.x86
 cp -f task3/tools-seed-kaem.kaem rootfs/x86
 cp -f task3/tools-mini-kaem.kaem rootfs/x86
+cp -f task3/check-tools.kaem rootfs/x86
 cp -f task3/tools-kaem.kaem rootfs/x86
 cp -f task3/after.kaem rootfs/x86
 cp -f task3/seed.kaem rootfs

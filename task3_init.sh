@@ -2,14 +2,17 @@
 
 set -x
 
+# Delete existing rootfs
 rm -rf rootfs
 
+# Create minimal directories
 mkdir -p rootfs
 mkdir -p rootfs/usr
 mkdir -p rootfs/usr/bin
 mkdir -p rootfs/usr/lib
 mkdir -p rootfs/tmp
 
+# Create and fill bootstrap-seeds directory
 mkdir -p rootfs/bootstrap-seeds
 mkdir -p rootfs/bootstrap-seeds/POSIX
 mkdir -p rootfs/bootstrap-seeds/POSIX/x86
@@ -17,13 +20,15 @@ cp -f src/kaem-minimal_s rootfs/bootstrap-seeds/POSIX/x86/kaem-optional-seed
 cp -f src/hex0_s rootfs/bootstrap-seeds/POSIX/x86/hex0-seed
 cp -f task3/kaem.x86 rootfs/kaem.x86
 
+# Create and fill x86 specific directory for source files
 mkdir -p rootfs/x86
 mkdir -p rootfs/x86/artifact
-cp -f task3/tools-seed-kaem.kaem rootfs/x86
-cp -f task3/tools-mini-kaem.kaem rootfs/x86
-cp -f task3/tools-kaem.kaem rootfs/x86
-cp -f task3/after.kaem rootfs/x86
 cp -f -t rootfs/x86 \
+    task3/tools-seed-kaem.kaem \
+    task3/tools-mini-kaem.kaem \
+    task3/check-tools.kaem \
+    task3/tools-kaem.kaem \
+    task3/after.kaem \
     src/hex0_s.hex0 \
     src/kaem-minimal_s.hex0 \
     src/hex2_s.hex0 \
@@ -33,10 +38,10 @@ cp -f -t rootfs/x86 \
     src/M1_s.blood_elf \
     src/stack_c_s.M1 \
     src/stack_c_intro.M1 \
-    src/tcc_cc.sl
+    src/tcc_cc.sl \
+    M2libc/x86/ELF-x86-debug.hex2
 
-cp M2libc/x86/ELF-x86-debug.hex2 rootfs/x86
-
+# Create and fill directory for generic source files
 mkdir -p rootfs/src
 cp -f -t rootfs/src \
     src/stdlib.c \
@@ -58,6 +63,17 @@ cp -f -t rootfs/src \
     src/script-generator.c \
     src/stack_c_interpreter.c
 
+# Also add source files for checking
+cp -f -t rootfs/src \
+    src/equal.c \
+    src/hex0.c \
+    src/hex2.c \
+    src/blood-elf.c \
+    src/M1.c \
+    src/stack_c.c \
+    src/tcc_cc.c \
+    src/kaem-minimal.c
+
 cp -f task3/seed.kaem rootfs
 cp -f task3/configurator.x86.checksums rootfs
 cp -f task3/script-generator.x86.checksums rootfs
@@ -65,30 +81,4 @@ cp -f task3/script-generator.x86.checksums rootfs
 cp -r task3/steps rootfs
 mkdir rootfs/external
 cp -r task3/distfiles rootfs/external
-
-#mkdir -p rootfs/mes
-#cp -rf -t rootfs/mes mes/*
-#mkdir -p rootfs/usr/include/mes
-#cp -rf -t rootfs/usr/include/mes mes/include/*
-
-#mkdir -p rootfs/steps
-#mkdir -p rootfs/steps/tcc-0.9.26/
-#mkdir -p rootfs/steps/tcc-0.9.26/build
-#cp -rf -t rootfs/steps/tcc-0.9.26/build tcc_sources/tcc-0.9.26-1147-gee75a10c
-#patch rootfs/steps/tcc-0.9.26/build/tcc-0.9.26-1147-gee75a10c/tcctools.c task3/tcctools_c.patch 
-#cp task1/tcc-0.9.26.x86.checksums rootfs/steps/tcc-0.9.26
-
-#MES_PKG=rootfs/mes
-#TCC_PKG=rootfs/tcc
-#MES_ARCH=x86
-
-# To replace a mkdir statement in kaem.run
-#mkdir -p rootfs/usr/lib/mes/tcc
-
-# Fill arch directory with architecture specific includes
-
-#mkdir -p ${MES_PKG}/include/arch
-#cp -f ${MES_PKG}/include/linux/${MES_ARCH}/kernel-stat.h ${MES_PKG}/include/arch/kernel-stat.h
-#cp -f ${MES_PKG}/include/linux/${MES_ARCH}/signal.h ${MES_PKG}/include/arch/signal.h
-#cp -f ${MES_PKG}/include/linux/${MES_ARCH}/syscall.h ${MES_PKG}/include/arch/syscall.h
 

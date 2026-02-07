@@ -10,7 +10,8 @@ all : hex2 M1 blood-elf tcc_cc stack_c run_unittest_s stack_c_s stack_c_diff tcc
 	  mkdir_s cp_s chmod_s rm_s \
 	  untar_s ungz_s unxz_s unbz2_s \
 	  configurator_s script-generator_s \
-      sha256sum_s
+      sha256sum_s \
+	  equal_s
  
 
 % : %.c
@@ -23,6 +24,9 @@ hex2.sl : hex2.c tcc_cc
 	./tcc_cc -o $@ $<
 
 kaem-minimal.sl : kaem-minimal.c tcc_cc
+	./tcc_cc -o $@ $<
+
+equal.sl : equal.c tcc_cc
 	./tcc_cc -o $@ $<
 
 %.sl : %.c tcc_cc stdlib.c
