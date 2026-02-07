@@ -818,7 +818,7 @@ int main(int argc, char *argv[])
 				else if (idents[i].type == 'F')
 					fprintf(fout, "\tpush_eax              # %s (function)\n\tmov_eax, &f_%s\n", token, token);
 				else if (idents[i].type == 'C')
-					fprintf(fout, "\tpush_eax              # %d (const %s)\n\tmov_eax, %%%u\n", idents[i].value, token, idents[i].value);
+					fprintf(fout, "\tpush_eax              # %u (const %s)\n\tmov_eax, %%%u\n", idents[i].value, token, idents[i].value);
 				else if (idents[i].type == 'L')
 					fprintf(fout, "\tpush_eax              # %s (local)\n\tlea_eax,[ebp+DWORD] %%%d\n", token, 4 * idents[i].pos);
 				else if (idents[i].type == 'S')
@@ -832,7 +832,7 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == '0')
 		{
-			fprintf(fout, "\tpush_eax              # %d\n\tmov_eax, %%%u\n", int_value, int_value);
+			fprintf(fout, "\tpush_eax              # %u\n\tmov_eax, %%%u\n", int_value, int_value);
 		}
 		else if (sym == '"')
 		{
