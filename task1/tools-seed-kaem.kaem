@@ -1,0 +1,5 @@
+#! /usr/bin/env bash
+
+./bootstrap-seeds/POSIX/x86/hex0-seed ./x86/hex0_s.hex0 ./usr/bin/hex0
+
+./usr/bin/hex0 ./x86/kaem-minimal_s.hex0 ./x86/artifact/kaem-0

@@ -6,27 +6,21 @@ set -x
 rm -rf rootfs
 
 # Initialize rootfs as a change root environment
-mkdir -p rootfs
-mkdir -p rootfs/usr
 mkdir -p rootfs/usr/bin
 mkdir -p rootfs/usr/lib
 mkdir -p rootfs/tmp
 
 # Copy the bootstrap-seeds
-mkdir -p rootfs/bootstrap-seeds
-mkdir -p rootfs/bootstrap-seeds/POSIX
 mkdir -p rootfs/bootstrap-seeds/POSIX/x86
 cp -f src/kaem-minimal_s rootfs/bootstrap-seeds/POSIX/x86/kaem-optional-seed
 cp -f src/hex0_s rootfs/bootstrap-seeds/POSIX/x86/hex0-seed
-cp -f task3/kaem.x86 rootfs/kaem.x86
 
 # Copy kaem scripts for stage0
-mkdir -p rootfs/x86
 mkdir -p rootfs/x86/artifact
-cp -f task3/kaem.x86 rootfs/kaem.x86
-cp -f task3/tools-seed-kaem.kaem rootfs/x86
-cp -f task3/tools-mini-kaem.kaem rootfs/x86
-cp -f task3/kaem.run rootfs/x86
+cp -f task1/kaem.x86 rootfs/kaem.x86
+cp -f task1/tools-seed-kaem.kaem rootfs/x86
+cp -f task1/tools-mini-kaem.kaem rootfs/x86
+cp -f task1/kaem.run rootfs/x86
 
 # Copy x86 dependent sources 
 cp -f -t rootfs/x86 \
@@ -69,7 +63,7 @@ mkdir -p rootfs/steps
 mkdir -p rootfs/steps/tcc-0.9.26/
 mkdir -p rootfs/steps/tcc-0.9.26/build
 cp -rf -t rootfs/steps/tcc-0.9.26/build tcc_sources/tcc-0.9.26-1147-gee75a10c
-patch rootfs/steps/tcc-0.9.26/build/tcc-0.9.26-1147-gee75a10c/tcctools.c task3/tcctools_c.patch 
+patch rootfs/steps/tcc-0.9.26/build/tcc-0.9.26-1147-gee75a10c/tcctools.c task1/tcctools_c.patch 
 cp task1/tcc-0.9.26.x86.checksums rootfs/steps/tcc-0.9.26
 
 # Create some additional directories
