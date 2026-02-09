@@ -9,7 +9,6 @@ rm -rf rootfs
 mkdir -p rootfs
 mkdir -p rootfs/usr
 mkdir -p rootfs/usr/bin
-mkdir -p rootfs/usr/lib
 mkdir -p rootfs/tmp
 
 # Create and fill bootstrap-seeds directory
@@ -38,7 +37,6 @@ cp -f -t rootfs/x86 \
     src/M1_s.blood_elf \
     src/stack_c_s.M1 \
     src/stack_c_intro.M1 \
-    src/tcc_cc.sl \
     M2libc/x86/ELF-x86-debug.hex2
 
 # Create and fill directory for generic source files

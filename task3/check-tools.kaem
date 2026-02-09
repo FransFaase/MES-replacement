@@ -13,7 +13,7 @@ cd src
 
 # Check tcc_cc.sl
 /usr/bin/tcc_cc -o /tmp/tcc_cc.sl stdlib.c tcc_cc.c
-/usr/bin/equal /x86/tcc_cc.sl /tmp/tcc_cc.sl
+/usr/bin/equal /src/tcc_cc.sl /tmp/tcc_cc.sl
 
 # Check stack_c_s.M1
 /usr/bin/tcc_cc -o /tmp/stack_c.sl stdlib.c stack_c.c
