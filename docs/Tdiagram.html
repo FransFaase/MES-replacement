@@ -1,0 +1,47 @@
+<html><head>
+<title>T-diagram</title>
+</head><body bgcolor="#E0E0E0">
+
+<h1>MES-replacement: T-diagram</h1>
+
+The <A HREF="https://en.wikipedia.org/wiki/Tombstone_diagram">T-diagram</A>
+below gives all the steps that are taken to arrive at <tt>tcc-boot0</tt>
+executable that is similar to the one in the <A HREF="https://github.com/fosslinux/live-bootstrap"
+>fosslinux/live-bootstrap</A> project for this project, which does not rely on
+the GNU Mes compiler. (The header files and the source for a standard library
+that are part of the GNU Mes compiler, are used.)
+<p>
+This T-diageam is generated based on data that is generated with the
+<A HREF="https://github.com/FransFaase/MES-replacement/blob/main/scan_trace.cpp"
+><TT>scan_trace.cpp</TT></A>, which parses the <TT>trace.txt</TT> file that is produced by
+running the <A HREF="https://github.com/FransFaase/MES-replacement/blob/main/task3.sh"
+><TT>task3.sh</TT></A> Bash script.
+<P>
+You can use the mouse to pan and zoom within the diagram shown below. Clicking
+on a process (a T-symbol) or a file name, will show additional information
+including sources, if available. If this information contains links to other
+processes and/or files, clicking on those link will show the element at the
+center of the diagram with a yellow background.
+<P>
+
+<canvas id="canvas" width="600" height="600">
+This text is displayed if your browser does not support HTML5 Canvas.
+</canvas>
+<DIV ID="details"></DIV>
+
+
+<SCRIPT LANGUAGE="JavaScript" SRC="TDiagram.js"></SCRIPT>
+<SCRIPT LANGUAGE="JavaScript" SRC="data.js"></SCRIPT>
+
+<script><!--
+var diagram = new TDiagram(document.getElementById("canvas"), data, true)
+diagram.dy = 600
+diagram.sf *= 0.5
+diagram.details = document.getElementById("details")
+diagram.diagram_name = "diagram"
+diagram.draw()
+
+window.addEventListener("resize", function(event) { diagram.resize(event); })
+
+//--></script>
+</body></html>
