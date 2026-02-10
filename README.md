@@ -87,10 +87,24 @@ These also include compiling some utilities, such as ungz and untar,
 from C sources that are needed, for example, to unpack the sources
 of the Tiny C Compiler, such that they can be compiled.
 
-The following utilities have been compiled successful:
-- `kaem-minimal`
-- `kaem`
+The following utilities, taken from the live-bootstrap sources, have
+been compiled successful (with small modifications and/or combining
+sources files into a single file):
+- `blood-elf`
 - `catm`
+- `chmod`
+- `configurator`
+- `cp`
+- `kaem`
+- `match`
+- `mkdir`
+- `rm`
+- `script-generator`
+- `sha256sum`
+- `unbz2`
+- `ungz`
+- `untar`
+- `unxz`
 
 ## Task 3: New kaem scripts
 
@@ -102,24 +116,61 @@ The shell script `task3_init.sh` creates the `rootfs` directory with
 additional subdirectories and files, such that the script `task3.sh`
 can execute it and use it as a change root environment. In the `task3`
 directory the various kaem scripts are found that are executed.
-After execution the `rootfs/usr/bin` directory contains the `tcc-boot2`
+After execution the `rootfs/usr/bin` directory contains the `tcc`
 executable, which is the same as the `tcc` executable build by the
-live-bootstrap project (in a change root environment).
+live-bootstrap project (in a change root environment) from tcc 0.9.27,
+which is build with the `tcc-0.9.26` executable. That they are the same
+is based on the executables having the same SHA256 hash.
+
+The kaem scripts are basically following the same structure as that
+found in live-bootstrap. The `script-generator` is called on a version
+of the `manifest` file that only contains the steps needed to compile
+the tcc 0.9.27 sources.
 
 ## Task 4: versions for hex0 and M1
 
-Write a C version for M1 that retains the comments to facilitate
-the review of the generated intermediate files. Write a C version
-for hex0, that might be a bit longer than the current 'minimal' hex0,
-but might be more easily to review.
+For this task a number of C programs have been developed which are
+compiled with the help op `tcc_cc`, (some using the `stdlib.c` file
+as a replacement for the standard library), `stack_c`, `blood-elf`,
+`M1` and `hex2`.
 
-C files for alternatives for `hex0`, `hex2`, `M1`, and `blood-elf`
-can be found in the `src` directory. The sources for `bloof-elf` are
-based on those from live-bootstrap with some small modifications such
-that they can be compiled with `tcc_cc`. The others are new with some
-modifications. When `hex2` is called to output a file with the `hex0`
-extension it produces a `hex0` file with comments based on the output
-of `stack_c` containing references to the C sources.
+### hex0.c
+
+`hex0.c` is a C program that is used to produce `hex0.hex0` and the
+`hex0` seed. These are alternatives that a longer than those used in
+live-bootstrap, but they have the advantage that they are compiled with
+the tools and have comments refering to the original C source, such that
+comparison is possible.
+
+### hex2.c
+
+`hex2.c` is a C program that is used to produce an alternative for
+`hex2` that can produce both binary files as `hex0` files based on
+the extension of the output file. For the `hex0` files, it retains
+the input as comments.
+
+### M1.c
+
+`M1.c` is a C program that is used to produce an alternative for `M1`
+which does copy the input as comments. It only supports the 'operators'
+needed for the x86 target. It might need to implement additional
+'operators' for 32-bits targets.
+
+### equal.c
+
+`equal.c` is a C program that is used to produce the `equal` program
+that compares the two file with the names given as command line arguments.
+It returns 0 is the files are equal, otherwise a non-zero value.
+
+This program is used in the `check-tools.kaem` script to verify that
+the various intermediate files placed in the `x86` and `scr` directories
+van be compiled from the original C programs with the compiled command
+from the compiler and assembly tools.
+
+### kaem-minimal.c
+
+`kaem-minimal.c` is a C program that is used to produce an alternative
+for `kaem-minimal`, which is used to execute the initial `kaem` files.
 
 ## Task 5: Implement support for other targets
 
