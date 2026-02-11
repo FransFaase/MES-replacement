@@ -90,21 +90,23 @@ of the Tiny C Compiler, such that they can be compiled.
 The following utilities, taken from the live-bootstrap sources, have
 been compiled successful (with small modifications and/or combining
 sources files into a single file):
-- `blood-elf`
-- `catm`
-- `chmod`
-- `configurator`
-- `cp`
-- `kaem`
-- `match`
-- `mkdir`
-- `rm`
-- `script-generator`
-- `sha256sum`
-- `unbz2`
-- `ungz`
-- `untar`
-- `unxz`
+- `blood-elf` from [`blood-elf.c`](src/blood-elf.c)
+- `catm` from [`catm.c`](src/catm.c)
+- `chmod` from [`chmod.c`](src/chmod.c)
+- `configurator` from [`configurator.c`](src/configurator.c)
+- `cp` from [`cp.c`](src/cp.c)
+- `kaem` from [`kaem.c`](src/kaem.c), which is original files merged into one.
+- `match` from [`match.c`](src/match.c)
+- `mkdir` from [`mkdir.c`](src/mkdir.c)
+- `rm` from [`rm.c`](src/rm.c)
+- `script-generator` from [`script-generator.c`](src/script-generator.c)
+- `sha256sum` from [`sha256sum.c`](src/sha256sum.c)
+- `unbz2` from [`unbz2.c`](src/unbz2.c)
+- `ungz` from [`ungz.c`](src/ungz.c)
+- `untar` from [`untar.c`](src/untar.c)
+- `unxz` from [`unxz.c`](src/unxz.c)
+
+Many of the above C sources also include [`bootstrappable.c`](src/bootstrappable.c)
 
 ## Task 3: New kaem scripts
 
@@ -114,10 +116,11 @@ utilities exactly will be needed.
 
 The shell script `task3_init.sh` creates the `rootfs` directory with
 additional subdirectories and files, such that the script `task3.sh`
-can execute it and use it as a change root environment. In the `task3`
-directory the various kaem scripts are found that are executed.
-After execution the `rootfs/usr/bin` directory contains the `tcc`
-executable, which is the same as the `tcc` executable build by the
+can execute it and use it as a change root environment. (This assumes,
+just like with Task 1, that `make` has been executed in the `src`
+directory.) In the `task3` directory the various kaem scripts are found that
+are executed. After execution the `rootfs/usr/bin` directory contains the
+`tcc` executable, which is the same as the `tcc` executable build by the
 live-bootstrap project (in a change root environment) from tcc 0.9.27,
 which is build with the `tcc-0.9.26` executable. That they are the same
 is based on the executables having the same SHA256 hash.
@@ -127,16 +130,25 @@ found in live-bootstrap. The `script-generator` is called on a version
 of the `manifest` file that only contains the steps needed to compile
 the tcc 0.9.27 sources.
 
+For documentation, including a T-diagram, generated from the output of
+the Linux `strace` command with the help of the [`scan_trace.cpp`]
+(scan_trace.cpp) program see
+[fransfaase.github.io/MES-replacement/](https://fransfaase.github.io/MES-replacement/).
+
 ## Task 4: versions for hex0 and M1
 
 For this task a number of C programs have been developed which are
 compiled with the help op `tcc_cc`, (some using the `stdlib.c` file
 as a replacement for the standard library), `stack_c`, `blood-elf`,
-`M1` and `hex2`.
+`M1` and `hex2`. Some of them are alternatives in order to generate
+`hex0` files with comments that information about the assembly
+instructions, the stack_c commands, and references to the C source
+lines, in order to relationship explicit for review purposes. Others
+are alternatives for which no C code was available or new programs.
 
 ### hex0.c
 
-`hex0.c` is a C program that is used to produce `hex0.hex0` and the
+[`hex0.c`](src/hex0.c) is a C program that is used to produce `hex0.hex0` and the
 `hex0` seed. These are alternatives that a longer than those used in
 live-bootstrap, but they have the advantage that they are compiled with
 the tools and have comments refering to the original C source, such that
@@ -144,21 +156,21 @@ comparison is possible.
 
 ### hex2.c
 
-`hex2.c` is a C program that is used to produce an alternative for
+[`hex2.c`](src/hex2.c) is a C program that is used to produce an alternative for
 `hex2` that can produce both binary files as `hex0` files based on
 the extension of the output file. For the `hex0` files, it retains
 the input as comments.
 
 ### M1.c
 
-`M1.c` is a C program that is used to produce an alternative for `M1`
+[`M1.c`](src/M1.c) is a C program that is used to produce an alternative for `M1`
 which does copy the input as comments. It only supports the 'operators'
 needed for the x86 target. It might need to implement additional
 'operators' for 32-bits targets.
 
 ### equal.c
 
-`equal.c` is a C program that is used to produce the `equal` program
+[`equal.c`](src/equal.c) is a C program that is used to produce the `equal` program
 that compares the two file with the names given as command line arguments.
 It returns 0 is the files are equal, otherwise a non-zero value.
 
@@ -169,7 +181,7 @@ from the compiler and assembly tools.
 
 ### kaem-minimal.c
 
-`kaem-minimal.c` is a C program that is used to produce an alternative
+[`kaem-minimal.c`](src/kaem-minimal.c) is a C program that is used to produce an alternative
 for `kaem-minimal`, which is used to execute the initial `kaem` files.
 
 ## Task 5: Implement support for other targets
