@@ -114,16 +114,26 @@ Develop the kaem scripts for the new C compiler. This probably have
 to be done in parallel with Task 2, because it is not clear which
 utilities exactly will be needed.
 
-The shell script `task3_init.sh` creates the `rootfs` directory with
-additional subdirectories and files, such that the script `task3.sh`
-can execute it and use it as a change root environment. (This assumes,
-just like with Task 1, that `make` has been executed in the `src`
-directory.) In the `task3` directory the various kaem scripts are found that
-are executed. After execution the `rootfs/usr/bin` directory contains the
-`tcc` executable, which is the same as the `tcc` executable build by the
-live-bootstrap project (in a change root environment) from tcc 0.9.27,
-which is build with the `tcc-0.9.26` executable. That they are the same
-is based on the executables having the same SHA256 hash.
+The shell script `task3.sh` first creates the `rootfs` directory with
+additional subdirectories and files, such that it can be used as a
+change root environment. Some source files are taken from the `src`
+directory (assuming that `make` has been executed in that directory)
+and some files and kaem scripts taken from the `task3` directory.
+Next the `task3.sh` script uses the `chroot` command to execute the
+kaem script in the `rootfs` change root environment. The output of
+the `task3.sh` script should end with:
+```
+ +> tcc -version 
+tcc version 0.9.27 (i386 Linux)
+ +> if match xFalse xTrue 
+/usr/bin/tcc: OK
+ +> cd .. 
+```
+This shows that the `rootfs/usr/bin` directory contains a `tcc` executable,
+which is the same as the `tcc` executable build by the live-bootstrap project
+(in a change root environment) from tcc 0.9.27, which is build with the
+`tcc-0.9.26` executable. That they are the same is based on the executables
+having the same SHA256 hash. 
 
 The kaem scripts are basically following the same structure as that
 found in live-bootstrap. The `script-generator` is called on a version
@@ -196,7 +206,7 @@ Targets:
 * arm
 * riscv64
 
-## Taks 6: Presentation and documentation
+## Task 6: Presentation and documentation
 
 Write the necessary MarkDown/HTML files with the alternative git repository
 for stage0 and add comments to the source files where needed. Write or
