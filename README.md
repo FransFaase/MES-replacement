@@ -131,8 +131,8 @@ of the `manifest` file that only contains the steps needed to compile
 the tcc 0.9.27 sources.
 
 For documentation, including a T-diagram, generated from the output of
-the Linux `strace` command with the help of the [`scan_trace.cpp`]
-(scan_trace.cpp) program see
+the Linux `strace` command with the help of the
+[`scan_trace.cpp`](scan_trace.cpp) program see
 [fransfaase.github.io/MES-replacement/](https://fransfaase.github.io/MES-replacement/).
 
 ## Task 4: versions for hex0 and M1
