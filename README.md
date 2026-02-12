@@ -161,7 +161,7 @@ lines, in order to relationship explicit for review purposes. Others
 are alternatives for which no C code was available or new programs.
 
 For an example of a `hex0` file with references, see:
-[`hex0.hex0`](https://fransfaase.github.io/MES-replacement/listing#F4).
+[`hex0.hex0`](https://fransfaase.github.io/MES-replacement/listing.html#F4).
 The C source line number that can be found in there reference
 [`hex0.c`](src/hex0.c). Take for example line 34 in this C program:
 ```c
