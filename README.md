@@ -156,6 +156,41 @@ instructions, the stack_c commands, and references to the C source
 lines, in order to relationship explicit for review purposes. Others
 are alternatives for which no C code was available or new programs.
 
+For an example of a `hex0` file with references, see:
+[`hex0.hex0`](https://fransfaase.github.io/MES-replacement/listing#F4).
+The C source line number that can be found in there reference
+[`hex0.c`](src/hex0.c). Take for example line 34 in this C program:
+```c
+       if (ch <= ' ')
+```
+The C compiler compiles this to the intermediate language (stack_c) into:
+```
+     ch ?1 32 <=s if {
+```
+This then is compiled (with `stack_c`, `M1` and `hex2`) in the following fragment
+in `hex0.hex0`, which has a three column format, where the first shows the
+hexadecimal representation matching the assembly instruction in the
+second column, which are generated from the intermediage language shown
+in the third column:
+```
+                             ## hex0.c 34
+                             #:_main_else2 # no else
+50                           #  push_eax              # ch (local)
+8D85 1C000000                #  lea_eax,[ebp+DWORD] %28
+8A00                         #  mov_al,[eax]          # ?1
+0FB6C0                       #  movzx_eax,al
+50                           #  push_eax              # 32
+B8 20000000                  #  mov_eax, %32
+5B                           #  pop_ebx               # <=s
+39C3                         #  cmp_eax_ebx
+0F9EC0                       #  setle_al
+0FB6C0                       #  movzx_eax,al
+85C0                         #  test_eax,eax          # if
+58                           #  pop_eax
+0F84 05000000                #  je %_main_else3
+```
+(The line with `_main_else2` is part of the previous statement.)
+
 ### hex0.c
 
 [`hex0.c`](src/hex0.c) is a C program that is used to produce `hex0.hex0` and the
