@@ -114,6 +114,10 @@ Develop the kaem scripts for the new C compiler. This probably have
 to be done in parallel with Task 2, because it is not clear which
 utilities exactly will be needed.
 
+**Remark**: The description below assumes that the steps mentioned
+with Task 1, up to the execution of script `task1.sh`, have been
+performed.
+
 The shell script `task3.sh` first creates the `rootfs` directory with
 additional subdirectories and files, such that it can be used as a
 change root environment. Some source files are taken from the `src`
