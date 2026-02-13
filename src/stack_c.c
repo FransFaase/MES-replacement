@@ -894,11 +894,11 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == '<')
 		{
-			fprintf(fout, "\tpop_ebx               # <\n\tcmp_eax_ebx\n\tsetb_al\n\tmovzx_eax,al\n");
+			fprintf(fout, "\tpop_ebx               # <\n\tcmp_eax,ebx\n\tsetb_al\n\tmovzx_eax,al\n");
 		}
 		else if (sym == '>')
 		{
-			fprintf(fout, "\tpop_ebx               # >\n\tcmp_eax_ebx\n\tseta_al\n\tmovzx_eax,al\n");
+			fprintf(fout, "\tpop_ebx               # >\n\tcmp_eax,ebx\n\tseta_al\n\tmovzx_eax,al\n");
 		}
 		else if (sym == '!')
 		{
@@ -954,35 +954,35 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == SYM_EQ)
 		{
-			fprintf(fout, "\tpop_ebx               # ==\n\tcmp_eax_ebx\n\tsete_al\n\tmovzx_eax,al\n");
+			fprintf(fout, "\tpop_ebx               # ==\n\tcmp_eax,ebx\n\tsete_al\n\tmovzx_eax,al\n");
 		}
 		else if (sym == SYM_NE)
 		{
-			fprintf(fout, "\tpop_ebx               # !=\n\tcmp_eax_ebx\n\tsetne_al\n\tmovzx_eax,al\n");
+			fprintf(fout, "\tpop_ebx               # !=\n\tcmp_eax,ebx\n\tsetne_al\n\tmovzx_eax,al\n");
 		}
 		else if (sym == SYM_LE)
 		{
-			fprintf(fout, "\tpop_ebx               # <=\n\tcmp_eax_ebx\n\tsetbe_al\n\tmovzx_eax,al\n");
+			fprintf(fout, "\tpop_ebx               # <=\n\tcmp_eax,ebx\n\tsetbe_al\n\tmovzx_eax,al\n");
 		}
 		else if (sym == SYM_GE)
 		{
-			fprintf(fout, "\tpop_ebx               # >=\n\tcmp_eax_ebx\n\tsetae_al\n\tmovzx_eax,al\n");
+			fprintf(fout, "\tpop_ebx               # >=\n\tcmp_eax,ebx\n\tsetae_al\n\tmovzx_eax,al\n");
 		}
 		else if (sym == SYM_LT_SIGNED)
 		{
-			fprintf(fout, "\tpop_ebx               # <s\n\tcmp_eax_ebx\n\tsetl_al\n\tmovzx_eax,al\n");
+			fprintf(fout, "\tpop_ebx               # <s\n\tcmp_eax,ebx\n\tsetl_al\n\tmovzx_eax,al\n");
 		}
 		else if (sym == SYM_LE_SIGNED)
 		{
-			fprintf(fout, "\tpop_ebx               # <=s\n\tcmp_eax_ebx\n\tsetle_al\n\tmovzx_eax,al\n");
+			fprintf(fout, "\tpop_ebx               # <=s\n\tcmp_eax,ebx\n\tsetle_al\n\tmovzx_eax,al\n");
 		}
 		else if (sym == SYM_GT_SIGNED)
 		{
-			fprintf(fout, "\tpop_ebx               # >s\n\tcmp_eax_ebx\n\tsetg_al\n\tmovzx_eax,al\n");
+			fprintf(fout, "\tpop_ebx               # >s\n\tcmp_eax,ebx\n\tsetg_al\n\tmovzx_eax,al\n");
 		}
 		else if (sym == SYM_GE_SIGNED)
 		{
-			fprintf(fout, "\tpop_ebx               # >=sfv\n\tcmp_eax_ebx\n\tsetge_al\n\tmovzx_eax,al\n");
+			fprintf(fout, "\tpop_ebx               # >=sfv\n\tcmp_eax,ebx\n\tsetge_al\n\tmovzx_eax,al\n");
 		}
 		else if (sym == SYM_SHL)
 		{
