@@ -16,7 +16,7 @@ The motivation for this project is given in the presentation
 which recounts the work I did to review the live-bootstrap project focusing on
 the initial phase, known as stage0. Besides reviewing and verifying the seeds,
 also the sources, both assemby and C programs, were reviewed.
-
+<p>
 The GNU Mes compiler implements a rather complete C compiler in Scheme and
 uses a Scheme interpreter written in ~5,000 LOC of simple C. In order to
 also review the GNU Mes compiler, one also has to review the Scheme sources.
@@ -26,42 +26,43 @@ this compiler such that it would be possible to compile the Tiny C Compiler (TCC
 This compiler (on for each target) is written in M1 assemply. For the x86
 target this is <A HREF="https://github.com/oriansj/stage0-posix-x86/blob/master/cc_x86.M1"
 ><TT>cc_x86.M1</TT></A>.
-
+<p>
 For this, I started working on a compiler tailored to only compiling TCC.
 I started to do this in C to find the minimal subset that was required with
 respect to syntax and semantics. I made some progress with implementing the
 C-preprocessor. But due to the bootstrapping problem, I came up with the idea of
-using a stack based language (called stack_c) as intermediate language.
-I made some attempts to manually compile the compiler to the stack language,
+using a stack based language (called <A HREF="Stack_C.html">Stack-C</A>) as
+intermediate language.
+I made some attempts to manually compile the compiler to the stack based language,
 but it turned out to be rather error-prone, which urged me to continue working
-on the C compiler to output stack_c code. The first milestone came when
-the C compiler and the stack_c compiler became self-hosted. But it still proved
+on the <A HREF="tcc_cc.html">C compiler</A> to output Stack-C code. The first milestone came when
+the C compiler and the Stack-C compiler became self-hosted. But it still proved
 to be a long way to also being able to compile the TCC sources, because These
 sources do cover substantial part of the full C. It almost seems like the TCC
-sources are there own unit test with all kinds of edge cases. 
+sources are there own unit test with all kinds of edge cases.
 
 <H3>Easy to review</H3>
 
 Another goal that I had in mind was that the new approach would be easier to
-review. This involves make clear the relationship between the C code, the stack_c code,
+review. This involves make clear the relationship between the C code, the Stack-C code,
 and the assembly code. In the C compiler output lines reference to the source
 placed which start with a hash ('#') followed by the full name of the source file
-and a line number (separated by a space). The stack_c will copy these lines
-verbatim and also put the stack_c constants and operators as comments in the
-generated assembly. The M1 and hex2 programs will maintain these as comments. 
-
+and a line number (separated by a space). The Stack-C compiler will copy these lines
+verbatim and also put the Stack-C constants and operators as comments in the
+generated assembly. The M1 and hex2 programs will maintain these as comments.
+<p>
 Take for an example the <a href="https://github.com/FransFaase/MES-replacement/blob/main/src/hex0.c"
 ><tt>hex0.c</tt></a> program, where line 34 starts with an if-statement,
 whih looks like:
 <pre>
        if (ch &lt;= ' ')
 </pre>
-The C compiler compiles this to the intermediate language (stack_c) into:
+The C compiler compiles this to Stack-C, resulting in:
 <pre>
      ch ?1 32 &lt;=s if {
 </pre>
 This then is compiled (with <tt>stack_c</tt>, <tt>M1</tt> and <tt>hex2</tt>) in
-the following fragment in <a href="listing.html#F1"><tt>hex0.hex0</tt></a>, which
+the following fragment in <a href="listing.html#F4"><tt>hex0.hex0</tt></a>, which
 has a three column format, where the first shows the hexadecimal representation
 matching the assembly instruction in the second column, which are generated from
 the intermediage language shown in the third column:
@@ -92,10 +93,10 @@ replacement for the x86 target.
 <H2>Results</H2>
 
 <UL>
-    <LI><A HREF="Tdiagram.html">T-diagram</A></LI> showing all the execution
-        steps showing the input and output files.
-    <LI><A HREF="listing.html">Listing</A></LI> showing textual information of
-        all the processes and the files that are used.
+<LI><A HREF="Tdiagram.html">T-diagram</A> showing all the execution
+    steps showing the input and output files.
+<LI><A HREF="listing.html">Listing</A> showing textual information of
+    all the processes and the files that are used.
 </UL>
 
 <P><HR>

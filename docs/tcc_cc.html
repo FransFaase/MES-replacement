@@ -1,0 +1,318 @@
+<HTML><HEAD>
+<TITLE>The C-compiler to compile the Tiny C Compiler</TITLE>
+</HEAD><BODY bgcolor="#E0E0E0">
+
+<H1>The C-compiler to compile the Tiny C Compiler</H1>
+
+This C-compiler with build-in C-preprocessor presumes that the
+input is correct. It only reports warning or errors when an
+internal limit is being exceeded, such as the maximum length of
+a token, or when parsing cannot proceed.
+<P>
+A list of limitations:
+<UL>
+<LI>No support for floats.
+</UL>
+
+It generates code for the <A HREF="Stack_C.html">Stack-C</A> intermediate
+language.
+
+<H2>Preprocessor</H2>
+
+The compiler includes a preprocessor that implements the necessary
+parts of the C-preprocessor to compile the Tiny C Compiler sources
+and other needed sources for standard library and tools needed to
+implement stage0.
+
+The preprocessor is implemented as a series of character and token
+iterators (partly also to demonstrate that this is possible). All
+character iterators use the struct <TT>char_iterator_t</TT> as it base
+and all token iterator use the struct <TT>token_iterator_t</TT> as it
+base. The following iterators are implemented
+
+<H3>The file iterator</H3>
+
+The struct <TT>file_iterator_s</TT> and the function <TT>file_iterator_next</TT>
+implement the file iterator.
+On creation it points to the first character of the file
+and on each call to the next function it returns the next
+character of the file, where the file is thought to be
+extended with an infinite number of null ('\0') characters
+and carriage return characters ('\r') are skipped.
+The line and column members are updated according to
+line feed ('\n') characters in the file.
+
+<H3>The line splice iterator</H3>
+
+The struct <TT>line_splice_iterator_s</TT> and the function
+<TT>line_splice_iterator_next</TT> implement the line spice iterator,
+which joins lines from the input when the black-slach (<TT>\\</TT>)
+character appears as the last character on the line.
+On creation the iterator points to the first
+character in the file, assuming that pairs of a
+back-slash charater and line-feed characters are ignored.
+On each call of the next function, the following character
+ignoring such pairs is returned.
+
+<H3>The comment strip iterator</H3>
+
+The struct <TT>comment_strip_iterator_s</TT> and the function
+<TT>comment_strip_iterator_next</TT> implement the comment strip
+iterator, which removes all comments from the input.
+It supports both the original comments which are delimited by
+'/*' and '*/' and the new comments with are delimited by '//'
+and a new-line character. The original comments are replaced
+by a space character and the new comments are replace by a
+new-line character.
+The function <TT>comment_strip_iterator_next</TT> is implemented as a
+co-routine with the help of goto statements.
+
+<H3>The include iterator</H3>
+
+The struct <TT>include_iterator_s</TT> and the function
+<TT>include_iterator_next</TT> implement the include iterator, which
+allows, by calling the function <TT>include_iterator_add</TT>, to
+include the stream of character returned by another character
+iterator to be included. Recursive including is supported.
+
+<H3>The tokenizer iterator</H3>
+
+The struct <TT>tokenizer_s</TT> and the function <TT>tokenizer_next</TT>
+implement the tokenizer iterator that recognizes the C tokens
+from the stream of characters returned by a character iterator.
+On creation it is on the first recognized token and
+on each call to the next function it returns the next
+recognized token.
+<P>
+The tokenizer assumees that all integer values are within
+the range of <TT>int</TT>.
+
+<H3>The conditional iterator</H3>
+
+The struct <TT>conditional_iterator_s</TT> and the function
+<TT>conditional_iterator_next</TT> implement the conditional
+iterator that deals with all conditional compilation
+directives, such as <TT>#if</TT>, and also the directives
+<TT>#define</TT>, <TT>#undef</TT>, <TT>#include</TT>, and <TT>#error</TT>.
+<P>
+It does not support macro expansion in conditional expressions.
+<P>
+It implements the following grammar for the conditions,
+where <TT>conditional_or_expr</TT> is the root:
+<PRE>
+	conditional_primary
+		: '(' conditional_or_exp ')'
+		| 'defined' ( '(' ident ')' |  ident )
+		| integer
+		| ident
+		.
+	conditional_unary_expr
+		: '!' conditional_primary
+		| conditional_primary
+		.
+	conditional_compare_expr
+		: conditional_unary_expr
+		  ('==' conditional_unary_expr 
+		  |'!=' conditional_unary_expt ) OPT
+		.
+	conditional_and_expr : conditional_compare_expr CHAIN '&amp;&amp;' .
+	conditional_or_expr : conditional_and_expr CHAIN '||' .
+</PRE>
+
+
+<H3>The expand macro iterator</H3>
+
+The struct <TT>expand_macro_iterator</TT> and the function
+<TT>expand_macro_iterator_next</TT> implement the expansion
+of a macro with a list of tokens for the arguments.
+It also implements processing of the <TT>#</TT> and <TT>##</TT> operators
+during expansion. After expansion has been completed,
+it returns the token iterator for the remaining part.
+
+<H3>The expand iterator</H3>
+
+The struct <TT>expand_iterator_s</TT> and the function
+<TT>expand_iterator_next</TT> implement the expansion of all
+defined symbols and macros. For the expansion of these
+the expand macro iterator is used.
+
+<H2>The compiler</H2>
+
+The compiler is a one pass compiler that generates code
+for the statements on the fly. Expressions are parsed
+in an abstract syntax tree, before code is generated
+for them. (It was decided to group the initialization
+of all global variables together, which makes it
+necessary to store the expressions for these. As an
+alternative a separate function for initializing global
+variables could have been used.)
+<P>
+The C-compiler parses the input according to the
+following grammar, where <TT>program</TT> is the root:
+<PRE>
+	primary_expr 
+		: identifier
+		| integer
+		| char
+		| string
+		| '(' expr ')'
+		.
+	postfix_expr
+		: primary_expr
+		| postfix_expr '[' expr ']'
+		| postfix_expr '(' assignment_expr LIST ')'
+		| postfix_expr '.' ident
+		| postfix_expr '-&gt;' ident
+		| postfix_expr '++'
+		| postfix_expr '--'
+		.
+	unary_expr
+		: '++' unary_expr
+		| '--' unary_expr
+		| '&amp;' cast_expr
+		| '*' cast_expr
+		| '+' cast_expr
+		| '-' cast_expr
+		| '~' cast_expr
+		| '!' cast_expr
+		| 'sizeof' '(' sizeof_type ')'
+		| 'sizeof' unary_expr
+		| postfix_expr
+		.
+	sizeof_type
+		: 'char'
+		| 'int'
+		| 'unsigned' ('int') OPT
+		| 'double'
+		| 'void' ('*') OPT
+		| 'struct' ident
+		| ident
+		| sizeof_type '*'
+		.
+	cast_expr
+		: '(' abstract_declaration ')' cast_expr
+		| unary_expr
+		.
+	l_expr1
+		: cast_expr
+		| l_expr1 '*' cast_expr
+		| l_expr1 '/' cast_expr
+		| l_expr1 '%' cast_expr
+		.
+	l_expr2
+		: l_expr1
+		| l_expr2 '+' l_expr1
+		| l_expr2 '-' l_expr1
+		.
+	l_expr3
+		: l_expr2
+		| l_expr3 '&lt;&lt;' l_expr2
+		| l_expr3 '&gt;&gt;' l_expr2
+		.
+	l_expr4
+		: l_expr3
+		| expr4 '&lt;=' l_expr3
+		| expr4 '&gt;=' l_expr3
+		| expr4 '&lt;' l_expr3
+		| expr4 '&gt;' l_expr3
+		| expr4 '==' l_expr3
+		| expr4 '!=' l_expr3
+		.
+	l_expr5
+		: l_expr4
+		| l_expr5 '^' l_expr4
+		.
+	l_expr6
+		: l_expr5
+		| l_expr6 '&amp;' l_expr5
+		.
+	l_expr7
+		: l_expr6
+		| l_expr7 '|' l_expr6
+		.
+	l_expr8
+		: l_expr7
+		| l_expr8 '&amp;&amp;' l_expr7
+		.
+	l_expr9
+		: l_expr8
+		| l_expr9 '||' l_expr8
+		.
+	conditional_expr
+		: l_expr9 '?' l_expr9 ':' conditional_expr
+		| l_expr9
+		.
+	assignment_expr
+		: conditional_expr 
+		  (( '=' | '*=' | '/=' | '%=' | '+=' | '-=' | '&lt;&lt;=' | '&gt;&gt;=' | '&amp;=' | '|=' | '^=')
+		   assignment_expr
+		  ) SEQ
+		.
+	expr : assignment_expr LIST
+	array_indexes : expr ']' ('[' array_indexes) OPT .
+	declaration
+		: ('typedef' | 'extern' | 'inline' | 'static' ) SEQ OPT
+		  type_specifier
+		  ( ';'
+		  | func_declarator '(' declaration LIST (',' '...') OPT ')'
+		    ( ';'
+			| '{' statements '}'
+			)
+		  | ( declarator ( '=' initializer ) OPT ) LIST ";"
+		  )
+		.
+	func_declarator
+		: '*' OPT SEQ ( ident | '(' '*' ident ')')
+		.
+	declarator
+		: '*' OPT SEQ
+		  ( ident | '(' '*' ident ')')
+		  ( ('[' ']') OPT '[' array_indexes ) OPT
+		.
+	type_specifier
+		: 'const' OPT
+		  ( 'char' 'const' OPT
+		  | 'unsigned' ('char' | 'short' | 'long' 'long' OPT | 'int') OPT
+		  | 'short'
+		  | 'int'
+		  | 'long' ('double' | 'long') OPT
+		  | 'float'
+		  | 'double'
+		  | 'void'
+		  | 'struct' struct_or_union_specifier
+		  | 'union' struct_or_union_specifier
+		  | 'enum' enum_specifier
+		  | ident
+		  )
+		.
+	struct_or_union_specifier : ident OPT ('{' declaration SEQ OPT "}") OPT .
+	enum_specifier : ident OPT ('{' (ident ('=' constant_expr) OPT ) LIST '}') OPT .
+	initializer
+		: '{' initializer LIST OPT ',' OPT '}'
+		| assignment_expr
+		.
+	statement
+		: (ident ':') SEQ OPT
+		  ( 'if' '(' expr ')' statement ('else' statement) OPT
+		  | 'while' '(' expr ')' statement
+		  | 'do' statement 'while' '(' expr ')' ';'
+		  | 'for' '(' (declaration | expr ';') expr ';' expr ')' statement
+		  | 'break' ';'
+		  | 'continue' ';'
+		  | 'switch' '(' expr ')' '{'
+		  	 ( ( 'case' expr ':' | 'default' ':') SEQ statement SEQ ) SEQ '}'
+		  | 'return' expr OPT ';'
+		  | 'goto' ident ';'
+		  | '{' statements '}'
+		  | expr ';'
+		  )
+		.
+	statements : (declaration | statement) SEQ OPT .
+    program : declaration SEQ OPT .
+
+</PRE>
+
+<P><HR>
+<A HREF="index.html">Home</A>
+
+</BODY></HTML>
