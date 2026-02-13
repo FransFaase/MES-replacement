@@ -1,4 +1,5 @@
-all : hex2 M1 blood-elf tcc_cc stack_c run_unittest_s stack_c_s stack_c_diff tcc_cc_s tcc_cc_diff diff3 diff5 diff4 \
+all : x86 x86_64
+x86 : hex2 M1 blood-elf tcc_cc stack_c run_unittest_s stack_c_s stack_c_diff tcc_cc_s tcc_cc_diff diff3 diff5 diff4 \
       hex0_s hex0_s.hex0 hex2_s.hex0 \
 	  blood-elf_s.macro blood-elf_s.blood_elf \
 	  M1_s.macro M1_s.blood_elf \
@@ -12,7 +13,6 @@ all : hex2 M1 blood-elf tcc_cc stack_c run_unittest_s stack_c_s stack_c_diff tcc
 	  configurator_s script-generator_s \
       sha256sum_s \
 	  equal_s
- 
 
 % : %.c
 	./run.sh gcc $(basename $@)
@@ -72,6 +72,17 @@ diff4 : stack_c.sl stack_c_t.sl
 diff5 : tcc_cc.sl tcc_cc_t.sl
 	./run.sh diff tcc_cc.sl tcc_cc_t.sl
 
+x86_64 : hex0.sl64
+
+hex0.sl64 : hex0.c tcc_cc
+	./tcc_cc -64 -o $@ $<
+
+%.sl64 : %.c tcc_cc stdlib.c
+	./tcc_cc -64 -o $@ stdlib.c $<
+
+%_t.sl64 : %.c tcc_cc_s stdlib.c
+	./tcc_cc_s -64 -o $@ stdlib.c $< 
+
 
 .PRECIOUS: %.sl %_s.M1 %.blood_elf %.macro
-.PHONY: all run_unittest_s stack_c_diff tcc_cc_diff
+.PHONY: all x86 x86_64 run_unittest_s stack_c_diff tcc_cc_diff

@@ -1884,6 +1884,10 @@ void output_preprocessor(const char *filename)
 
 // Types
 
+#define TARGET_32BITS 4
+#define TARGET_64BITS 8
+int long_long_size = TARGET_32BITS;
+
 #define BT_UNSIGNED_INT (1)
 #define BT_SIGNED_INT (1 | 2)
 #define BT_TYPE(X)  ((X) << 2)
@@ -1955,6 +1959,13 @@ type_p new_type(type_kind_e kind, int size, int nr_members)
 	return type;
 }
 
+type_p new_ptr_type(type_p base_type)
+{
+	type_p ptr_type = new_type(TYPE_KIND_POINTER, long_long_size, 1);
+	ptr_type->members[0] = base_type;
+	return ptr_type;
+}
+
 bool type_is_integer(type_p type)
 {
 	return type != NULL && type->kind == TYPE_KIND_BASE && (type->base_type & 1) == 1;
@@ -2000,15 +2011,15 @@ type_p type_char_ptr = NULL;
 
 type_p new_base_type(base_type_e base)
 {
-	int size = 4;
+	int size = long_long_size;
 	switch (BT_GET_TYPE(base))
 	{
 		case  1: size = 1; break;
 		case  2: size = 2; break;
 		case  3: size = 4; break;
-		case  4: size = 4; break; // Map int 64 to int 32
-		case  5: size = 4; break; // Map float to int 32
-		case  6: size = 4; break; // Map float to int 32
+		case  4: size = long_long_size; break;
+		case  5: size = 4; break;
+		case  6: size = long_long_size; break;
 	}
 	type_p type = new_type(TYPE_KIND_BASE, size, 0);
 	type->base_type = base;
@@ -2032,8 +2043,7 @@ void define_base_types(void)
 	base_type_file = new_base_type(BT_FILE);
 	base_type_time_t = new_base_type(BT_TIME_T);
 	base_type_bool = new_base_type(BT_U32);
-	type_char_ptr = new_type(TYPE_KIND_POINTER, 4, 1);
-	type_char_ptr->members[0] = base_type_S8;
+	type_char_ptr = new_ptr_type(base_type_S8);
 }
 
 type_p base_signed_type(type_p int_type)
@@ -2503,9 +2513,7 @@ expr_p parse_primary_expr(void)
 				printf("Cast expr\n");
 			while (accept_term('*'))
 			{
-				type_p ptr_type = new_type(TYPE_KIND_POINTER, 4, 1);
-				ptr_type->members[0] = type;
-				type = ptr_type;
+				type = new_ptr_type(type);
 			}
 			if (!accept_term(')'))
 				FAIL_NULL
@@ -2684,8 +2692,7 @@ expr_p parse_unary_expr(void)
 			FAIL_NULL
 		expr_p pre_oper_expr = new_expr(OPER_ADDR, 1);
 		pre_oper_expr->children[0] = expr;
-		pre_oper_expr->type = new_type(TYPE_KIND_POINTER, 4, 1);
-		pre_oper_expr->type->members[0] = expr->type;
+		pre_oper_expr->type = new_ptr_type(expr->type);
 		return pre_oper_expr;
 	}
 	if (accept_term('*'))
@@ -3333,9 +3340,7 @@ bool parse_declaration(bool is_param)
 		type_p type = type_specifier;
 		while (accept_term('*'))
 		{
-			type_p pointer_type = new_type(TYPE_KIND_POINTER, 4, 1);
-			pointer_type->members[0] = type;
-			type = pointer_type;
+			type = new_ptr_type(type);
 		}
 		decl_p prev_decl = NULL;
 		decl_p decl = NULL;
@@ -3426,7 +3431,6 @@ bool parse_declaration(bool is_param)
 				{
 					if (accept_term(']'))
 					{
-						type_p ptr_type = new_type(TYPE_KIND_POINTER, 4, 1);
 						if (accept_term('['))
 						{
 							type_p result_type = NULL;
@@ -3434,8 +3438,7 @@ bool parse_declaration(bool is_param)
 								FAIL_FALSE
 							type = result_type;
 						}
-						ptr_type->members[0] = type;
-						type = ptr_type;
+						type = new_ptr_type(type);
 					}
 					else
 					{
@@ -3450,9 +3453,7 @@ bool parse_declaration(bool is_param)
 			}
 			if (as_pointer)
 			{
-				type_p ptr_type = new_type(TYPE_KIND_POINTER, 4, 1);
-				ptr_type->members[0] = type;
-				type = ptr_type;
+				type = new_ptr_type(type);
 			}
 			if (prev_decl != NULL && type->kind != TYPE_KIND_FUNCTION)
 			{
@@ -4159,7 +4160,7 @@ void add_base_type(const char *name, type_p base_type)
 
 void add_function(const char *name, type_p result_type)
 {
-	type_p type = new_type(TYPE_KIND_FUNCTION, 4, 1);
+	type_p type = new_type(TYPE_KIND_FUNCTION, long_long_size, 1);
 	type->members[0] = result_type;
 	add_decl(DK_IDENT, name, type);
 }
@@ -4261,8 +4262,8 @@ void gen_variable_decl(decl_p decl)
 		fprintf(fcode, "static ");
 	else
 		fprintf(fcode, "int ");
-	if (decl->type->size > 4)
-		fprintf(fcode, "%d ", (decl->type->size + 3) / 4);
+	if (decl->type->size > long_long_size)
+		fprintf(fcode, "%d ", (decl->type->size + long_long_size - 1) / long_long_size);
 	fprintf(fcode, "%s", decl->name);
 	if (inside_function && decl->value != 0)
 	{
@@ -4278,7 +4279,7 @@ void gen_function_start(decl_p decl)
 	if (is_main)
 		fprintf(fcode, "void __init_globals__ ;\n");
 	type_p type = decl->type;
-	if (type->members[0]->size > 4)
+	if (type->members[0]->size > long_long_size)
 		printf("Warning: return type %s has size %d\n", decl->name, type->members[0]->size);
 	fprintf(fcode, "void %s\n{\n", decl->name);
 	indent++;
@@ -4292,7 +4293,7 @@ void gen_function_start(decl_p decl)
 		}
 		else
 		{
-			if (mem_decl->type->size > 4)
+			if (mem_decl->type->size > long_long_size)
 				printf("Warning: argument %s of %s has size %d\n", mem_decl->name, decl->name, mem_decl->type->size);
 			gen_indent();
 			fprintf(fcode, "int %s %s =:\n", mem_decl->name, mem_decl->name);
@@ -4303,7 +4304,7 @@ void gen_function_start(decl_p decl)
 		gen_indent();
 		fprintf(fcode, "__init_globals__ ()\n");
 		gen_indent();
-		fprintf(fcode, "_sys_env argv ? argc ? 4 * 4 + + = ;\n");
+		fprintf(fcode, "_sys_env argv ? argc ? %d * %d + + = ;\n", long_long_size, long_long_size);
 	}
 	if (add_tracing)
 	{
@@ -4366,8 +4367,12 @@ void gen_expr(expr_p expr, bool as_value)
 {
 	if (expr == NULL)
 		return; // TODO: Warning
-	const char *expr_size_ind = expr->type == NULL ? "" : expr->type->size == 1 ? "1" : expr->type->size == 2 ? "2" : "";
-	bool multiple = expr->type != NULL && expr->type->size > 4;
+	const char *expr_size_ind = expr->type == NULL ? ""
+							  : expr->type->size == 1 ? "1"
+							  : expr->type->size == 2 ? "2"
+							  : expr->type->size == 4 && long_long_size > 4 ? "4"
+							  : "";
+	bool multiple = expr->type != NULL && expr->type->size > long_long_size;
 	switch (expr->kind) {
 		case 'i':
 			fprintf(fcode, "%s ", expr->str_val);
@@ -4484,7 +4489,7 @@ void gen_expr(expr_p expr, bool as_value)
 				gen_expr(expr->children[1], FALSE);
 				fprintf(fcode, "{ int src src =: int trg trg =: ");
 				fprintf(fcode, "trg ? src ? ? = ; ");
-				for (int i = 4; i < expr->type->size; i += 4)
+				for (int i = long_long_size; i < expr->type->size; i += long_long_size)
 					fprintf(fcode, "trg ? %d + src ? %d + ? = ; ", i, i);
 				fprintf(fcode, "trg ? } ");
 			}
@@ -4589,7 +4594,7 @@ void gen_expr(expr_p expr, bool as_value)
 						{
 							fprintf(fcode, "__var_args ");
 							if (i > 0)
-								fprintf(fcode, "%d + ", i * 4);
+								fprintf(fcode, "%d + ", i * long_long_size);
 							gen_expr(expr->children[nr_decls + i], TRUE);
 							fprintf(fcode, "= ; ");
 						}
@@ -4800,6 +4805,8 @@ int main(int argc, char *argv[])
 	for (int i = 1; i < argc; i++)
 		if (strcmp(argv[i], "-E") == 0)
 			only_preprocess = TRUE;
+		else if (strcmp(argv[i], "-64") == 0)
+			long_long_size = TARGET_64BITS;
 		else if (strcmp(argv[i], "-T") == 0)
 			add_tracing = TRUE;
 		else if (strcmp(argv[i], "-dp") == 0)
