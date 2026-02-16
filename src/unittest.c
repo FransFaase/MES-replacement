@@ -9,6 +9,7 @@ typedef int size_t;
 #include "stdlib.c"
 #endif
 
+int show_OK = 0;
 int result = 0;
 
 void is_true(int val, const char *testname)
@@ -18,6 +19,8 @@ void is_true(int val, const char *testname)
 		printf("Failed: %s\n", testname);
 		result = 1;
 	}
+	if (show_OK != 0)
+		printf("OK: %s\n", testname);
 }
 
 void is_false(int val, const char *testname)
@@ -27,6 +30,8 @@ void is_false(int val, const char *testname)
 		printf("Failed: %s\n", testname);
 		result = 1;
 	}
+	if (show_OK != 0)
+		printf("OK: %s\n", testname);
 }
 
 int one(void)
@@ -159,6 +164,7 @@ int main (int argc, char *argv[])
 	for (int i = 0; i < argc; i++)
 		printf("%d %s\n", i, argv[i]);
 	printf("\n\n\n");
+	show_OK = argc > 1;
 	is_true(1, "1");
 	is_true(1 == 1, "1 == 1");
 	is_true(1 << 2 == 4, "1 << 2 == 4");

@@ -1202,7 +1202,7 @@ int main(int argc, char *argv[])
 	}
 
 	// Add predefined system functions
-	ident_p sys_int80_ident = add_function("sys_int80");
+	ident_p sys_int80_ident = add_function("sys_syscall");
 	sys_int80_ident->function->sys_function = sys_int80;
 	ident_p sys_malloc_ident = add_function("sys_malloc");
 	sys_malloc_ident->function->sys_function = sys_malloc;

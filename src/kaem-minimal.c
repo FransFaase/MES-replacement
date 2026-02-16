@@ -6,15 +6,16 @@
 #ifdef __TCC_CC__
 
 char **_sys_env = 0;
-int sys_int80(int a, int b, int c, int d);
+ssize_t sys_syscall(size_t a, size_t b, size_t c, size_t d);
+#include "sys_syscall.h"
 
 #define O_RDONLY 0
 
-#define open(pathname, mode) sys_int80(5, pathname, mode, 0777)
-#define read(fd, buf, count) sys_int80(3, fd, buf, count)
-#define fork() sys_int80(2, 0, 0, 0)
-#define execve(program, argv, env) sys_int80(11, program, argv, env)
-#define waitpid(f, status, mode) sys_int80(7, f, status, mode)
+#define open(pathname, mode) sys_syscall(__NR_open, pathname, mode, 0777)
+#define read(fd, buf, count) sys_syscall(__NR_read, fd, buf, count)
+#define fork() sys_syscall(__NR_fork, 0, 0, 0)
+#define execve(program, argv, env) sys_syscall(__NR_execve, program, argv, env)
+#define waitpid(f, status, mode) sys_syscall(__NR_waitpid, f, status, mode)
 
 #endif
 

@@ -512,7 +512,7 @@ int main(int argc, char *argv[])
 	
 
 	// Add predefined system functions
-	add_function("sys_int80");
+	add_function("sys_syscall");
 	add_function("sys_malloc");
 
 	// Copy contents of intro file

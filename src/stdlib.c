@@ -1,11 +1,11 @@
 // Functions implemented in stack_c_intro.M1
-
-int sys_int80(int a, int b, int c, int d); // https://faculty.nps.edu/cseagle/assembly/sys_call.html
+ssize_t sys_syscall(size_t a, size_t b, size_t c, size_t d); // https://faculty.nps.edu/cseagle/assembly/sys_call.html
+#include "sys_syscall.h"
 void *sys_malloc(size_t size);
 
 void exit(int result)
 {
-	sys_int80(1, result, 0, 0);
+	sys_syscall(__NR_exit, result, 0, 0);
 }
 
 #define NULL 0
@@ -265,17 +265,17 @@ void free(void *ptr)
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
-	return sys_int80(4, stream->fh, ptr, size * nmemb);
+	return sys_syscall(__NR_write, stream->fh, ptr, size * nmemb);
 }
 
 int fputc(int c, FILE *stream)
 {
-	return sys_int80(4, stream->fh, &c, 1);
+	return sys_syscall(__NR_write, stream->fh, &c, 1);
 }
 
 int fputs(const char *s, FILE *stream)
 {
-	return sys_int80(4, stream->fh, s, strlen(s));
+	return sys_syscall(__NR_write, stream->fh, s, strlen(s));
 }
 
 typedef int *va_list;
@@ -480,22 +480,22 @@ int open(const char *filename, int flag, ...)
 		va_start(ap, flag);
 		mode = ap[0];
 	}
-	return sys_int80(5, filename, flag, mode);
+	return sys_syscall(__NR_open, filename, flag, mode);
 }
 
 int close(int fd)
 {
-	return sys_int80(6, fd, 0, 0);
+	return sys_syscall(__NR_close, fd, 0, 0);
 }
 
 size_t read(int fd, void *buf, size_t count)
 {
-	return sys_int80(3, fd, buf, count);
+	return sys_syscall(__NR_read, fd, buf, count);
 }
 
 off_t lseek(int fd, off_t offset, int whence)
 {
-	return sys_int80(19, fd, offset, whence);
+	return sys_syscall(__NR_lseek, fd, offset, whence);
 }
 
 FILE *fopen(const char *pathname, const char *mode)
@@ -524,7 +524,7 @@ FILE *fopen(const char *pathname, const char *mode)
 	int open_mode =   rw == 'r'
 					? (plus == 1 ? O_RDWR : O_RDONLY)
 					: ((plus == 1 ? O_RDWR : O_WRONLY) | O_CREAT | O_TRUNC);
-	int fh = sys_int80(5, pathname, open_mode, 0777);
+	int fh = sys_syscall(__NR_open, pathname, open_mode, 0777);
 	if (fh < 0)
 	{
 		printf("fopen %s %s returned %d\n", pathname, mode, fh);
@@ -546,7 +546,7 @@ FILE *fdopen(int fd, const char *mode)
 
 int fclose(FILE *stream)
 {
-	return sys_int80(6, stream->fh, 0, 0);
+	return sys_syscall(__NR_close, stream->fh, 0, 0);
 }
 
 int fflush(FILE *stream)
@@ -584,7 +584,7 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 #define SEEK_END	2
 off_t lseek(int fd, off_t offset, int whence)
 {
-	return sys_int80(19, fd, offset, whence);
+	return sys_syscall(__NR_lseek, fd, offset, whence);
 }
 
 int feof(FILE *stream)
@@ -597,7 +597,7 @@ int fgetc(FILE *stream)
 	if (stream->at_eof)
 		return -1;
 	unsigned char ch;
-	int ret = sys_int80(3, stream->fh, &ch, 1);
+	int ret = sys_syscall(__NR_read, stream->fh, &ch, 1);
 	if (ret <= 0)
 	{
 		stream->at_eof = 1;
@@ -664,7 +664,7 @@ const int LINE_MACRO_OUTPUT_FORMAT_P10 = 11;
 // for tcc_cc.c
 int write(int fd, char* buf, unsigned count)
 {
-	return sys_int80(4, fd, buf, count);
+	return sys_syscall(__NR_write, fd, buf, count);
 }
 
 int fileno(FILE *stream)
@@ -678,7 +678,7 @@ int fileno(FILE *stream)
 
 char *getcwd(char *buf, size_t size)
 {
-	sys_int80(183, buf, size, 0);
+	sys_syscall(__NR_getcwd, buf, size, 0);
 	return buf;
 }
 
@@ -749,7 +749,7 @@ void longjmp(jmp_buf env, int val)
 
 int unlink(const char *pathname)
 {
-	return sys_int80(10, pathname, 0, 0);
+	return sys_syscall(__NR_unlink, pathname, 0, 0);
 }
 
 int sscanf(const char *str, const char *format, ...)
@@ -802,7 +802,7 @@ int atoi(const char *nptr)
 
 int remove(const char *pathname)
 {
-	return sys_int80(10, pathname, 0, 0);
+	return sys_syscall(__NR_unlink, pathname, 0, 0);
 }
 
 int execvp(const char *file, char * argv[])
@@ -813,27 +813,27 @@ int execvp(const char *file, char * argv[])
 
 int mkdir(const char *pathname, int mode)
 {
-	return sys_int80(39, pathname, mode, 0);
+	return sys_syscall(__NR_mkdir, pathname, mode, 0);
 }
 
 int chdir(const char *path)
 {
-	sys_int80(12, path, 0, 0);
+	sys_syscall(__NR_chdir, path, 0, 0);
 }
 
 int access(const char *filename, int mode)
 {
-	return sys_int80(33, filename, mode, 0);
+	return sys_syscall(__NR_access, filename, mode, 0);
 }
 
 int chmod(const char *filename, int mode)
 {
-	return sys_int80(15, filename, mode, 0);
+	return sys_syscall(__NR_chmod, filename, mode, 0);
 }
 
 int symlink(const char *target, const char *linkpath)
 {
-	return sys_int80(83, target, linkpath, 0);
+	return sys_syscall(__NR_symlink, target, linkpath, 0);
 }
 
 struct utsname {
@@ -851,12 +851,12 @@ struct utsname {
 
 int uname(struct utsname *buf)
 {
-	return sys_int80(109, buf, 0, 0);
+	return sys_syscall(__NR_uname, buf, 0, 0);
 }
 
 int execve(char *program, char **argv, char **env)
 {
-	return sys_int80(11, program, argv, env);
+	return sys_syscall(__NR_execve, program, argv, env);
 }
 
 char *fgets(char *str, int len, FILE *f)

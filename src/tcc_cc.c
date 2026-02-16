@@ -2001,6 +2001,7 @@ type_p base_type_S32 = NULL;
 type_p base_type_U32 = NULL;
 type_p base_type_S64 = NULL;
 type_p base_type_U64 = NULL;
+type_p base_type_size_t = NULL;
 type_p base_type_float = NULL;
 type_p base_type_double = NULL;
 type_p base_type_jmp_buf = NULL;
@@ -2037,6 +2038,7 @@ void define_base_types(void)
 	base_type_U32 = new_base_type(BT_U32);
 	base_type_S64 = new_base_type(BT_S64);
 	base_type_U64 = new_base_type(BT_U64);
+	base_type_size_t = long_long_size == TARGET_64BITS ? base_type_U64 : base_type_U32;
 	base_type_float = new_base_type(BT_F);
 	base_type_double = new_base_type(BT_DF);
 	base_type_jmp_buf = new_base_type(BT_JMP_BUF);
@@ -4172,9 +4174,9 @@ void add_predefined_types(void)
 	add_base_type("uint16_t", base_type_U16);
 	add_base_type("uint8_t", base_type_U8);
 	add_base_type("int8_t", base_type_S8);
-	add_base_type("size_t", base_type_U32);
+	add_base_type("size_t", base_type_size_t);
 	// Need to verify the following:
-	add_base_type("ssize_t", base_type_U32);
+	add_base_type("ssize_t", base_type_size_t);
 	add_base_type("jmp_buf", base_type_jmp_buf);
 }
 
@@ -4857,6 +4859,9 @@ int main(int argc, char *argv[])
 		}
 		else
 		{
+			if (long_long_size == TARGET_32BITS)
+				get_env("__i386__", TRUE);
+
 			if (!parse_file(argv[i], only_preprocess))
 				return 1;
 		}
