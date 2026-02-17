@@ -51,6 +51,7 @@ DEFINE xor_rax,rbx 4831D8
 DEFINE not_rax 48F7D0
 DEFINE add_rbp, 4881C5
 DEFINE sub_rbp, 4881ED
+DEFINE cmp_rbx,rax 4839C3
 DEFINE seta_al 0F97C0
 DEFINE setae_al 0F93C0
 DEFINE setb_al 0F92C0

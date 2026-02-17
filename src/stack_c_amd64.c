@@ -898,11 +898,11 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == '<')
 		{
-			fprintf(fout, "\tpop_rbx               # <\n\tcmp_rax_rbx\n\tsetb_al\n\tmovzx_rax,al\n");
+			fprintf(fout, "\tpop_rbx               # <\n\tcmp_rbx,rax\n\tsetb_al\n\tmovzx_rax,al\n");
 		}
 		else if (sym == '>')
 		{
-			fprintf(fout, "\tpop_rbx               # >\n\tcmp_rax_rbx\n\tseta_al\n\tmovzx_rax,al\n");
+			fprintf(fout, "\tpop_rbx               # >\n\tcmp_rbx,rax\n\tseta_al\n\tmovzx_rax,al\n");
 		}
 		else if (sym == '!')
 		{
@@ -966,35 +966,35 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == SYM_EQ)
 		{
-			fprintf(fout, "\tpop_rbx               # ==\n\tcmp_rax_rbx\n\tsete_al\n\tmovzx_rax,al\n");
+			fprintf(fout, "\tpop_rbx               # ==\n\tcmp_rbx,rax\n\tsete_al\n\tmovzx_rax,al\n");
 		}
 		else if (sym == SYM_NE)
 		{
-			fprintf(fout, "\tpop_rbx               # !=\n\tcmp_rax_rbx\n\tsetne_al\n\tmovzx_rax,al\n");
+			fprintf(fout, "\tpop_rbx               # !=\n\tcmp_rbx,rax\n\tsetne_al\n\tmovzx_rax,al\n");
 		}
 		else if (sym == SYM_LE)
 		{
-			fprintf(fout, "\tpop_rbx               # <=\n\tcmp_rax_rbx\n\tsetbe_al\n\tmovzx_rax,al\n");
+			fprintf(fout, "\tpop_rbx               # <=\n\tcmp_rbx,rax\n\tsetbe_al\n\tmovzx_rax,al\n");
 		}
 		else if (sym == SYM_GE)
 		{
-			fprintf(fout, "\tpop_rbx               # >=\n\tcmp_rax_rbx\n\tsetae_al\n\tmovzx_rax,al\n");
+			fprintf(fout, "\tpop_rbx               # >=\n\tcmp_rbx,rax\n\tsetae_al\n\tmovzx_rax,al\n");
 		}
 		else if (sym == SYM_LT_SIGNED)
 		{
-			fprintf(fout, "\tpop_rbx               # <s\n\tcmp_rax_rbx\n\tsetl_al\n\tmovzx_rax,al\n");
+			fprintf(fout, "\tpop_rbx               # <s\n\tcmp_rbx,rax\n\tsetl_al\n\tmovzx_rax,al\n");
 		}
 		else if (sym == SYM_LE_SIGNED)
 		{
-			fprintf(fout, "\tpop_rbx               # <=s\n\tcmp_rax_rbx\n\tsetle_al\n\tmovzx_rax,al\n");
+			fprintf(fout, "\tpop_rbx               # <=s\n\tcmp_rbx,rax\n\tsetle_al\n\tmovzx_rax,al\n");
 		}
 		else if (sym == SYM_GT_SIGNED)
 		{
-			fprintf(fout, "\tpop_rbx               # >s\n\tcmp_rax_rbx\n\tsetg_al\n\tmovzx_rax,al\n");
+			fprintf(fout, "\tpop_rbx               # >s\n\tcmp_rbx,rax\n\tsetg_al\n\tmovzx_rax,al\n");
 		}
 		else if (sym == SYM_GE_SIGNED)
 		{
-			fprintf(fout, "\tpop_rbx               # >=sfv\n\tcmp_rax_rbx\n\tsetge_al\n\tmovzx_rax,al\n");
+			fprintf(fout, "\tpop_rbx               # >=sfv\n\tcmp_rbx,rax\n\tsetge_al\n\tmovzx_rax,al\n");
 		}
 		else if (sym == SYM_SHL)
 		{
