@@ -46,7 +46,7 @@ equal.sl : equal.c tcc_cc
 
 % : %.macro
 	./hex2 -o $@ ../M2libc/x86/ELF-x86-debug.hex2 $(basename $@).macro $(basename $@).blood_elf
-	objdump -d $@ >$@.txt
+	objdump -d -M intel $@ >$@.txt
 
 %.hex0 : %.macro
 	./hex2 -o $@ ../M2libc/x86/ELF-x86-debug.hex2 $(basename $@).macro $(basename $@).blood_elf
@@ -88,14 +88,17 @@ hex0.sl64 : hex0.c tcc_cc
 	./stack_c_amd64 -i stack_c_intro_amd64.M1 $< -o $@
 
 %.blood_elf_amd64 : %.M1_amd64
-	./blood-elf --file $< --little-endian --output $@
+	./blood-elf --64 --file $< --little-endian --output $@
 
 %.macro_amd64 : %.blood_elf_amd64
 	./M1 $(basename $@).M1_amd64 -o $@
 
 %.amd64 : %.macro_amd64
 	./hex2 -o $@ ../M2libc/amd64/ELF-amd64-debug.hex2 $(basename $@).macro_amd64 $(basename $@).blood_elf_amd64
-	objdump -d $@ >$@.txt
+	objdump -d -M intel $@ >$@.txt
+
+%.amd64_hex0 : %.macro_amd64
+	./hex2 -o $@ ../M2libc/amd64/ELF-amd64-debug.hex2 $(basename $@).macro_amd64 $(basename $@).blood_elf_amd64
 
 .PRECIOUS: %.sl %_s.M1 %.blood_elf %.macro
 .PHONY: all x86 amd64 run_unittest_s stack_c_diff tcc_cc_diff

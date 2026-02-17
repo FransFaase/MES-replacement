@@ -824,7 +824,7 @@ int main(int argc, char *argv[])
 				else if (idents[i].type == 'C')
 					fprintf(fout, "\tpush_rax              # %llu (const %s)\n\tmov_rax, %%%llu\n", idents[i].value, token, idents[i].value);
 				else if (idents[i].type == 'L')
-					fprintf(fout, "\tpush_rax              # %s (local)\n\tlea_rax,[rbp+DWORD] %%%d\n", token, 4 * idents[i].pos);
+					fprintf(fout, "\tpush_rax              # %s (local)\n\tlea_rax,[rbp+DWORD] %%%d\n", token, 8 * idents[i].pos);
 				else if (idents[i].type == 'S')
 					fprintf(fout, "\tpush_rax              # %s (static)\n\tmov_rax, &static_%lld_%s\n", token, idents[i].value, token);
 			}
@@ -932,7 +932,7 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == SYM_GET_LWORD)
 		{
-			fprintf(fout, "\tmov_eax,[rax]         # ?4\n\tand_rax, %%4294967296\n");
+			fprintf(fout, "\tmov_ebx,[rax]         # ?4\n\txor_rax,rax\n\tmov_eax,ebx\n");
 		}
 		else if (sym == 'K')
 		{
@@ -954,15 +954,15 @@ int main(int argc, char *argv[])
 		{
 			//int nr = pos - nesting_nr_vars[0] + 1;
 			//printf(" call at %d offset %d\n", pos, nr);
-			fprintf(fout, "\tadd_rbp, %%%d         # ()\n\tcall_rax\n\tsub_ebp, %%%d\n", 4 * pos, 4 * pos);
+			fprintf(fout, "\tadd_rbp, %%%d         # ()\n\tcall_rax\n\tsub_rbp, %%%d\n", 8 * pos, 8 * pos);
 		}
 		else if (sym == SYM_DIV_SIGNED)
 		{
-			fprintf(fout, "\tmov_rbx,rax           # /s\n\tpop_rax\n\tcdq\n\tidiv_rbx\n");
+			fprintf(fout, "\tmov_rbx,rax           # /s\n\tpop_rax\n\tcqo\n\tidiv_rbx\n");
 		}
 		else if (sym == SYM_MOD_SIGNED)
 		{
-			fprintf(fout, "\tmov_rbx,rax           # %%s\n\tpop_rax\n\tcdq\n\tidiv_rbx\n\tmov_rax,rdx");
+			fprintf(fout, "\tmov_rbx,rax           # %%s\n\tpop_rax\n\tcqo\n\tidiv_rbx\n\tmov_rax,rdx");
 		}
 		else if (sym == SYM_EQ)
 		{

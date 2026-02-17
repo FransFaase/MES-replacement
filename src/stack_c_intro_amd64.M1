@@ -3,14 +3,16 @@ DEFINE pop_rbx 5B
 DEFINE pop_rcx 59
 DEFINE pop_rdx 5A
 DEFINE pop_rdi 5F
+DEFINE pop_rsi 5E
 DEFINE push_rax 50
 DEFINE push_rbx 53
 DEFINE push_rdi 57
-DEFINE mov_rax, 48C7C0
-DEFINE mov_rbx, 48C7C3
-DEFINE mov_rdx, 48C7C2
-DEFINE mov_rax,[DWORD] 488B05  # ?
-DEFINE mov_rbx,[DWORD] 488B1D  # ?
+DEFINE mov_rax, 48C7C0 # or 48B8 with 8 bytes
+DEFINE mov_rbx, 48C7C3 # or 48BB with 8 bytes
+DEFINE mov_rdx, 48C7C2 # or 48BA with 8 bytes
+DEFINE mov_rax,[rip+DWORD] 488B05
+DEFINE mov_rbx,[rip+DWORD] 488B1D
+DEFINE mov_rdi,[rip+DWORD] 488B3D
 DEFINE mov_rax,rbx 4889D8
 DEFINE mov_rax,rdx 4889D0
 DEFINE mov_rdx,rax 4889C2
@@ -20,33 +22,39 @@ DEFINE mov_rcx,rax 4889C1
 DEFINE mov_rbp,rax 4889C5
 DEFINE mov_al,[rax] 8A00
 DEFINE mov_ax,[rax] 668B00
+DEFINE mov_ebx,[rax] 8B18
+DEFINE mov_eax,ebx 89D8
 DEFINE mov_rax,[rax] 488B00
-DEFINE mov_rbx,[rbp] 8B5D00
+DEFINE mov_rbx,[rbp] 488B5D00
 DEFINE mov_rax,[rbp+DWORD] 488B85 
 DEFINE lea_rax,[rbp+DWORD] 488D85
 DEFINE lea_rcx,[rbp+DWORD] 488D8D
-DEFINE mov_[DWORD],rax A3  # ?
-DEFINE mov_[DWORD],rbx 891D  # ?
+DEFINE mov_[rip+DWORD],rax 488905
+DEFINE mov_[rip+DWORD],rbx 48891D
+DEFINE mov_[rip+DWORD],rdi 48893D
 DEFINE mov_[rcx],rax 488901
 DEFINE mov_[rax],rbx 488918
 DEFINE mov_[rbx],al 8803
 DEFINE mov_[rbx],ax 48668903
+DEFINE mov_[rbx],eax 8903
 DEFINE mov_[rbx],rax 488903
-DEFINE mov_[rbp],rax 894500  # ?
+DEFINE mov_[rbp],rax 48894500
 DEFINE mov_[rax],bl 8818
 DEFINE add_rax, 4805
 DEFINE add_rax,rbx 4801D8
 DEFINE add_rbx,rax 4801C3
+DEFINE add_rdi,rax 4801C7
 DEFINE sub_rbx,rax 4829C3
 DEFINE shl_rax,cl 48D3E0
 DEFINE shr_rax,cl 48D3E8
-DEFINE cdq 4899 # ?
+DEFINE cqo 4899
 DEFINE mul_rbx 48F7E3
 DEFINE div_rbx 48F7F3
 DEFINE idiv_rbx 48F7FB
-DEFINE and_rax, 4825  # ?
+DEFINE and_rax, 4825  # 4 bytes
 DEFINE and_rax,rbx 4821D8
 DEFINE or_rax,rbx 4809D8
+DEFINE xor_rax,rax 4831C0
 DEFINE xor_rax,rbx 4831D8
 DEFINE not_rax 48F7D0
 DEFINE add_rbp, 4881C5
@@ -62,8 +70,8 @@ DEFINE setl_al 0F9CC0
 DEFINE setge_al 0F9DC0
 DEFINE setg_al 0F9FC0
 DEFINE setne_al 0F95C0
-DEFINE movsx_rax,al 480FBEC0 # ?
-DEFINE movzx_rax,al 480FB6C0 # ?
+DEFINE movsx_rax,al 480FBEC0
+DEFINE movzx_rax,al 480FB6C0
 DEFINE test_rax,rax 4885C0
 DEFINE jmp E9
 DEFINE je 0F84
@@ -72,16 +80,16 @@ DEFINE jle 0F8E
 DEFINE call E8
 DEFINE call_rax FFD0
 DEFINE ret C3
-DEFINE int_80 CD80
+DEFINE syscall 0F05
 DEFINE NULL 0000000000000000
 
 :ELF_text
 
 :_start
-    mov_rax, %45                                # the Syscall # for SYS_BRK
+    mov_rax, %12                                # the Syscall # for SYS_BRK
     mov_rbx, %0                                 # Get current brk
-    int_80                                      # Let the kernel do the work
-    mov_[DWORD],rax &SYS_MALLOC                 # Set our malloc pointer
+    syscall                                     # Let the kernel do the work
+    mov_[rip+DWORD],rax %SYS_MALLOC             # Set our malloc pointer
 
     # allocate memory for the second stack
     mov_rax, %100000
@@ -102,8 +110,8 @@ DEFINE NULL 0000000000000000
     
     # program completed Successfully
     mov_rbx,rax                                 # All is well
-    mov_rax, %1                                 # put the exit syscall number in rax
-    int_80                                      # Call it a good day
+    mov_rax, %60                                # put the exit syscall number in rax
+    syscall                                     # Call it a good day
 
 # These sys_ function follow the same calling conventions
 # as all the other functions. To access the arguments on the stack
@@ -113,25 +121,26 @@ DEFINE NULL 0000000000000000
 # needs to be popped as well.
 
 :f_sys_syscall
-    pop_rdi               # Save return address from the stack
-    pop_rdx               # Get the arguments from the stack
-    pop_rcx
-    pop_rbx
-    pop_rax
-    int_80                # call the Kernel
-    push_rdi              # restore return address to the stack
+    pop_rbx               # Save return address from the stack
+    pop_rdx               # Pop 4th argument
+    pop_rsi               # Pop 3rd argument
+    pop_rdi               # Pop 2nd argument
+    pop_rax               # Pop 1st argument
+    syscall               # call the Kernel
+    push_rbx              # restore return address to the stack
     ret
 
 :f_sys_malloc
-    pop_rdi
-    pop_rax
-    mov_rbx,[DWORD] &SYS_MALLOC                 # Using the current pointer
-    add_rbx,rax                                 # Request the number of desired bytes
-    mov_rax, %45                                # the Syscall # for SYS_BRK
-    int_80                                      # call the Kernel
-    mov_rax,[DWORD] &SYS_MALLOC                 # Return pointer
-    mov_[DWORD],rbx &SYS_MALLOC                 # Update pointer
-    push_rdi
+    pop_rbx                              # Save return address from the stack
+    pop_rax                              # Pop size argument
+    mov_rdi,[rip+DWORD] %SYS_MALLOC      # Using the current pointer
+    push_rdi                             # Push current value
+    add_rdi,rax                          # Request the number of desired bytes
+    mov_[rip+DWORD],rdi %SYS_MALLOC      # Update pointer
+    mov_rax, %12                         # the Syscall # for SYS_BRK
+    syscall                              # call the Kernel
+    pop_rax                              # Return previous value (saved on stack)
+    push_rbx                             # Restore return address to the stack
     ret
 :SYS_MALLOC
     NULL

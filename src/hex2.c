@@ -199,7 +199,7 @@ void process_file(const char *name, int add_labels, void (*output_byte)(unsigned
                     else
                         pos -= ip;
                 }
-                int nr_bits = *s == '!' ? 8 : 32;
+                int nr_bits = mode == '!' ? 8 : 32;
                 for (int i = 0; i < nr_bits; i += 8)
                 {
                     unsigned byte = (pos >> i) & 0xff;
@@ -304,7 +304,7 @@ int main(int argc, char *argv[])
             return -1;
         }
         int len = strlen(output_file);
-        output_as_hex = len > 5 && strcmp(output_file + len - 5, ".hex0") == 0;
+        output_as_hex = len > 4 && strcmp(output_file + len - 4, "hex0") == 0;
     }
 
     ip = 0x8048000;
