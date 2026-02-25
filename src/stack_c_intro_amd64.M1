@@ -7,7 +7,7 @@ DEFINE pop_rsi 5E
 DEFINE push_rax 50
 DEFINE push_rbx 53
 DEFINE push_rdi 57
-DEFINE mov_rax, 48C7C0 # or 48B8 with 8 bytes
+DEFINE mov_rax, B8 # 48C7C0 # or 48B8 with 8 bytes
 DEFINE mov_rbx, 48C7C3 # or 48BB with 8 bytes
 DEFINE mov_rdx, 48C7C2 # or 48BA with 8 bytes
 DEFINE mov_rax,[rip+DWORD] 488B05
@@ -35,7 +35,7 @@ DEFINE mov_[rip+DWORD],rdi 48893D
 DEFINE mov_[rcx],rax 488901
 DEFINE mov_[rax],rbx 488918
 DEFINE mov_[rbx],al 8803
-DEFINE mov_[rbx],ax 48668903
+DEFINE mov_[rbx],ax 668903
 DEFINE mov_[rbx],eax 8903
 DEFINE mov_[rbx],rax 488903
 DEFINE mov_[rbp],rax 48894500
@@ -71,6 +71,8 @@ DEFINE setge_al 0F9DC0
 DEFINE setg_al 0F9FC0
 DEFINE setne_al 0F95C0
 DEFINE movsx_rax,al 480FBEC0
+DEFINE movsx_rax,ax 480FBFC0
+DEFINE movsx_rax,eax 4863C0
 DEFINE movzx_rax,al 480FB6C0
 DEFINE test_rax,rax 4885C0
 DEFINE jmp E9
@@ -109,7 +111,8 @@ DEFINE NULL 0000000000000000
     call %f_main
     
     # program completed Successfully
-    mov_rbx,rax                                 # All is well
+    push_rax                                    # All is well
+    pop_rdi
     mov_rax, %60                                # put the exit syscall number in rax
     syscall                                     # Call it a good day
 

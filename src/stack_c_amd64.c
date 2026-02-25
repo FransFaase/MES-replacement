@@ -84,7 +84,7 @@ typedef struct
 	const char *name;
 	char sym;
 } Mapping;
-#define NR_KEYWORDS 12
+#define NR_KEYWORDS 14
 Mapping keywords[NR_KEYWORDS] = {
 	{ "void",		'F' },
 	{ "const",		'C' },
@@ -97,7 +97,9 @@ Mapping keywords[NR_KEYWORDS] = {
 	{ "return",		'R' },
 	{ "goto",		'G' },
 	{ "static",     'S' },
-	{ "char",       'K' }
+	{ "char",       'K' },
+	{ "short",      'M' },
+	{ "long",       'O' }
 };
 
 #define SYMBOL(X) ('a' + (X))
@@ -938,6 +940,14 @@ int main(int argc, char *argv[])
 		{
 			fprintf(fout, "\tmovsx_rax,al          # char\n");
 		}
+		else if (sym == 'M')
+		{
+			fprintf(fout, "\tmovsx_rax,ax          # short\n");
+		}
+		else if (sym == 'O')
+		{
+			fprintf(fout, "\tmovsx_rax,eax         # long\n");
+		}
 		else if (sym == SYM_ASS_BYTE)
 		{
 			fprintf(fout, "\tpop_rbx               # =1\n\tmov_[rbx],al\n");
@@ -962,7 +972,7 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == SYM_MOD_SIGNED)
 		{
-			fprintf(fout, "\tmov_rbx,rax           # %%s\n\tpop_rax\n\tcqo\n\tidiv_rbx\n\tmov_rax,rdx");
+			fprintf(fout, "\tmov_rbx,rax           # %%s\n\tpop_rax\n\tcqo\n\tidiv_rbx\n\tmov_rax,rdx\n");
 		}
 		else if (sym == SYM_EQ)
 		{

@@ -19,7 +19,7 @@ void is_true(int val, const char *testname)
 		printf("Failed: %s\n", testname);
 		result = 1;
 	}
-	if (show_OK != 0)
+	else if (show_OK != 0)
 		printf("OK: %s\n", testname);
 }
 
@@ -30,7 +30,7 @@ void is_false(int val, const char *testname)
 		printf("Failed: %s\n", testname);
 		result = 1;
 	}
-	if (show_OK != 0)
+	else if (show_OK != 0)
 		printf("OK: %s\n", testname);
 }
 
@@ -335,7 +335,7 @@ int main (int argc, char *argv[])
 	is_true(nu.d == 4, "nu.d == 4");
 	is_true(nu.x == 5, "nu.x == 5");
 
-	printf("Done\n");
+	printf("Done %d\n", result);
 
 	return result;
 }

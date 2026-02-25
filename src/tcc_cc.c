@@ -946,9 +946,9 @@ token_iterator_p tokenizer_next(token_iterator_p token_it, bool skip_nl)
 	return token_it;
 }
 
-int string_int_value(const char *s)
+ssize_t string_int_value(const char *s)
 {
-	int int_value = 0;
+	ssize_t int_value = 0;
 	if (*s == '0')
 	{
 		s++;
@@ -996,7 +996,7 @@ int string_int_value(const char *s)
 	return int_value;
 }
 
-int token_it_int_value(token_iterator_p it)
+ssize_t token_it_int_value(token_iterator_p it)
 {
 	return string_int_value(it->token);
 }
@@ -2002,6 +2002,7 @@ type_p base_type_U32 = NULL;
 type_p base_type_S64 = NULL;
 type_p base_type_U64 = NULL;
 type_p base_type_size_t = NULL;
+type_p base_type_ssize_t = NULL;
 type_p base_type_float = NULL;
 type_p base_type_double = NULL;
 type_p base_type_jmp_buf = NULL;
@@ -2038,6 +2039,7 @@ void define_base_types(void)
 	base_type_U32 = new_base_type(BT_U32);
 	base_type_S64 = new_base_type(BT_S64);
 	base_type_U64 = new_base_type(BT_U64);
+	base_type_ssize_t = long_long_size == TARGET_64BITS ? base_type_S64 : base_type_S32;
 	base_type_size_t = long_long_size == TARGET_64BITS ? base_type_U64 : base_type_U32;
 	base_type_float = new_base_type(BT_F);
 	base_type_double = new_base_type(BT_DF);
@@ -2080,7 +2082,7 @@ typedef struct expr_s *expr_p;
 struct expr_s
 {
 	int kind;
-	int int_val;
+	ssize_t int_val;
 	char *str_val;
 	type_p type;
 #ifdef LOCATION_IN_EXPR
@@ -2155,7 +2157,7 @@ expr_p new_expr(int kind, int nr_children)
 	return expr;
 }
 
-expr_p new_expr_int_value(int value)
+expr_p new_expr_int_value(ssize_t value)
 {
 	expr_p expr = new_expr('0', 0);
 	expr->int_val = value;
@@ -4169,14 +4171,14 @@ void add_function(const char *name, type_p result_type)
 
 void add_predefined_types(void)
 {
+	add_base_type("uint64_t", base_type_U64);
 	add_base_type("uint32_t", base_type_U32);
 	add_base_type("int32_t", base_type_S32);
 	add_base_type("uint16_t", base_type_U16);
 	add_base_type("uint8_t", base_type_U8);
 	add_base_type("int8_t", base_type_S8);
 	add_base_type("size_t", base_type_size_t);
-	// Need to verify the following:
-	add_base_type("ssize_t", base_type_size_t);
+	add_base_type("ssize_t", base_type_ssize_t);
 	add_base_type("jmp_buf", base_type_jmp_buf);
 }
 
@@ -4380,7 +4382,9 @@ void gen_expr(expr_p expr, bool as_value)
 			fprintf(fcode, "%s ", expr->str_val);
 			break;
 		case '0':
-			fprintf(fcode, "%u ", expr->int_val);
+			fprintf(fcode, "%u ", (unsigned int)expr->int_val);
+			if (long_long_size == TARGET_64BITS && expr->int_val < 0)
+				fprintf(fcode, "long ");
 			break;
 		case '"':
 			fprintf(fcode, "\"");
@@ -4413,6 +4417,8 @@ void gen_expr(expr_p expr, bool as_value)
 					case BT_U8: fprintf(fcode, "0xFF & "); break;
 					case BT_S8: fprintf(fcode, "char "); break;
 					case BT_U16: fprintf(fcode, "0xFFFF & "); break;
+					case BT_U32: if (long_long_size == TARGET_64BITS) fprintf(fcode, "0xFFFFFFFF & "); break;
+					case BT_S32: if (long_long_size == TARGET_64BITS) fprintf(fcode, "long "); break;
 					default: break;
 				}
 			}
@@ -4553,13 +4559,13 @@ void gen_expr(expr_p expr, bool as_value)
 		case TK_ARROW:
 			gen_expr(expr->children[0], FALSE);
 			if (is_lvalue(expr->children[0]))
-				fprintf(fcode, "->s%d_m_%s ", expr->int_val, expr->str_val);
+				fprintf(fcode, "->s%u_m_%s ", (unsigned int)expr->int_val, expr->str_val);
 			else
-				fprintf(fcode, "s%d_m_%s + ", expr->int_val, expr->str_val);
+				fprintf(fcode, "s%u_m_%s + ", (unsigned int)expr->int_val, expr->str_val);
 			break;
 		case '.':
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "s%d_m_%s + ", expr->int_val, expr->str_val);
+			fprintf(fcode, "s%u_m_%s + ", (unsigned int)expr->int_val, expr->str_val);
 			break;
 		case '[':
 			gen_expr(expr->children[0], TRUE);
@@ -4699,8 +4705,14 @@ void gen_expr(expr_p expr, bool as_value)
 		if (multiple)
 			expr_print_error(expr, "multiple get value");
 		fprintf(fcode, "?%s ", expr_size_ind);
-		if (expr->type != NULL && expr->type->base_type == BT_S8)
-			fprintf(fcode, "char ");
+		if (expr->type != NULL)
+			switch(expr->type->base_type)
+			{
+				case BT_S8: fprintf(fcode, "char "); break;
+				case BT_S16: if (long_long_size == TARGET_64BITS) fprintf(fcode, "short "); break;
+				case BT_S32: if (long_long_size == TARGET_64BITS) fprintf(fcode, "long "); break;
+				default: break;
+			}
 	}
 }
 
@@ -4798,8 +4810,7 @@ int main(int argc, char *argv[])
 	include_path = malloc(100);
 
 	get_env("__TCC_CC__", TRUE);
-	define_base_types();
-	add_predefined_types();
+	bool init = FALSE;
 
 	fcode = stdout;
 	bool only_preprocess = FALSE;
@@ -4853,14 +4864,20 @@ int main(int argc, char *argv[])
 			fcode = fopen(argv[++i], "w");
 			if (fcode == 0)
 			{
-				fprintf(fcode, "ERROR: Cannot open file '%s' for writing\n", argv[i]);
+				fprintf(stderr, "ERROR: Cannot open file '%s' for writing\n", argv[i]);
 				return 1;
 			}
 		}
 		else
 		{
-			if (long_long_size == TARGET_32BITS)
-				get_env("__i386__", TRUE);
+			if (!init)
+			{
+				define_base_types();
+				add_predefined_types();
+				if (long_long_size == TARGET_32BITS)
+					get_env("__i386__", TRUE);
+				init = TRUE;
+			}
 
 			if (!parse_file(argv[i], only_preprocess))
 				return 1;

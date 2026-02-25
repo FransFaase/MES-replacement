@@ -73,16 +73,25 @@ diff5 : tcc_cc.sl tcc_cc_t.sl
 	./run.sh diff tcc_cc.sl tcc_cc_t.sl
 
 
-amd64 : hex0.M1_amd64
+amd64 : run_unittest_amd64
 
 hex0.sl64 : hex0.c tcc_cc
+	./tcc_cc -64 -o $@ $<
+
+hex2.sl64 : hex2.c tcc_cc
+	./tcc_cc -64 -o $@ $<
+
+kaem-minimal.sl64 : kaem-minimal.c tcc_cc
+	./tcc_cc -64 -o $@ $<
+
+equal.sl64 : equal.c tcc_cc
 	./tcc_cc -64 -o $@ $<
 
 %.sl64 : %.c tcc_cc stdlib.c
 	./tcc_cc -64 -o $@ stdlib.c $<
 
-%_t.sl64 : %.c tcc_cc_s stdlib.c
-	./tcc_cc_s -64 -o $@ stdlib.c $< 
+%_t.sl64 : %.c tcc_cc.amd64 stdlib.c
+	./tcc_cc.amd64 -64 -o $@ stdlib.c $< 
 
 %.M1_amd64 : %.sl64 stack_c_amd64 stack_c_intro_amd64.M1
 	./stack_c_amd64 -i stack_c_intro_amd64.M1 $< -o $@
@@ -100,5 +109,27 @@ hex0.sl64 : hex0.c tcc_cc
 %.amd64_hex0 : %.macro_amd64
 	./hex2 -o $@ ../M2libc/amd64/ELF-amd64-debug.hex2 $(basename $@).macro_amd64 $(basename $@).blood_elf_amd64
 
-.PRECIOUS: %.sl %_s.M1 %.blood_elf %.macro
+run_unittest_amd64 : unittest.amd64 stack_c_interpreter
+	./unittest.amd64
+	#./stack_c_interpreter unittest.sl
+
+stack_c_diff_amd64 : stack_c stack_c.amd64
+	./stack_c.amd64 -i stack_c_intro.M1 stack_c.sl -o stack_c_s2.M1_amd64
+	./run.sh diff stack_c.M1_amd64 stack_c_s2.M1_amd64
+
+tcc_cc_diff_amd64 : tcc_cc tcc_cc.amd64
+	./stack_c.amd64 -i stack_c_intro.M1 tcc_cc.sl -o tcc_cc_s2.M1_amd64
+	./run.sh diff tcc_cc.M1_amd64 tcc_cc_s2.M1_amd64
+	
+diff3_64 : unittest.sl64 unittest_t.sl64
+	./run.sh diff unittest.sl64 unittest_t.sl64
+
+diff4_64 : stack_c.sl64 stack_c_t.sl64
+	./run.sh diff stack_c.sl64 stack_c_t.sl64
+
+diff5_64 : tcc_cc.sl64 tcc_cc_t.sl64
+	./run.sh diff tcc_cc.sl64 tcc_cc_t.sl64
+
+.PRECIOUS: %.sl %_s.M1 %.blood_elf %.macro \
+    %.sl64 %_s.M1_amd64 %.blood_elf_amd64 %.macro_amd64
 .PHONY: all x86 amd64 run_unittest_s stack_c_diff tcc_cc_diff
