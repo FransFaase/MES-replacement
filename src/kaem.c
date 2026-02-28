@@ -7,10 +7,10 @@
 */
 
 #ifdef __TCC_CC__
-#define chdir(path) sys_int80(12, path, 0, 0)
-#define fork() sys_int80(2, 0, 0, 0)
-#define execve(program, argv, env) sys_int80(11, program, argv, env)
-#define waitpid(f, status, mode) sys_int80(7, f, status, mode)
+#define chdir(path) sys_syscall(12, path, 0, 0)
+#define fork() sys_syscall(2, 0, 0, 0)
+#define execve(program, argv, env) sys_syscall(11, program, argv, env)
+#define waitpid(f, status, mode) sys_syscall(7, f, status, mode)
 #endif
 
 /* Copyright (C) 2016-2020 Jeremiah Orians

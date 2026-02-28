@@ -111,7 +111,7 @@ DEFINE NULL 0000000000000000
 # address (which is stored in the rax register, the top of the stack)
 # needs to be popped as well.
 
-:f_sys_int80
+:f_sys_syscall
     pop_rdi               # Save return address from the stack
     pop_rdx               # Get the arguments from the stack
     pop_rcx

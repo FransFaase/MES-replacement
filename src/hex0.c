@@ -4,16 +4,16 @@
 #ifdef __TCC_CC__
 
 char **_sys_env = 0;
-int sys_int80(int a, int b, int c, int d);
+int sys_syscall(int a, int b, int c, int d);
 
 #define O_RDONLY 0
 #define O_WRITE 001101
 
-#define open(pathname, mode) sys_int80(5, pathname, mode, 0777)
-#define close(fd) sys_int80(6, fd, 0, 0)
-#define read(fd, buf, count) sys_int80(3, fd, buf, count)
-#define write(fd, buf, count) sys_int80(4, fd, buf, count)
-#define chmod(fn, mode) sys_int80(15, fn, mode, 0)
+#define open(pathname, mode) sys_syscall(5, pathname, mode, 0777)
+#define close(fd) sys_syscall(6, fd, 0, 0)
+#define read(fd, buf, count) sys_syscall(3, fd, buf, count)
+#define write(fd, buf, count) sys_syscall(4, fd, buf, count)
+#define chmod(fn, mode) sys_syscall(15, fn, mode, 0)
 
 #else
 

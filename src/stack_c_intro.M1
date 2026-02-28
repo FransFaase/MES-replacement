@@ -112,7 +112,7 @@ DEFINE NULL 00000000
 # address (which is stored in the eax register, the top of the stack)
 # needs to be popped as well.
 
-:f_sys_int80
+:f_sys_syscall
     pop_edi               # Save return address from the stack
     pop_edx               # Get the arguments from the stack
     pop_ecx

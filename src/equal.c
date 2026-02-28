@@ -5,13 +5,13 @@
 #ifdef __TCC_CC__
 
 char **_sys_env = 0;
-int sys_int80(int a, int b, int c, int d);
+int sys_syscall(int a, int b, int c, int d);
 
 #define O_RDONLY 0
 
-#define open(pathname, mode) sys_int80(5, pathname, mode, 0777)
-#define read(fd, buf, count) sys_int80(3, fd, buf, count)
-#define close(fd) sys_int80(6, fd, 0, 0)
+#define open(pathname, mode) sys_syscall(5, pathname, mode, 0777)
+#define read(fd, buf, count) sys_syscall(3, fd, buf, count)
+#define close(fd) sys_syscall(6, fd, 0, 0)
 
 #endif
 
