@@ -51,7 +51,7 @@ DEFINE xor_eax,ebx 31D8
 DEFINE not_eax F7D0
 DEFINE add_ebp, 81C5
 DEFINE sub_ebp, 81ED
-DEFINE cmp_eax,ebx 39C3
+DEFINE cmp_ebx,eax 39C3
 DEFINE seta_al 0F97C0
 DEFINE setae_al 0F93C0
 DEFINE setb_al 0F92C0
