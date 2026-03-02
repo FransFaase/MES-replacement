@@ -45,6 +45,7 @@ cp -f -t rootfs/x86 \
 mkdir -p rootfs/src
 cp -f -t rootfs/src \
     src/stdlib.c \
+    src/sys_syscall.h \
     src/tcc_cc.sl \
     src/kaem.c \
     src/catm.c \

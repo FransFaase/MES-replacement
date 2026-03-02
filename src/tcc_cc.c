@@ -4796,8 +4796,7 @@ int main(int argc, char *argv[])
 	include_path = malloc(100);
 
 	get_env("__TCC_CC__", TRUE);
-	define_base_types();
-	add_predefined_types();
+	bool init = FALSE;
 
 	fcode = stdout;
 	bool only_preprocess = FALSE;
@@ -4851,12 +4850,21 @@ int main(int argc, char *argv[])
 			fcode = fopen(argv[++i], "w");
 			if (fcode == 0)
 			{
-				fprintf(fcode, "ERROR: Cannot open file '%s' for writing\n", argv[i]);
+				fprintf(stderr, "ERROR: Cannot open file '%s' for writing\n", argv[i]);
 				return 1;
 			}
 		}
 		else
 		{
+			if (!init)
+			{
+				define_base_types();
+				add_predefined_types();
+				if (long_long_size == TARGET_32BITS)
+					get_env("__TCC_CC_32__", TRUE);
+				init = TRUE;
+			}
+
 			if (!parse_file(argv[i], only_preprocess))
 				return 1;
 		}

@@ -18,11 +18,12 @@ void *sys_malloc(size_t size);
 #define O_RDONLY 0
 #define O_WRITE 001101
 
-#define open(pathname, mode) sys_syscall(5, pathname, mode, 0777)
-#define close(fd) sys_syscall(6, fd, 0, 0)
-#define read(fd, buf, count) sys_syscall(3, fd, buf, count)
-#define write(fd, buf, count) sys_syscall(4, fd, buf, count)
-#define chmod(fn, mode) sys_syscall(15, fn, mode, 0)
+#include "sys_syscall.h"
+#define open(pathname, mode) sys_syscall(__NR_open, pathname, mode, 0777)
+#define close(fd) sys_syscall(__NR_close, fd, 0, 0)
+#define read(fd, buf, count) sys_syscall(__NR_read, fd, buf, count)
+#define write(fd, buf, count) sys_syscall(__NR_write, fd, buf, count)
+#define chmod(fn, mode) sys_syscall(__NR_chmod, fn, mode, 0)
 
 void *malloc(size_t size) { return sys_malloc((size + 3) & ~3); }
 
