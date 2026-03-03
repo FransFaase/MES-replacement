@@ -1,24 +1,24 @@
 // Functions implemented in stack_c_intro.M1
 
-int sys_syscall(int a, int b, int c, int d); // https://faculty.nps.edu/cseagle/assembly/sys_call.html
+ssize_t sys_syscall(ssize_t a, ssize_t b, ssize_t c, ssize_t d); // https://faculty.nps.edu/cseagle/assembly/sys_call.html
 #include "sys_syscall.h"
 void *sys_malloc(size_t size);
 
-void exit(int result)
+void exit(ssize_t result)
 {
 	sys_syscall(__NR_exit, result, 0, 0);
 }
 
 #define NULL 0
 
-typedef uint32_t off_t;
+typedef ssize_t off_t;
 typedef uint32_t time_t;
 typedef uint32_t suseconds_t;
 
 typedef struct 
 {
-	uint32_t fh;
-	uint32_t at_eof;
+	size_t fh;
+	size_t at_eof;
 } FILE;
 FILE __sys_stdin = { 0, 0 };
 FILE __sys_stdout = { 1, 0 };
@@ -32,7 +32,7 @@ void *memcpy(void *dest, const void *src, size_t n)
 {
 	char *d = (char *)dest;
 	char *s = (char *)src;
-	for (int i = 0; i < n; i++)
+	for (size_t i = 0; i < n; i++)
 		d[i] = s[i];
 	return dest;
 }
@@ -55,7 +55,7 @@ void *memmove(void *dest, const void *src, size_t n)
 	return dest;
 }
 
-void *memset(void *s, int c, size_t n)
+void *memset(void *s, ssize_t c, size_t n)
 {
 	char *p = s
 	for (size_t i = 0; i < n; i++)
@@ -63,13 +63,13 @@ void *memset(void *s, int c, size_t n)
 	return s;
 }
 
-int memcmp(const void *s1, const void *s2, size_t n)
+ssize_t memcmp(const void *s1, const void *s2, size_t n)
 {
 	char *p1 = (char*)s1;
 	char *p2 = (char*)s2;
 	for (size_t i = 0; i < n; i++, p1++, p2++)
 	{
-		int result = *(char*)p1 - *(char*)p2;
+		ssize_t result = *(char*)p1 - *(char*)p2;
 		if (result != 0)
 			return result;
 	}
@@ -78,7 +78,7 @@ int memcmp(const void *s1, const void *s2, size_t n)
 
 size_t strlen(const char *s)
 {
-	int len = 0;
+	size_t len = 0;
 	for (; *s != '\0'; s++)
 		len++;
 	return len;
@@ -97,7 +97,7 @@ char *strncpy(char *dest, const char *src, size_t n)
 {
 	char *d = (char *)dest;
 	char *s = (char *)src;
-	for (int i = 0; i < n; i++)
+	for (size_t i = 0; i < n; i++)
 	{
 		d[i] = s[i];
 		if (s[i] == '\0')
@@ -112,7 +112,7 @@ char *strcat(char *dest, const char *src)
 	return dest;
 }
 
-char *strchr(const char *s, int c)
+char *strchr(const char *s, ssize_t c)
 {
 	for (; *s != '\0'; s++)
 		if (*s == c)
@@ -120,20 +120,20 @@ char *strchr(const char *s, int c)
 	return c == '\0' ? s : NULL;
 }
 
-char *strrchr(const char *s, int c)
+char *strrchr(const char *s, ssize_t c)
 {
-	int n = strlen(s);
-	for (int i = n; i >= 0; i--)
-		if (s[i] == c)
-			return s + i;
-	return NULL;
+	const char *result = NULL;
+	for (; *s != '\0'; s++)
+		if (*s == c)
+			result = s;
+	return result;
 }
 
-int strcmp(const char *s1, const char *s2)
+ssize_t strcmp(const char *s1, const char *s2)
 {
 	for (;;)
 	{
-		int result = *s1 - *s2;
+		ssize_t result = *s1 - *s2;
 		if (result != 0 || *s1 == 0)
 			return result;
 		s1++;
@@ -142,11 +142,11 @@ int strcmp(const char *s1, const char *s2)
 	return 0; // should not get here
 }
 
-int strncmp(const char *s1, const char *s2, size_t n)
+ssize_t strncmp(const char *s1, const char *s2, size_t n)
 {
 	for (; n > 0; n--)
 	{
-		int result = *s1 - *s2;
+		ssize_t result = *s1 - *s2;
 		if (result != 0 || *s1 == 0)
 			return result;
 		s1++;
@@ -157,7 +157,7 @@ int strncmp(const char *s1, const char *s2, size_t n)
 
 char *strstr(const char *haystack, const char *needle)
 {
-	int n = strlen(needle);
+	size_t n = strlen(needle);
 	for (; *haystack != '\0'; haystack++)
 		if (strncmp(haystack, needle, n) == 0)
 			return haystack;
@@ -165,7 +165,7 @@ char *strstr(const char *haystack, const char *needle)
 }
 
 
-long strtoul(const char *nptr, char **endptr, int base)
+ssize_t strtoul(const char *nptr, char **endptr, size_t base)
 {
 	if (base == 0)
 	{
@@ -181,7 +181,7 @@ long strtoul(const char *nptr, char **endptr, int base)
 			}
 		}
 	}
-	long result = 0;
+	ssize_t result = 0;
 	char sub_10 = '0' + (base < 10 ? base : 10);
 	for (;; nptr++)
 	{
@@ -199,9 +199,9 @@ long strtoul(const char *nptr, char **endptr, int base)
 	return result;
 }
 
-long strtol(const char *nptr, char **endptr, int base)
+ssize_t strtol(const char *nptr, char **endptr, size_t base)
 {
-	long sign = 1;
+	ssize_t sign = 1;
 	if (*nptr == '-')
 	{
 		sign = -1;
@@ -210,12 +210,12 @@ long strtol(const char *nptr, char **endptr, int base)
 	return sign * strtoul(nptr, endptr, base);
 }
 
-long strtoll(const char *nptr, char **endptr, int base)
+ssize_t strtoll(const char *nptr, char **endptr, size_t base)
 {
 	return strtol(nptr, endptr, base);
 }
 
-long strtoull(const char *nptr, char **endptr, int base)
+ssize_t strtoull(const char *nptr, char **endptr, size_t base)
 {
 	return strtoul(nptr, endptr, base);
 }
@@ -229,8 +229,13 @@ float strtof(const char* str, char **endptr)
 
 void *malloc(size_t size)
 {
+#ifdef __TCC_CC_32__
 	size = (size + 3) & ~3;
-	int *result = sys_malloc(size + 4);
+	size_t *result = sys_malloc(size + 4);
+#else
+	size = (size + 7) & ~7;
+	size_t *result = sys_malloc(size + 8);
+#endif
 	*result = size;
 	result++;
 	return result;
@@ -238,22 +243,26 @@ void *malloc(size_t size)
 
 void *realloc(void *ptr, size_t size)
 {
-	int *result = malloc(size);
+	size_t *result = malloc(size);
 	if (ptr != 0)
 	{
-		int *old_ptr = ptr;
-		int old_size = old_ptr[-1] / 4;
-		for (int i = 0; i < old_size; i++)
+		size_t *old_ptr = ptr;
+#ifdef __TCC_CC_32__
+		size_t old_size = old_ptr[-1] / 4;
+#else
+		size_t old_size = old_ptr[-1] / 8;
+#endif
+		for (size_t i = 0; i < old_size; i++)
 			result[i] = old_ptr[i];
 	}
 	return result;
 }
 
-void *calloc(int N, int S)
+void *calloc(size_t N, size_t S)
 {
-	int len = N * S;
+	size_t len = N * S;
 	char *r = (char*)malloc(len);
-	for (int i = 0; i < len; i++)
+	for (size_t i = 0; i < len; i++)
 		r[i] = '\0';
 	return r;
 }
@@ -269,24 +278,24 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
 	return sys_syscall(__NR_write, stream->fh, ptr, size * nmemb);
 }
 
-int fputc(int c, FILE *stream)
+ssize_t fputc(ssize_t c, FILE *stream)
 {
 	return sys_syscall(__NR_write, stream->fh, &c, 1);
 }
 
-int fputs(const char *s, FILE *stream)
+ssize_t fputs(const char *s, FILE *stream)
 {
 	return sys_syscall(__NR_write, stream->fh, s, strlen(s));
 }
 
-typedef int *va_list;
+typedef ssize_t *va_list;
 
-int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
+size_t __sys_printf(FILE *stream, char *trg, size_t len, char *format, va_list args)
 {
-	char buffer[20];
-	int l = 0;
+	char buffer[40];
+	size_t l = 0;
 	char *s;
-	int cnt = 0;
+	size_t cnt = 0;
 
 	char *org_format = format;
 
@@ -319,8 +328,8 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 					buffer[0] = '%';
 				else
 				{
-					int modifier = 0;
-					int sign = 1;
+					size_t modifier = 0;
+					ssize_t sign = 1;
 					if (*format == '-')
 					{
 						sign = -1;
@@ -338,28 +347,29 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 					}
 					else if (*format == 'd')
 					{
-						int v = *args;
-						int b = 20;
+						ssize_t v = *args;
+						size_t b = 40;
 						if (v == 0)
 							buffer[--b] = '0';
 						else
 						{
-							if (v < 0) v = -v;
+							size_t negative = v < 0;
+							if (negative) v = -v;
 							for (; v > 0; v = v / 10)
 								buffer[--b] = '0' + v % 10;
-							if (*args < 0)
+							if (negative)
 								buffer[--b] = '-';
 						}
-						l = 20 - b;
+						l = 40 - b;
 						if (modifier > 0)
 						{
 							if (modifier > l)
 							{
 								if (sign == -1)
 								{
-									for (int i = 20 - modifier; i < 20; i++)
-										buffer[i] = b < 20 ? buffer[b++] : ' ';
-									b = 20 - modifier;
+									for (size_t i = 40 - modifier; i < 40; i++)
+										buffer[i] = b < 40 ? buffer[b++] : ' ';
+									b = 40 - modifier;
 								}
 								else
 									for (; l < modifier; l++)
@@ -372,30 +382,30 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 					}
 					else if (*format == 'u')
 					{
-						unsigned int v = *args++;
+						size_t v = *args++;
 						if (v == 0)
 							buffer[0] = '0';
 						else
 						{
-							l = 20;
+							l = 40;
 							for (; v > 0; v = v / 10)
 								buffer[--l] = '0' + v % 10;
 							s = buffer + l;
-							l = 20 - l;
+							l = 40 - l;
 						}
 					}
 					else if (*format == 'x' || *format == 'p')
 					{
-						unsigned int v = *args++;
+						size_t v = *args++;
 						if (v == 0)
 							buffer[0] = '0';
 						else
 						{
-							l = 20;
+							l = 40;
 							for (; v != 0; v >>= 4)
 								buffer[--l] = ((v & 0xf) < 10 ? '0' : ('a' - 10)) + (v & 0xf);
 							s = buffer + l;
-							l = 20 - l;
+							l = 40 - l;
 						}
 					}
 					else if (*format == 'c')
@@ -430,34 +440,35 @@ int __sys_printf(FILE *stream, char *trg, int len, char *format, va_list args)
 void va_start(va_list ap, ...);
 void va_end(va_list ap) {}
 
-int fprintf(FILE *stream, const char *format, ...)
+size_t fprintf(FILE *stream, const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
 	return __sys_printf(stream, 0, -1, format, ap);
 }
 
-int printf(const char *format, ...)
+size_t printf(const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
 	return __sys_printf(stdout, 0, -1, format, ap);
 }
 
-int sprintf(char *str, const char *format, ...)
+size_t sprintf(char *str, const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
 	return __sys_printf(0, str, -1, format, ap);
 }
-int snprintf(char *str, size_t size, const char *format, ...)
+
+size_t snprintf(char *str, size_t size, const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
 	return __sys_printf(0, str, size, format, ap);
 }
 
-int vsnprintf(char *str, size_t size, const char *format, va_list ap)
+size_t vsnprintf(char *str, size_t size, const char *format, va_list ap)
 {
 	return __sys_printf(0, str, size, format, ap);
 }
@@ -472,9 +483,9 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap)
 #define SEEK_CUR 1
 #define SEEK_END 2
 
-int open(const char *filename, int flag, ...)
+ssize_t open(const char *filename, ssize_t flag, ...)
 {
-	int mode = 0;
+	size_t mode = 0;
 	if ((flag & O_WRONLY) != 0)
 	{
 		va_list ap;
@@ -484,17 +495,17 @@ int open(const char *filename, int flag, ...)
 	return sys_syscall(__NR_open, filename, flag, mode);
 }
 
-int close(int fd)
+ssize_t close(ssize_t fd)
 {
 	return sys_syscall(__NR_close, fd, 0, 0);
 }
 
-size_t read(int fd, void *buf, size_t count)
+size_t read(ssize_t fd, void *buf, size_t count)
 {
 	return sys_syscall(__NR_read, fd, buf, count);
 }
 
-off_t lseek(int fd, off_t offset, int whence)
+off_t lseek(ssize_t fd, off_t offset, ssize_t whence)
 {
 	return sys_syscall(__NR_lseek, fd, offset, whence);
 }
@@ -504,13 +515,13 @@ FILE *fopen(const char *pathname, const char *mode)
 	char rw = *mode;
 	if (*mode == 'r' || *mode == 'w')
 		mode++;
-	int bin = 0;
+	ssize_t bin = 0;
 	if (*mode == 'b')
 	{
 		bin = 1;
 		mode++;
 	}
-	int plus = 0;
+	ssize_t plus = 0;
 	if (*mode == '+')
 	{
 		plus = 1;
@@ -522,10 +533,10 @@ FILE *fopen(const char *pathname, const char *mode)
 		return 0;
 	}
 
-	int open_mode =   rw == 'r'
-					? (plus == 1 ? O_RDWR : O_RDONLY)
-					: ((plus == 1 ? O_RDWR : O_WRONLY) | O_CREAT | O_TRUNC);
-	int fh = sys_syscall(__NR_open, pathname, open_mode, 0777);
+	ssize_t open_mode =   rw == 'r'
+						? (plus == 1 ? O_RDWR : O_RDONLY)
+						: ((plus == 1 ? O_RDWR : O_WRONLY) | O_CREAT | O_TRUNC);
+	ssize_t fh = sys_syscall(__NR_open, pathname, open_mode, 0777);
 	if (fh < 0)
 	{
 		printf("fopen %s %s returned %d\n", pathname, mode, fh);
@@ -537,7 +548,7 @@ FILE *fopen(const char *pathname, const char *mode)
 	return f;
 }
 
-FILE *fdopen(int fd, const char *mode)
+FILE *fdopen(ssize_t fd, const char *mode)
 {
 	FILE *f = (FILE*)malloc(sizeof(FILE));
 	f->fh = fd;
@@ -545,23 +556,23 @@ FILE *fdopen(int fd, const char *mode)
 	return f;
 }
 
-int fclose(FILE *stream)
+ssize_t fclose(FILE *stream)
 {
 	return sys_syscall(__NR_close, stream->fh, 0, 0);
 }
 
-int fflush(FILE *stream)
+ssize_t fflush(FILE *stream)
 {
 	// (No buffered output)
 	return 0;
 }
 
-int fseek(FILE *stream, long offset, int whence)
+size_t fseek(FILE *stream, size_t offset, size_t whence)
 {
 	return lseek(stream->fh, offset, whence);
 }
 
-long ftell(FILE *stream)
+size_t ftell(FILE *stream)
 {
 	return lseek(stream->fh, 0, SEEK_CUR);
 }
@@ -569,7 +580,7 @@ long ftell(FILE *stream)
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
 	char *s = (char*)ptr;
-	for (int i = 0; i < nmemb; i++)
+	for (size_t i = 0; i < nmemb; i++)
 	{
 		size_t r = read(stream->fh, s, size);
 		if (r < size)
@@ -583,22 +594,22 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 #define SEEK_SET	0
 #define SEEK_CUR	1
 #define SEEK_END	2
-off_t lseek(int fd, off_t offset, int whence)
+off_t lseek(size_t fd, off_t offset, size_t whence)
 {
 	return sys_syscall(__NR_lseek, fd, offset, whence);
 }
 
-int feof(FILE *stream)
+ssize_t feof(FILE *stream)
 {
 	return stream->at_eof;
 }
 
-int fgetc(FILE *stream)
+ssize_t fgetc(FILE *stream)
 {
 	if (stream->at_eof)
 		return -1;
 	unsigned char ch;
-	int ret = sys_syscall(__NR_read, stream->fh, &ch, 1);
+	ssize_t ret = sys_syscall(__NR_read, stream->fh, &ch, 1);
 	if (ret <= 0)
 	{
 		stream->at_eof = 1;
@@ -608,10 +619,10 @@ int fgetc(FILE *stream)
 }
 
 
-double ldexp(double x, int exp)
+double ldexp(double x, size_t exp)
 {
 	double result = x;
-	for (int i = 1; i < exp; i++)
+	for (size_t i = 1; i < exp; i++)
 		result *= x;
 	return result;
 }
@@ -647,12 +658,12 @@ struct timezone {
 	int tz_minuteswest;     /* minutes west of Greenwich */
 	int tz_dsttime;         /* type of DST correction */
 };
-int gettimeofday(struct timeval *tv, struct timezone *tz)
+size_t gettimeofday(struct timeval *tv, struct timezone *tz)
 {
 	return 0;
 }
 
-int errno;
+ssize_t errno;
 
 #define NULL 0
 
@@ -663,12 +674,12 @@ const int LINE_MACRO_OUTPUT_FORMAT_STD = 2;
 const int LINE_MACRO_OUTPUT_FORMAT_P10 = 11;
 
 // for tcc_cc.c
-int write(int fd, char* buf, unsigned count)
+ssize_t write(size_t fd, char* buf, unsigned count)
 {
 	return sys_syscall(__NR_write, fd, buf, count);
 }
 
-int fileno(FILE *stream)
+size_t fileno(FILE *stream)
 {
 	return stream->fh;
 }
@@ -687,34 +698,34 @@ char **_sys_env = 0;
 
 char *getenv(const char *name)
 {
-	int len = strlen(name);
+	size_t len = strlen(name);
 	for (char **env = _sys_env; *env != NULL; env++)
 		if (strncmp(*env, name, len) == 0 && (*env)[len] == '=')
 			return (*env) + len + 1;
 }
 
-void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *))
+void qsort(void *base, size_t nmemb, size_t size, ssize_t (*compar)(const void *, const void *))
 {
 	// just implement a simple bubble sort
-	for (int go = 1; go == 1;)
+	for (size_t go = 1; go == 1;)
 	{
 		go = 0;
-		for (int i = 0; i + 1 < nmemb; i++)
+		for (size_t i = 0; i + 1 < nmemb; i++)
 		{
 			char *arg1 = (char*)base + i * size;
 			char *arg2 = (char*)base + (1 + i) * size;
-			int sign = compar(arg1, arg2);
+			ssize_t sign = compar(arg1, arg2);
 			if (sign > 0)
 			{
 				go = 1;
-				for (int j = 0; j < size; j++)
-					if (j + 3 < size)
+				for (size_t j = 0; j < size; j++)
+					if (j + sizeof(size_t) - 1 < size)
 					{
 						//printf("(swap int %d %d %d)", j, *(int*)(arg1 + j), *(int*)(arg2 + j));;
-						int h = *(int*)(arg1 + j);
-						*(int*)(arg1 + j) = *(int*)(arg2 + j);
-						*(int*)(arg2 + j) = h;
-						j += 3;
+						size_t h = *(size_t*)(arg1 + j);
+						*(size_t*)(arg1 + j) = *(size_t*)(arg2 + j);
+						*(size_t*)(arg2 + j) = h;
+						j += sizeof(size_t) - 1;
 					}
 					else
 					{
@@ -734,31 +745,31 @@ time_t time(time_t *tloc)
 	fprintf(stderr, "TODO time\n"); exit(1);
 }
 
-int setjmp(jmp_buf env)
+ssize_t setjmp(jmp_buf env)
 {
 	// TODO (function is used, but not called)
 	fprintf(stderr, "TODO setjmp\n"); exit(1);
 	return 0;
 }
 
-void longjmp(jmp_buf env, int val)
+void longjmp(jmp_buf env, ssize_t val)
 {
 	// TODO (function is used, but not called)
 	fprintf(stderr, "TODO longjmp\n"); exit(0);
 	exit(-1);
 }
 
-int unlink(const char *pathname)
+ssize_t unlink(const char *pathname)
 {
 	return sys_syscall(__NR_unlink, pathname, 0, 0);
 }
 
-int sscanf(const char *str, const char *format, ...)
+size_t sscanf(const char *str, const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
 
-	int args_parsed = 0;
+	size_t args_parsed = 0;
 
 	while (*format != '\0')
 		if (*str == '\0')
@@ -769,13 +780,13 @@ int sscanf(const char *str, const char *format, ...)
 			if (*format == 'd')
 			{
 				format++;
-				int v = 0;
+				size_t v = 0;
 				while ('0' <= *str && *str <= '9')
 				{
 					v = 10 * v + *str - '0';
 					str++;
 				}
-				**((int**)ap) = v;
+				**((ssize_t**)ap) = v;
 				ap++;
 				args_parsed++;
 			}
@@ -795,44 +806,44 @@ int sscanf(const char *str, const char *format, ...)
 	return args_parsed;
 }
 
-int atoi(const char *nptr)
+ssize_t atoi(const char *nptr)
 {
 	// TODO (function is used, but not called)
 	fprintf(stderr, "TODO atoi\n"); exit(1);
 }
 
-int remove(const char *pathname)
+ssize_t remove(const char *pathname)
 {
 	return sys_syscall(__NR_unlink, pathname, 0, 0);
 }
 
-int execvp(const char *file, char * argv[])
+ssize_t execvp(const char *file, char * argv[])
 {
 	// TODO (function is used, but not called)
 	fprintf(stderr, "TODO execvp\n"); exit(1);
 }
 
-int mkdir(const char *pathname, int mode)
+ssize_t mkdir(const char *pathname, size_t mode)
 {
 	return sys_syscall(__NR_mkdir, pathname, mode, 0);
 }
 
-int chdir(const char *path)
+ssize_t chdir(const char *path)
 {
 	sys_syscall(__NR_chdir, path, 0, 0);
 }
 
-int access(const char *filename, int mode)
+ssize_t access(const char *filename, ssize_t mode)
 {
 	return sys_syscall(__NR_access, filename, mode, 0);
 }
 
-int chmod(const char *filename, int mode)
+ssize_t chmod(const char *filename, ssize_t mode)
 {
 	return sys_syscall(__NR_chmod, filename, mode, 0);
 }
 
-int symlink(const char *target, const char *linkpath)
+ssize_t symlink(const char *target, const char *linkpath)
 {
 	return sys_syscall(__NR_symlink, target, linkpath, 0);
 }
@@ -850,24 +861,24 @@ struct utsname {
 #endif
 };
 
-int uname(struct utsname *buf)
+ssize_t uname(struct utsname *buf)
 {
 	return sys_syscall(__NR_uname, buf, 0, 0);
 }
 
-int execve(char *program, char **argv, char **env)
+ssize_t execve(char *program, char **argv, char **env)
 {
 	return sys_syscall(__NR_execve, program, argv, env);
 }
 
-char *fgets(char *str, int len, FILE *f)
+char *fgets(char *str, size_t len, FILE *f)
 {
 	if (feof(f))
 		return NULL;
 	
-	for (int i = 0; i < len - 1; i++)
+	for (size_t i = 0; i < len - 1; i++)
 	{
-		int ch = fgetc(f);
+		ssize_t ch = fgetc(f);
 		if (ch < 0)
 		{
 			str[i] = '\0';
