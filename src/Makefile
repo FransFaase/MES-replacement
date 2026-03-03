@@ -1,5 +1,5 @@
-all : x86 amd64
-x86 : hex2 M1 blood-elf tcc_cc stack_c run_unittest_s stack_c_s stack_c_diff tcc_cc_s tcc_cc_diff diff3 diff5 diff4 \
+all : hex2 M1 blood-elf tcc_cc stack_c x86 amd64
+x86 : run_unittest_s stack_c_s stack_c_diff tcc_cc_s tcc_cc_diff diff3 diff5 diff4 \
       hex0_s hex0_s.hex0 hex2_s.hex0 \
 	  blood-elf_s.macro blood-elf_s.blood_elf \
 	  M1_s.macro M1_s.blood_elf \
@@ -73,7 +73,20 @@ diff5 : tcc_cc.sl tcc_cc_t.sl
 	./run.sh diff tcc_cc.sl tcc_cc_t.sl
 
 
-amd64 : run_unittest_amd64
+amd64 : run_unittest_amd64 stack_c_s stack_c_diff tcc_cc_s tcc_cc_diff diff3 diff5 diff4 \
+      hex0.amd64 hex0.amd64_hex0 hex2.amd64_hex0 \
+	  blood-elf.macro_amd64 blood-elf.blood_elf_amd64 \
+	  M1.macro_amd64 M1.blood_elf_amd64 \
+	  stack_c_s.M1 tcc_cc.sl \
+	  kaem-minimal.amd64 kaem-minimal.amd64_hex0 \
+	  kaem.amd64 \
+	  catm.amd64 \
+	  match.amd64 \
+	  mkdir.amd64 cp.amd64 chmod.amd64 rm.amd64 \
+	  untar_s ungz.amd64 unxz.amd64 unbz2.amd64 \
+	  configurator.amd64 script-generator.amd64 \
+      sha256sum.amd64 \
+	  equal.amd64
 
 hex0.sl64 : hex0.c tcc_cc
 	./tcc_cc -64 -o $@ $<
@@ -90,7 +103,7 @@ equal.sl64 : equal.c tcc_cc
 %.sl64 : %.c tcc_cc stdlib.c
 	./tcc_cc -64 -o $@ stdlib.c $<
 
-%_t.sl64 : %.c tcc_cc.amd64 stdlib.c
+%_t64.sl64 : %.c tcc_cc.amd64 stdlib.c
 	./tcc_cc.amd64 -64 -o $@ stdlib.c $< 
 
 %.M1_amd64 : %.sl64 stack_c_amd64 stack_c_intro_amd64.M1
@@ -114,21 +127,21 @@ run_unittest_amd64 : unittest.amd64 stack_c_interpreter
 	#./stack_c_interpreter unittest.sl
 
 stack_c_diff_amd64 : stack_c stack_c.amd64
-	./stack_c.amd64 -i stack_c_intro.M1 stack_c.sl -o stack_c_s2.M1_amd64
+	./stack_c.amd64 -i stack_c_intro_amd64.M1 stack_c.sl64 -o stack_c_s2.M1_amd64
 	./run.sh diff stack_c.M1_amd64 stack_c_s2.M1_amd64
 
 tcc_cc_diff_amd64 : tcc_cc tcc_cc.amd64
-	./stack_c.amd64 -i stack_c_intro.M1 tcc_cc.sl -o tcc_cc_s2.M1_amd64
+	./stack_c.amd64 -i stack_c_intro_amd64.M1 tcc_cc.sl64 -o tcc_cc_s2.M1_amd64
 	./run.sh diff tcc_cc.M1_amd64 tcc_cc_s2.M1_amd64
 	
-diff3_64 : unittest.sl64 unittest_t.sl64
-	./run.sh diff unittest.sl64 unittest_t.sl64
+diff3_64 : unittest.sl64 unittest_t64.sl64
+	./run.sh diff unittest.sl64 unittest_t64.sl64
 
-diff4_64 : stack_c.sl64 stack_c_t.sl64
-	./run.sh diff stack_c.sl64 stack_c_t.sl64
+diff4_64 : stack_c.sl64 stack_c_t64.sl64
+	./run.sh diff stack_c.sl64 stack_c_t64.sl64
 
-diff5_64 : tcc_cc.sl64 tcc_cc_t.sl64
-	./run.sh diff tcc_cc.sl64 tcc_cc_t.sl64
+diff5_64 : tcc_cc.sl64 tcc_cc_t64.sl64
+	./run.sh diff tcc_cc.sl64 tcc_cc_t64.sl64
 
 .PRECIOUS: %.sl %_s.M1 %.blood_elf %.macro \
     %.sl64 %_s.M1_amd64 %.blood_elf_amd64 %.macro_amd64
