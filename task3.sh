@@ -81,11 +81,11 @@ cp -f task3/configurator.x86.checksums rootfs
 cp -f task3/script-generator.x86.checksums rootfs
 
 # Copy steps
-cp -r task3/steps rootfs
+cp -r steps rootfs
 
 # Copy the necessary distribution files
 mkdir rootfs/external
-cp -r task3/distfiles rootfs/external
+cp -r distfiles rootfs/external
 
 # Execute kaem scripts in change root environment
 sudo chroot --userspec=${USER}:${USER} rootfs /bootstrap-seeds/POSIX/x86/kaem-optional-seed
