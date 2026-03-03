@@ -335,6 +335,9 @@ int main (int argc, char *argv[])
 	is_true(nu.d == 4, "nu.d == 4");
 	is_true(nu.x == 5, "nu.x == 5");
 
+	const char *line = "var=val";
+	is_true(strchr(line, '=') != 0, "strchr =");
+
 	printf("Done %d\n", result);
 
 	return result;

@@ -4172,9 +4172,8 @@ void add_predefined_types(void)
 	add_base_type("uint16_t", base_type_U16);
 	add_base_type("uint8_t", base_type_U8);
 	add_base_type("int8_t", base_type_S8);
-	add_base_type("size_t", base_type_U32);
-	// Need to verify the following:
-	add_base_type("ssize_t", base_type_U32);
+	add_base_type("size_t", long_long_size == TARGET_64BITS ? base_type_U64 : base_type_U32);
+	add_base_type("ssize_t", long_long_size == TARGET_64BITS ? base_type_S64 : base_type_S32);
 	add_base_type("jmp_buf", base_type_jmp_buf);
 }
 
