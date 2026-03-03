@@ -2157,7 +2157,7 @@ expr_p new_expr_int_value(int value)
 {
 	expr_p expr = new_expr('0', 0);
 	expr->int_val = value;
-	expr->type = base_type_S32;
+	expr->type = base_type_U32;
 	return expr;
 }
 
@@ -4377,7 +4377,11 @@ void gen_expr(expr_p expr, bool as_value)
 			fprintf(fcode, "%s ", expr->str_val);
 			break;
 		case '0':
+			if (expr->type == base_type_U64)
+				fprintf(stderr, "%s Warning: long long const not supported\n", token_it_pos());
 			fprintf(fcode, "%u ", expr->int_val);
+			if (long_long_size == TARGET_64BITS && expr->type == base_type_S32)
+				fprintf(fcode, "long ");
 			break;
 		case '"':
 			fprintf(fcode, "\"");
