@@ -340,6 +340,8 @@ size_t __sys_printf(FILE *stream, char *trg, size_t len, char *format, va_list a
 						modifier = 10 * modifier + *format - '0';
 						format++;
 					}
+					while (*format == 'l')
+						format++;
 					if (*format == 's')
 					{
 						s = (char*)*args++;
@@ -704,7 +706,7 @@ char *getenv(const char *name)
 			return (*env) + len + 1;
 }
 
-void qsort(void *base, size_t nmemb, size_t size, ssize_t (*compar)(const void *, const void *))
+void qsort(void *base, size_t nmemb, size_t size, ssize_t (*compare)(const void *, const void *))
 {
 	// just implement a simple bubble sort
 	for (size_t go = 1; go == 1;)
@@ -714,7 +716,7 @@ void qsort(void *base, size_t nmemb, size_t size, ssize_t (*compar)(const void *
 		{
 			char *arg1 = (char*)base + i * size;
 			char *arg2 = (char*)base + (1 + i) * size;
-			ssize_t sign = compar(arg1, arg2);
+			ssize_t sign = compare(arg1, arg2);
 			if (sign > 0)
 			{
 				go = 1;
