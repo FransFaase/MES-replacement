@@ -82,6 +82,7 @@ cp -f task3/script-generator.x86.checksums rootfs
 
 # Copy steps
 cp -r steps rootfs
+cp -f task3/bootstrap.cfg rootfs/steps
 
 # Copy the necessary distribution files
 mkdir rootfs/external
