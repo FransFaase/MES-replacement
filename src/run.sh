@@ -12,6 +12,7 @@ if [ "$1" == "diff" ]; then
   diff $2 $3 >errors.txt
   if [ $? -eq 0 ]; then
     echo No differences stack_c.M1 stack_c2.M1
+    echo "" >$4
   else
   	head errors.txt
     echo Failed

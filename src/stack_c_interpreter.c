@@ -102,7 +102,7 @@ typedef struct
 	const char *name;
 	char sym;
 } Mapping;
-#define NR_KEYWORDS 12
+#define NR_KEYWORDS 13
 Mapping keywords[NR_KEYWORDS] = {
 	{ "void",		'F' },
 	{ "const",		'C' },
@@ -115,12 +115,13 @@ Mapping keywords[NR_KEYWORDS] = {
 	{ "return",		'R' },
 	{ "goto",		'G' },
 	{ "static",     'S' },
-	{ "char",       'K' }
+	{ "char",       'K' },
+	{ "long",       'O' }
 };
 
 #define SYMBOL(X) ('a' + (X))
 
-#define NR_SYMBOLS 23
+#define NR_SYMBOLS 25
 Mapping symbols[NR_SYMBOLS] = {
 #define SYM_REV_ASS SYMBOL(0)
 	{ "=:",         SYM_REV_ASS },
@@ -167,7 +168,11 @@ Mapping symbols[NR_SYMBOLS] = {
 #define SYM_SWAP SYMBOL(21)
 	{ "><",         SYM_SWAP },
 #define SYM_SUB_PTRS SYMBOL(22)
-	{ "-p",         SYM_SUB_PTRS }
+	{ "-p",         SYM_SUB_PTRS },
+#define SYM_GET_LONG SYMBOL(23)
+	{ "?4",         SYM_GET_LONG },
+#define SYM_ASS_LONG SYMBOL(24)
+	{ "=4",         SYM_ASS_LONG }
 };
 
 int error = 0;
@@ -498,10 +503,13 @@ char nesting_type[MAX_NESTING];
 int nesting_id[MAX_NESTING];
 command_p nesting_command[MAX_NESTING];
 
+typedef long long int_t;
+typedef unsigned long long uint_t;
+
 struct command_s
 {
 	char sym;
-	int int_value;
+	int_t int_value;
 	union {
 		string_p str;
 		command_p jump_command;
@@ -646,6 +654,8 @@ void add_jump_command(char sym, label_p label)
 	}
 }
 
+int nr_bytes_per_cell = 4;
+
 struct memory_s
 {
 	int nr_cells;
@@ -667,7 +677,7 @@ typedef enum {
 struct cell_s
 {
 	cell_kind_e kind;
-	int int_value; // offset for memory
+	int_t int_value; // offset for memory
 	int locals_offset;
 	union {
 		memory_p memory;
@@ -747,14 +757,14 @@ void print_value_stack(FILE *f)
 			memory_p memory = value_stack[i].memory;
 			fprintf(f, "%s %d.%d", memory->name, memory->line, memory->column);
 			if (value_stack[i].int_value != 0)
-				fprintf(f, "[%d]", value_stack[i].int_value);
+				fprintf(f, "[%lld]", value_stack[i].int_value);
 			if (value_stack[i].kind == C_LOCAL)
 				fprintf(f, "(%d)", value_stack[i].locals_offset);
 		}
 		else
 		{
 			if (value_stack[i].kind == C_VALUE)
-				fprintf(f, "%d ", value_stack[i].int_value);
+				fprintf(f, "%lld ", value_stack[i].int_value);
 			if (value_stack[i].command != NULL)
 				fprintf(f, " %d.%d", value_stack[i].command->line, value_stack[i].command->column);
 			else
@@ -824,7 +834,7 @@ void pop(void)
 	top_value = &value_stack[--value_depth];
 }
 
-int get_top_value(void)
+int_t get_top_value(void)
 {
 	if (value_depth <= 0)
 		report_error("Stack is empty");
@@ -833,9 +843,9 @@ int get_top_value(void)
 	return top_value->int_value;
 }
 
-int pop_value(void)
+int_t pop_value(void)
 {
-	int value = get_top_value();
+	int_t value = get_top_value();
 	pop();
 	return value;
 }
@@ -865,7 +875,7 @@ void push(char kind)
 	top_value->command = cur_command;
 }
 
-void push_value(int value)
+void push_value(int_t value)
 {
 	if (value_depth + 1 >= MAX_VALUE_DEPTH)
 		report_error("Stack overflow");
@@ -886,27 +896,27 @@ cell_p deref(cell_p cell, bool is_word)
 	if (cell->kind != C_GLOBAL && cell->kind != C_LOCAL )
 		report_error("Assignment not to pointer to memory but %s", cell_kind_name(cell));
 	memory_p memory = cell->memory;
-	int offset = cell->int_value;
+	int_t offset = cell->int_value;
 	if (offset < 0)
 		report_error("offset %d is negative", offset);
-	if (offset >= memory->nr_cells * 4)
+	if (offset >= memory->nr_cells * nr_bytes_per_cell)
 		report_error("offset %d outside of memory (%d)", offset, memory->nr_cells);
 	if (is_word && (offset & 3) != 0)
-		report_error("offset %d, not multiple of 4", offset);
+		report_error("offset %d, not multiple of %d", offset, nr_bytes_per_cell);
 	return   cell->kind == C_GLOBAL
-		   ? &cell->memory->cells[offset / 4]
-		   : &locals_stack[cell->locals_offset + offset / 4];
+		   ? &cell->memory->cells[offset / nr_bytes_per_cell]
+		   : &locals_stack[cell->locals_offset + offset / nr_bytes_per_cell];
 }
 
 bool ignore_undefined = TRUE;
 bool no_undefined_warnings = TRUE;
 
-int get_array_byte(cell_p cell, int index)
+int_t get_array_byte(cell_p cell, int_t index)
 {
 	if (cell->kind != C_GLOBAL && cell->kind != C_LOCAL && cell->kind != C_STRING)
 		report_error("get array byte not to pointer to memory but %s", cell_kind_name(cell));
 	memory_p memory = cell->memory;
-	int offset = cell->int_value + index;
+	int_t offset = cell->int_value + index;
 	if (offset < 0)
 		report_error("get array byte: offset %d is negative", offset);
 	if (cell->kind == C_STRING)
@@ -915,13 +925,13 @@ int get_array_byte(cell_p cell, int index)
 			report_error("get string byte: offset %d outside of string (%d, '%s')", offset, cell->str->length, cell->str->value);
 		return cell->str->value[offset];
 	}
-	if (offset >= memory->nr_cells * 4)
+	if (offset >= memory->nr_cells * nr_bytes_per_cell)
 		report_error("get array byte: offset %d outside of memory (%d)", offset, memory->nr_cells);
 	cell_p elem =   cell->kind == C_GLOBAL
-				  ? &cell->memory->cells[offset / 4]
-				  : &locals_stack[cell->locals_offset + offset / 4];
+				  ? &cell->memory->cells[offset / nr_bytes_per_cell]
+				  : &locals_stack[cell->locals_offset + offset / nr_bytes_per_cell];
 	//if (cell->kind == C_LOCAL)
-	//	printf("Contenst of local %d + %d = %d\n", cell->locals_offset, offset, cell->locals_offset + offset / 4);
+	//	printf("Contenst of local %d + %d = %d\n", cell->locals_offset, offset, cell->locals_offset + offset / nr_bytes_per_cell);
 	if (ignore_undefined && elem->kind == C_UNDEFINED)
 	{
 		if (!no_undefined_warnings)
@@ -935,23 +945,23 @@ int get_array_byte(cell_p cell, int index)
 			printf("%s %d.%d\n", elem->memory->name, elem->memory->line, elem->memory->column);
 		report_error("Pointer is not pointing to array of bytes but %s", cell_kind_name(elem));
 	}
-	return 0xff & (elem->int_value >> (8 * (offset % 4)));
+	return 0xff & (elem->int_value >> (8 * (offset % nr_bytes_per_cell)));
 }
 
-void set_array_byte(cell_p cell, int index, char ch)
+void set_array_byte(cell_p cell, int_t index, char ch)
 {
 	if (cell->kind != C_GLOBAL && cell->kind != C_LOCAL)
 		report_error("set array byte not to pointer to memory");
 	memory_p memory = cell->memory;
-	int offset = cell->int_value + index;
+	int_t offset = cell->int_value + index;
 	if (offset < 0)
 		report_error("set array byte: offset %d is negative", offset);
-	if (offset >= memory->nr_cells * 4)
+	if (offset >= memory->nr_cells * nr_bytes_per_cell)
 		report_error("set array byte: offset %d outside of memory (%d)", offset, memory->nr_cells);
 	cell_p elem =  cell->kind == C_GLOBAL
-				 ? &cell->memory->cells[offset / 4]
-				 : &locals_stack[cell->locals_offset + offset / 4];
-	int byte_shift = 8 * (offset % 4);
+				 ? &cell->memory->cells[offset / nr_bytes_per_cell]
+				 : &locals_stack[cell->locals_offset + offset / nr_bytes_per_cell];
+	int byte_shift = 8 * (offset % nr_bytes_per_cell);
 	elem->kind = C_VALUE;
 	elem->int_value = (elem->int_value & ~(0xFF << byte_shift)) | ((ch & 0xFF) << byte_shift);
 	elem->command = cur_command;
@@ -986,21 +996,21 @@ void sys_int80(void)
 	if (arg1->kind != C_VALUE)
 		report_error("First argument for int80 should be int, but it is %s", cell_kind_name(arg1));
 
-	int result = 0;
-	switch (arg1->int_value)
+	int_t result = 0;
+	switch (arg1->int_value + (nr_bytes_per_cell == 8 ? 1000 : 0))
 	{
-		case 1:
+		case 1: case 1060:
 			fprintf(fout, "EXIT\n");
 			exit(1);
 			break;
-		case 3: // read loop: a1, buffer, 1
+		case 3: case 1000: // read loop: a1, buffer, 1
 		{
-			int a3 = pop_value();
+			int_t a3 = pop_value();
 			if (value_stack[value_depth-1].kind != C_VALUE)
 				report_error("Second argument read should be int, but it is %s", cell_kind_name(&value_stack[value_depth-1]));
-			int a1 = value_stack[value_depth-1].int_value;
-			int bytes_read = 0;
-			for (int i = 0; i < a3; i++)
+			int_t a1 = value_stack[value_depth-1].int_value;
+			int_t bytes_read = 0;
+			for (int_t i = 0; i < a3; i++)
 			{
 				char buf;
 				if (read(a1, &buf, 1) == 0)
@@ -1013,14 +1023,14 @@ void sys_int80(void)
 			result = bytes_read;
 			break;
 		}
-		case 4: // write loop: a1, buffer, 1
+		case 4: case 1001: // write loop: a1, buffer, 1
 		{
-			int a3 = pop_value();
+			int_t a3 = pop_value();
 			if (value_stack[value_depth-1].kind != C_VALUE)
 				report_error("Second argument write should be int, but it is %s", cell_kind_name(&value_stack[value_depth-1]));
-			int a1 = value_stack[value_depth-1].int_value;
-			int bytes_read = 0;
-			for (int i = 0; i < a3; i++)
+			int_t a1 = value_stack[value_depth-1].int_value;
+			int_t bytes_read = 0;
+			for (int_t i = 0; i < a3; i++)
 			{
 				char buf = get_array_byte(top_value, i);
 				if (write(a1, &buf, 1) == 0)
@@ -1032,10 +1042,10 @@ void sys_int80(void)
 			result = bytes_read;
 			break;
 		}
-		case 5: // open path, a2, a3
+		case 5: case 1002: // open path, a2, a3
 		{
-			int a3 = pop_value();
-			int a2 = pop_value();
+			int_t a3 = pop_value();
+			int_t a2 = pop_value();
 			for (int i = 0; i < 299; i++)
 			{
 				char ch = get_array_byte(top_value, i);
@@ -1047,15 +1057,15 @@ void sys_int80(void)
 			result = open(filename, a2, a3);
 			break;
 		}
-		case 6: // close fh, a2, a3
+		case 6: case 1003: // close fh, a2, a3
 		{
 			pop();
 			pop();
-			int a1 = pop_value();
+			int_t a1 = pop_value();
 			result = close(a1);
 			break;
 		}
-		case 10: // unlink path, a2, a3
+		case 10: case 1087: // unlink path, a2, a3
 		{
 			pop();
 			pop();
@@ -1070,18 +1080,18 @@ void sys_int80(void)
 			result = unlink(filename);
 			break;
 		}
-		case 19: // lseek a1, a2, a3
+		case 19: case 1008: // lseek a1, a2, a3
 		{
-			int a3 = pop_value();
-			int a2 = pop_value();
-			int a1 = pop_value();
+			int_t a3 = pop_value();
+			int_t a2 = pop_value();
+			int_t a1 = pop_value();
 			result = lseek(a1, a2, a3);
 			break; 
 		}
-		case 183: // getcwd
+		case 183: case 1079: // getcwd
 		{
 			pop();
-			int size = pop_value();
+			int_t size = pop_value();
 			if (size > 299)
 				size = 299;
 			char *cwd = getcwd(filename, size);
@@ -1089,7 +1099,7 @@ void sys_int80(void)
 				result = -1;
 			else
 			{
-				for (int i = 0; i < size; i++)
+				for (int_t i = 0; i < size; i++)
 					set_array_byte(top_value, i, cwd[i]);
 				result = size;
 			}
@@ -1105,10 +1115,10 @@ void sys_int80(void)
 
 cell_kind_e undefined_kind = C_UNDEFINED;
 
-memory_p alloc_memory(int size)
+memory_p alloc_memory(int_t size)
 {
 	memory_p result = (memory_p)malloc(sizeof(struct memory_s));
-	result->nr_cells = (size + 3) / 4;
+	result->nr_cells = (size + nr_bytes_per_cell - 1) / nr_bytes_per_cell;
 	//printf("alloc_memory %d cells = %d", size, result->nr_cells);
 	result->cells = (cell_p)malloc(result->nr_cells * sizeof(struct cell_s));
 	result->name = "**heap**";
@@ -1140,7 +1150,7 @@ void sys_realloc(void)
 	check_stack(2);
 	if (top_value->kind != C_VALUE)
 		report_error("Calling realloc with %s for size", cell_kind_name(top_value));
-	int size = pop_value();
+	int_t size = pop_value();
 	if (top_value->kind != C_VALUE && top_value->kind != C_GLOBAL)
 		report_error("Calling realloc with %s for ptr", cell_kind_name(top_value));
 	if (top_value->kind == C_VALUE && top_value->int_value != 0)
@@ -1194,11 +1204,17 @@ int main(int argc, char *argv[])
 		fprintf(ferr, "ERROR: No file specified\n");
 		return 1;
 	}
-	fin = fopen(col_argv[0], "r");
+	const char *file_name = col_argv[0];
+	fin = fopen(file_name, "r");
 	if (fin == 0)
 	{
 		fprintf(ferr, "ERROR: Cannot open file '%s' for input\n", col_argv[0]);
 		return 1;
+	}
+	{
+		int file_name_len = strlen(file_name);
+		if (file_name_len > 5 && strcmp(file_name + (file_name_len - 5), ".sl64") == 0)
+			nr_bytes_per_cell = 8;
 	}
 
 	// Add predefined system functions
@@ -1531,7 +1547,7 @@ int main(int argc, char *argv[])
 		else if (sym == '0')
 		{
 			command_p command = add_command(sym);
-			command->int_value = int_value;
+			command->int_value = (unsigned int)int_value;
 		}
 		else if (sym == '"')
 		{
@@ -1669,7 +1685,7 @@ int main(int argc, char *argv[])
 		// Push argv
 		push_value(col_argc);
 		push(C_GLOBAL);
-		top_value->memory = alloc_memory(4 * (col_argc + 1 + nr_env + 1));
+		top_value->memory = alloc_memory(nr_bytes_per_cell * (col_argc + 1 + nr_env + 1));
 		for (int i = 0; i < col_argc; i++)
 		{
 			top_value->memory->cells[i].kind = C_STRING;
@@ -1703,7 +1719,7 @@ int main(int argc, char *argv[])
 				cur_command->line, cur_command->column);
 			if (cur_command == NULL || cur_command->sym != SYM_CALL)
 				report_error("Should be on call");
-			if (opt_trace_functions) printf("Decrement locals_offset from %d with %d to %d\n", locals_offset, cur_command->int_value, locals_offset - cur_command->int_value);
+			if (opt_trace_functions) printf("Decrement locals_offset from %d with %lld to %lld\n", locals_offset, cur_command->int_value, locals_offset - cur_command->int_value);
 			if (cur_command->line > opt_indent_calls)
 			{
 				indent--;
@@ -1769,8 +1785,13 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == 'K')
 		{
-			unsigned int value = get_top_value();
-			top_value->int_value = (int)(char)value;
+			uint_t value = get_top_value();
+			top_value->int_value = (int_t)(char)value;
+		}
+		else if (sym == 'O')
+		{
+			uint_t value = get_top_value();
+			top_value->int_value = (int_t)(int32_t)value;
 		}
 		else if (sym == '0' || sym == 'C' || sym == '\'')
 		{
@@ -1805,7 +1826,7 @@ int main(int argc, char *argv[])
 		else if (sym == '+')
 		{
 			check_stack(2);
-			int rhs_value = pop_value();
+			int_t rhs_value = pop_value();
 			if (top_value->kind != C_VALUE && top_value->kind != C_GLOBAL && top_value->kind != C_LOCAL && top_value->kind != C_STRING)
 				report_error("Cannot add with '%s'", cell_kind_name(top_value));
 			top_value->int_value += rhs_value;
@@ -1821,14 +1842,14 @@ int main(int argc, char *argv[])
 				{
 					if (top_value->int_value != 0)
 						report_error("Substract non-zero value with pointer not allowed");
-					int value = (long)lhs->memory + lhs->int_value;
+					int_t value = (long)lhs->memory + lhs->int_value;
 					pop();
 					top_value->kind = C_VALUE;
 					top_value->int_value = value;
 				}
 				else
 				{
-					int rhs_value = pop_value();
+					int_t rhs_value = pop_value();
 					top_value->int_value -= rhs_value;
 				}
 			}
@@ -1837,7 +1858,7 @@ int main(int argc, char *argv[])
 			{
 				if (lhs->memory != top_value->memory)
 					report_error("Substraction between incorrect pointers");
-				int sub = lhs->int_value - top_value->int_value;
+				int_t sub = lhs->int_value - top_value->int_value;
 				pop();
 				top_value->kind = C_VALUE;
 				top_value->int_value = sub;
@@ -1846,14 +1867,14 @@ int main(int argc, char *argv[])
 			{
 				if (lhs->str != top_value->str)
 					report_error("Substraction between incorrect strings");
-				int sub = lhs->int_value - top_value->int_value;
+				int_t sub = lhs->int_value - top_value->int_value;
 				pop();
 				top_value->kind = C_VALUE;
 				top_value->int_value = sub;
 			}
 			else if (lhs->kind == C_VALUE && lhs->int_value == 0 && top_value->kind == C_GLOBAL)
 			{
-				int sub = -((long)top_value->memory + top_value->int_value);
+				int_t sub = -((int_t)top_value->memory + top_value->int_value);
 				pop();
 				top_value->kind = C_VALUE;
 				top_value->int_value = sub;
@@ -1873,7 +1894,7 @@ int main(int argc, char *argv[])
 		else if (sym == SYM_GET_BYTE)
 		{
 			check_stack(1);
-			int value = get_array_byte(top_value, 0);
+			int_t value = get_array_byte(top_value, 0);
 			top_value->kind = C_VALUE;
 			top_value->int_value = value;
 			top_value->command = cur_command;
@@ -1881,7 +1902,18 @@ int main(int argc, char *argv[])
 		else if (sym == SYM_GET_WORD)
 		{
 			check_stack(1);
-			int value = get_array_byte(top_value, 0) | (get_array_byte(top_value, 1) << 8);
+			int_t value = get_array_byte(top_value, 0) | (get_array_byte(top_value, 1) << 8);
+			top_value->kind = C_VALUE;
+			top_value->int_value = value;
+			top_value->command = cur_command;
+		}
+		else if (sym == SYM_GET_LONG)
+		{
+			check_stack(1);
+			int_t value = get_array_byte(top_value, 0) 
+						| (get_array_byte(top_value, 1) << 8)
+						| (get_array_byte(top_value, 2) << 16)
+						| (get_array_byte(top_value, 3) << 24);
 			top_value->kind = C_VALUE;
 			top_value->int_value = value;
 			top_value->command = cur_command;
@@ -1889,7 +1921,7 @@ int main(int argc, char *argv[])
 		else if (sym == SYM_ASS_BYTE)
 		{
 			check_stack(2);
-			int value = pop_value() & 0xff;
+			int_t value = pop_value() & 0xff;
 			set_array_byte(top_value, 0, value);
 			top_value->kind = C_VALUE;
 			top_value->int_value = value;
@@ -1897,9 +1929,29 @@ int main(int argc, char *argv[])
 		else if (sym == SYM_ASS_WORD)
 		{
 			check_stack(2);
-			int value = pop_value() & 0xffff;
+			int_t value = pop_value() & 0xffff;
 			set_array_byte(top_value, 0, value & 0xff);
 			set_array_byte(top_value, 1, (value >> 8) & 0xff);
+			top_value->kind = C_VALUE;
+			top_value->int_value = value;
+		}
+		else if (sym == SYM_ASS_WORD)
+		{
+			check_stack(2);
+			int_t value = pop_value() & 0xffff;
+			set_array_byte(top_value, 0, value & 0xff);
+			set_array_byte(top_value, 1, (value >> 8) & 0xff);
+			top_value->kind = C_VALUE;
+			top_value->int_value = value;
+		}
+		else if (sym == SYM_ASS_LONG)
+		{
+			check_stack(2);
+			int_t value = pop_value() & 0xffffffffL;
+			set_array_byte(top_value, 0, value & 0xff);
+			set_array_byte(top_value, 1, (value >> 8) & 0xff);
+			set_array_byte(top_value, 2, (value >> 16) & 0xff);
+			set_array_byte(top_value, 3, (value >> 24) & 0xff);
 			top_value->kind = C_VALUE;
 			top_value->int_value = value;
 		}
@@ -1914,7 +1966,7 @@ int main(int argc, char *argv[])
 				function->sys_function();
 			else
 			{
-				if (opt_trace_functions) printf("Increment locals_offset from %d with %d to %d\n", locals_offset, cur_command->int_value, locals_offset + cur_command->int_value);
+				if (opt_trace_functions) printf("Increment locals_offset from %d with %lld to %lld\n", locals_offset, cur_command->int_value, locals_offset + cur_command->int_value);
 				if (cur_command->line > opt_indent_calls)
 				{
 					for (int i = 0; i < indent; i++) printf("  ");
@@ -1953,7 +2005,7 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == '~')
 		{
-			unsigned int value = get_top_value();
+			uint_t value = get_top_value();
 			top_value->int_value = ~value;
 		}
 		else if (sym == '!')
@@ -2035,7 +2087,7 @@ int main(int argc, char *argv[])
 					report_error("< <= > >= cannot compare undefined values");
 				if (top_value->kind == C_FUNCTION)
 					report_error("< <= > >= cannot compare function pointers");
-				int diff = 0;
+				int_t diff = 0;
 				if (top_value->kind == C_GLOBAL || top_value->kind == C_LOCAL)
 				{
 					if (lhs->memory != top_value->memory)
@@ -2052,9 +2104,9 @@ int main(int argc, char *argv[])
 						diff = top_value->str - lhs->str;
 					}
 				}
-				unsigned int urhs = top_value->int_value;
+				uint_t urhs = top_value->int_value;
 				pop();
-				unsigned int ulhs = top_value->int_value;
+				uint_t ulhs = top_value->int_value;
 				pop();
 				if (diff > 0)
 					urhs += diff;
@@ -2072,10 +2124,10 @@ int main(int argc, char *argv[])
 		}
 		else
 		{
-			int rhs = pop_value();
-			unsigned int urhs = rhs;
-			int lhs = pop_value();
-			unsigned int ulhs = lhs;
+			int_t rhs = pop_value();
+			uint_t urhs = rhs;
+			int_t lhs = pop_value();
+			uint_t ulhs = lhs;
 			if (sym == '*')
 				push_value(lhs * rhs);
 			else if (sym == '&')

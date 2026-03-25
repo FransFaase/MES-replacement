@@ -84,7 +84,7 @@ typedef struct
 	const char *name;
 	char sym;
 } Mapping;
-#define NR_KEYWORDS 12
+#define NR_KEYWORDS 13
 Mapping keywords[NR_KEYWORDS] = {
 	{ "void",		'F' },
 	{ "const",		'C' },
@@ -97,7 +97,8 @@ Mapping keywords[NR_KEYWORDS] = {
 	{ "return",		'R' },
 	{ "goto",		'G' },
 	{ "static",     'S' },
-	{ "char",       'K' }
+	{ "char",       'K' },
+	{ "long",       'O' }
 };
 
 #define SYMBOL(X) ('a' + (X))
@@ -929,6 +930,9 @@ int main(int argc, char *argv[])
 		else if (sym == 'K')
 		{
 			fprintf(fout, "\tmovsx_eax,al          # char\n");
+		}
+		else if (sym == 'O')
+		{
 		}
 		else if (sym == SYM_ASS_BYTE)
 		{

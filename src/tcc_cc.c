@@ -4369,8 +4369,12 @@ void gen_expr(expr_p expr, bool as_value)
 	const char *expr_size_ind = expr->type == NULL ? ""
 							  : expr->type->size == 1 ? "1"
 							  : expr->type->size == 2 ? "2"
-							  : expr->type->size == 4 && long_long_size > 4 ? "4"
+							  : expr->type->size == 4 && long_long_size == TARGET_64BITS ? "4"
 							  : "";
+	const char *signed_ind = expr->type == NULL ? "" 
+						   : expr->type == base_type_S8 ? " char" 
+						   : expr->type == base_type_S32 ? " long" 
+						   : "";
 	bool multiple = expr->type != NULL && expr->type->size > long_long_size;
 	switch (expr->kind) {
 		case 'i':
@@ -4379,9 +4383,7 @@ void gen_expr(expr_p expr, bool as_value)
 		case '0':
 			if (expr->type == base_type_U64)
 				fprintf(stderr, "%s Warning: long long const not supported\n", token_it_pos());
-			fprintf(fcode, "%u ", expr->int_val);
-			if (long_long_size == TARGET_64BITS && expr->type == base_type_S32)
-				fprintf(fcode, "long ");
+			fprintf(fcode, "%u%s ", expr->int_val & 0xFFFFFFFF, signed_ind);
 			break;
 		case '"':
 			fprintf(fcode, "\"");
@@ -4406,7 +4408,7 @@ void gen_expr(expr_p expr, bool as_value)
 			fprintf(fcode, "\" ");
 			break;
 		case 'c': // cast
-			gen_expr(expr->children[0], TRUE);
+			gen_expr(expr->children[0], expr->type->kind == TYPE_KIND_BASE);
 			if (expr->type->kind == TYPE_KIND_BASE)
 			{
 				switch (expr->type->base_type)
@@ -4417,6 +4419,8 @@ void gen_expr(expr_p expr, bool as_value)
 					default: break;
 				}
 			}
+			else if (is_lvalue(expr->children[0]))
+				fprintf(fcode, "?%s%s ", expr_size_ind, signed_ind);
 			break;
 		case ',':
 			for (int i = 0; i < expr->nr_children; i++)
@@ -4534,7 +4538,7 @@ void gen_expr(expr_p expr, bool as_value)
 			if (multiple)
 				expr_print_error(expr, "multiple assignment");
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "$ ?%s ", expr_size_ind);
+			fprintf(fcode, "$ ?%s%s ", expr_size_ind, signed_ind);
 			gen_expr(expr->children[1], TRUE);
 			if (   (expr->kind == TK_ADD_ASS || expr->kind == TK_SUB_ASS)
 				&& expr_is_pointer_size_gt_1(expr->children[0]))
@@ -4624,7 +4628,7 @@ void gen_expr(expr_p expr, bool as_value)
 				expr_print_error(expr, "multiple post increment");
 			gen_expr(expr->children[0], FALSE);
 			int size = expr_inc_dec_value(expr->children[0]);
-			fprintf(fcode, "$ ?%s %d + =%s %d - ", expr_size_ind, size, expr_size_ind, size);
+			fprintf(fcode, "$ ?%s%s %d + =%s %d - ", expr_size_ind, signed_ind, size, expr_size_ind, size);
 			break;
 		}
 		case OPER_POST_DEC:
@@ -4633,20 +4637,20 @@ void gen_expr(expr_p expr, bool as_value)
 				expr_print_error(expr, "multiple post decrement");
 			gen_expr(expr->children[0], FALSE);
 			int size = expr_inc_dec_value(expr->children[0]);
-			fprintf(fcode, "$ ?%s %d - =%s %d + ", expr_size_ind, size, expr_size_ind, size);
+			fprintf(fcode, "$ ?%s%s %d - =%s %d + ", expr_size_ind, signed_ind, size, expr_size_ind, size);
 			break;
 		}
 		case OPER_PRE_INC:
 			if (multiple)
 				expr_print_error(expr, "multiple pre increment");
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "$ ?%s %d + =%s ", expr_size_ind, expr_inc_dec_value(expr->children[0]), expr_size_ind);
+			fprintf(fcode, "$ ?%s%s %d + =%s ", expr_size_ind, signed_ind, expr_inc_dec_value(expr->children[0]), expr_size_ind);
 			break;
 		case OPER_PRE_DEC:
 			if (multiple)
 				expr_print_error(expr, "multiple pre decrement");
 			gen_expr(expr->children[0], FALSE);
-			fprintf(fcode, "$ ?%s %d - =%s ", expr_size_ind, expr_inc_dec_value(expr->children[0]), expr_size_ind);
+			fprintf(fcode, "$ ?%s%s %d - =%s ", expr_size_ind, signed_ind, expr_inc_dec_value(expr->children[0]), expr_size_ind);
 			break;
 		case OPER_MIN:
 			fprintf(fcode, "0 ");
@@ -4699,9 +4703,7 @@ void gen_expr(expr_p expr, bool as_value)
 	{
 		if (multiple)
 			expr_print_error(expr, "multiple get value");
-		fprintf(fcode, "?%s ", expr_size_ind);
-		if (expr->type != NULL && expr->type->base_type == BT_S8)
-			fprintf(fcode, "char ");
+		fprintf(fcode, "?%s%s ", expr_size_ind, signed_ind);
 	}
 }
 

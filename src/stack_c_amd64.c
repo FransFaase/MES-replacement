@@ -75,7 +75,7 @@ void read_char(void)
 char sym;
 char token[MAX_TOKEN_LENGTH+1];
 int token_len = 0;
-long long int int_value;
+long long int_value;
 int cur_line = 0;
 int cur_column = 0;
 
@@ -407,7 +407,7 @@ typedef struct
 	char name[MAX_VARIABLE_LENGTH+1];
 	int pos;     // position for local variable
 	int size;    // size for variable
-	long long int value;   // value for constant, nr for static
+	long long value;   // value for constant, nr for static
 } ident_t;
 
 ident_t idents[MAX_NR_VARIABLES];
