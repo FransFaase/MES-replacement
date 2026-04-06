@@ -284,6 +284,10 @@ int main (int argc, char *argv[])
 	*ref_coord = coord_b;
 	is_true(coord_a.x == 5, "coord_a.x == 5");
 
+	coord_t coord_d = coord_b;
+	is_true(coord_d.x == 5, "coord_d.x == 5");
+	is_true(coord_d.y == 2, "coord_d.y == 2");
+
 	test_union tu;
 	tu.i = 0x10002;
 	is_true(tu.i == 0x10002, "tu.i == 0x10002");
@@ -317,6 +321,11 @@ int main (int argc, char *argv[])
 	void *ptr_byte = bytes + 1;
 	*(char*)ptr_byte *= 4;
 	is_true(bytes[1] == 8, "byte == 8");
+
+	char strbuf[10] = "abcdef";
+	is_true(strbuf[0] == 'a', "strbuf[0] == 'a'");
+	is_true(strbuf[5] == 'f', "strbuf[5] == 'f'");
+	is_true(strbuf[6] == '\0', "strbuf[6] == 0");
 
 	test_printf("%d", 2, "2", "printf %d 2");
 	test_printf("%d", 123, "123", "printf %d 123");
