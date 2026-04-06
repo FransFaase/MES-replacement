@@ -114,11 +114,8 @@ Develop the kaem scripts for the new C compiler. This probably have
 to be done in parallel with Task 2, because it is not clear which
 utilities exactly will be needed.
 
-**Remark**: The description below assumes that the steps mentioned
-with Task 1, up to the execution of script `task1.sh`, have been
-performed.
-
-The shell script `task3.sh` first creates the `rootfs` directory with
+The shell script `task3.sh` first calls `make` on the `src` directory and
+then creates the `rootfs` directory with
 additional subdirectories and files, such that it can be used as a
 change root environment. Some source files are taken from the `src`
 directory (assuming that `make` has been executed in that directory)
@@ -240,10 +237,19 @@ for other targets besides x86. For x86_64 this will be relatively simply.
 For the other targets this requires some investigation, also figuring out
 how to test this, for example, using some form of emulation, such as QEMU.
 
-Targets:
-* x86_64
-* arm
-* riscv64
+### The x86_64/amd64 target
+
+The script `task5_amd64.sh` (still work in progress) creates a `rootfs`
+environment (after first having compiled versions of the necessary programs
+for amd64) for compiling the Tiny C Sources for the x86_64/amd64 target.
+
+### The arm target
+
+Implementing a version for the arm target.
+
+### The riscv64
+
+Implementing a version for the riscv64 target.
 
 ## Task 6: Presentation and documentation
 
