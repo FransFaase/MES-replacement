@@ -4167,6 +4167,8 @@ void add_function(const char *name, type_p result_type)
 
 void add_predefined_types(void)
 {
+	add_base_type("uint64_t", base_type_U64);
+	add_base_type("int64_t", base_type_S64);
 	add_base_type("uint32_t", base_type_U32);
 	add_base_type("int32_t", base_type_S32);
 	add_base_type("uint16_t", base_type_U16);
