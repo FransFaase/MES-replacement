@@ -338,6 +338,14 @@ int main (int argc, char *argv[])
 	const char *line = "var=val";
 	is_true(strchr(line, '=') != 0, "strchr =");
 
+	if (result == 0)
+	{
+		char buffer[100];
+		sprintf(buffer, "%s_OK", argv[0]);
+		FILE *f = fopen(buffer, "w");
+		fprintf(f, "OK\n");
+		fclose(f);
+	}
 	printf("Done %d\n", result);
 
 	return result;
