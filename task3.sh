@@ -2,6 +2,9 @@
 
 set -x
 
+# Build sources
+make -C src
+
 # Delete existing rootfs
 rm -rf rootfs
 
