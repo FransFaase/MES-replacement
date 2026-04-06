@@ -4811,6 +4811,12 @@ int main(int argc, char *argv[])
 			only_preprocess = TRUE;
 		else if (strcmp(argv[i], "-64") == 0)
 			long_long_size = TARGET_64BITS;
+		else if (i + 1 < argc && strcmp(argv[i], "-a") == 0)
+		{
+			i++;
+			if (strcmp(argv[i], "x86") != 0)
+				long_long_size = TARGET_64BITS;
+		}
 		else if (strcmp(argv[i], "-T") == 0)
 			add_tracing = TRUE;
 		else if (strcmp(argv[i], "-dp") == 0)

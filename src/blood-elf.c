@@ -466,6 +466,12 @@ int main(int argc, char **argv)
 			BITSIZE = 64;
 			option_index = option_index + 1;
 		}
+		else if(option_index + 1 <= argc && match(argv[option_index], "-a"))
+		{
+			if (!match(argv[option_index+1], "x86"))
+				BITSIZE = 64;
+			option_index = option_index + 2;
+		}
 		else if(match(argv[option_index], "-f") || match(argv[option_index], "--file"))
 		{
 			temp = calloc(1, sizeof(struct entry));
