@@ -903,3 +903,12 @@ char *fgets(char *str, size_t len, FILE *f)
 #define EXIT_FAILURE -1
 #define EXIT_SUCCESS 0
 
+void assert(int v)
+{ 
+	// Just ignore these
+}
+
+void abort(void)
+{
+	// Just ignore these
+}
