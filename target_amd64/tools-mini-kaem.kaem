@@ -1,0 +1,24 @@
+#! /usr/bin/env bash
+
+./usr/bin/hex0 ./amd64/hex2.hex0 ./usr/bin/hex2
+
+./usr/bin/hex2 -o ./usr/bin/blood-elf ./amd64/ELF-amd64-debug.hex2 ./amd64/blood-elf.macro ./amd64/blood-elf.blood_elf
+
+./usr/bin/hex2 -o ./usr/bin/M1 ./amd64/ELF-amd64-debug.hex2 ./amd64/M1.macro ./amd64/M1.blood_elf
+
+./usr/bin/blood-elf --64 --file ./amd64/stack_c.M1 --little-endian --output ./tmp/stack_c.blood_elf
+./usr/bin/M1 -o ./tmp/stack_c.macro ./amd64/stack_c.M1
+./usr/bin/hex2 -o ./usr/bin/stack_c ./amd64/ELF-amd64-debug.hex2 ./tmp/stack_c.macro ./tmp/stack_c.blood_elf
+
+./usr/bin/stack_c -i ./amd64/stack_c_intro.M1 ./src/tcc_cc.sl64 -o tmp/tcc_cc.M1
+./usr/bin/blood-elf --64 --file tmp/tcc_cc.M1 --little-endian --output ./tmp/tcc_cc.blood_elf
+./usr/bin/M1 ./tmp/tcc_cc.M1 -o ./tmp/tcc_cc.macro
+./usr/bin/hex2 -o ./usr/bin/tcc_cc ./amd64/ELF-amd64-debug.hex2 ./tmp/tcc_cc.macro ./tmp/tcc_cc.blood_elf
+
+./usr/bin/tcc_cc -64 -o ./tmp/kaem.sl64 ./src/stdlib.c ./src/kaem.c
+./usr/bin/stack_c -i ./amd64/stack_c_intro.M1 ./tmp/kaem.sl64 -o tmp/kaem.M1
+./usr/bin/blood-elf --64 --file tmp/kaem.M1 --little-endian --output ./tmp/kaem.blood_elf
+./usr/bin/M1 ./tmp/kaem.M1 -o ./tmp/kaem.macro
+./usr/bin/hex2 -o ./usr/bin/kaem ./amd64/ELF-amd64-debug.hex2 ./tmp/kaem.macro ./tmp/kaem.blood_elf
+
+

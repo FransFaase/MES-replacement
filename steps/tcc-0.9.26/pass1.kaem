@@ -51,6 +51,7 @@ fi
 
 
 ${BINDIR}/tcc_cc \
+    -a ${ARCH} \
     -o ${TMPDIR}/tcc.sl \
     -D BOOTSTRAP=1 \
     -D HAVE_LONG_LONG=${HAVE_LONG_LONG} \
@@ -69,7 +70,7 @@ ${BINDIR}/tcc_cc \
     -D ONE_SOURCE=1 \
     /src/stdlib.c tcc.c
 ${BINDIR}/stack_c -i /${ARCH}/stack_c_intro.M1 ${TMPDIR}/tcc.sl -o ${TMPDIR}/tcc_s.M1
-${BINDIR}/blood-elf --file ${TMPDIR}/tcc_s.M1 --little-endian --output ${TMPDIR}/tcc_s.blood_elf
+${BINDIR}/blood-elf -a ${ARCH} --file ${TMPDIR}/tcc_s.M1 --little-endian --output ${TMPDIR}/tcc_s.blood_elf
 ${BINDIR}/M1 ${TMPDIR}/tcc_s.M1 -o ${TMPDIR}/tcc_s.macro
 ${BINDIR}/hex2 -o /usr/bin/tcc_s /${ARCH}/ELF-${ARCH}-debug.hex2 ${TMPDIR}/tcc_s.macro ${TMPDIR}/tcc_s.blood_elf
 

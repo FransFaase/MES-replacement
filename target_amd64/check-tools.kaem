@@ -1,0 +1,64 @@
+#!/bin/sh
+
+set +x
+
+cd src
+
+# Compile equal.c
+/usr/bin/tcc_cc -64 -o /tmp/equal.sl64 equal.c
+/usr/bin/stack_c -i /amd64/stack_c_intro.M1 /tmp/equal.sl64 -o /tmp/equal.M1
+/usr/bin/blood-elf --64 --file /tmp/equal.M1 --little-endian --output /tmp/equal.blood_elf
+/usr/bin/M1 /tmp/equal.M1 -o /tmp/equal.macro
+/usr/bin/hex2 -o /usr/bin/equal /amd64/ELF-amd64-debug.hex2 /tmp/equal.macro /tmp/equal.blood_elf
+
+# Check tcc_cc.sl64
+/usr/bin/tcc_cc -64 -o /tmp/tcc_cc.sl64 stdlib.c tcc_cc.c
+/usr/bin/equal /src/tcc_cc.sl64 /tmp/tcc_cc.sl64
+
+# Check stack_c.M1
+/usr/bin/tcc_cc -64 -o /tmp/stack_c.sl64 stdlib.c stack_c_amd64.c
+/usr/bin/stack_c -i /amd64/stack_c_intro.M1 /tmp/stack_c.sl64 -o /tmp/stack_c.M1
+/usr/bin/equal /amd64/stack_c.M1 /tmp/stack_c.M1
+
+# Check M1.blood_elf and M1.macro
+/usr/bin/tcc_cc -64 -o /tmp/M1.sl64 stdlib.c M1.c
+/usr/bin/stack_c -i /amd64/stack_c_intro.M1 /tmp/M1.sl64 -o /tmp/M1.M1
+/usr/bin/blood-elf --64 --file /tmp/M1.M1 --little-endian --output /tmp/M1.blood_elf
+/usr/bin/M1 /tmp/M1.M1 -o /tmp/M1.macro
+/usr/bin/equal /amd64/M1.blood_elf /tmp/M1.blood_elf
+/usr/bin/equal /amd64/M1.macro /tmp/M1.macro
+
+# Check blood-elf.blood_elf and blood-elf.macro
+/usr/bin/tcc_cc -64 -o /tmp/blood-elf.sl64 stdlib.c blood-elf.c
+/usr/bin/stack_c -i /amd64/stack_c_intro.M1 /tmp/blood-elf.sl64 -o /tmp/blood-elf.M1
+/usr/bin/blood-elf --64 --file /tmp/blood-elf.M1 --little-endian --output /tmp/blood-elf.blood_elf
+/usr/bin/M1 /tmp/blood-elf.M1 -o /tmp/blood-elf.macro
+/usr/bin/equal /amd64/blood-elf.blood_elf /tmp/blood-elf.blood_elf
+/usr/bin/equal /amd64/blood-elf.macro /tmp/blood-elf.macro
+
+# Check hex2.hex0
+/usr/bin/tcc_cc -64 -o /tmp/hex2.sl64 hex2.c
+/usr/bin/stack_c -i /amd64/stack_c_intro.M1 /tmp/hex2.sl64 -o /tmp/hex2.M1
+/usr/bin/blood-elf --64 --file /tmp/hex2.M1 --little-endian --output /tmp/hex2.blood_elf
+/usr/bin/M1 /tmp/hex2.M1 -o /tmp/hex2.macro
+/usr/bin/hex2 -o /tmp/hex2.hex0 /amd64/ELF-amd64-debug.hex2 /tmp/hex2.macro /tmp/hex2.blood_elf
+/usr/bin/equal /amd64/hex2.hex0 /tmp/hex2.hex0
+
+# Check kaem-minimal.hex0
+/usr/bin/tcc_cc -64 -o /tmp/kaem-minimal.sl64 kaem-minimal.c
+/usr/bin/stack_c -i /amd64/stack_c_intro.M1 /tmp/kaem-minimal.sl64 -o /tmp/kaem-minimal.M1
+/usr/bin/blood-elf --64 --file /tmp/kaem-minimal.M1 --little-endian --output /tmp/kaem-minimal.blood_elf
+/usr/bin/M1 /tmp/kaem-minimal.M1 -o /tmp/kaem-minimal.macro
+/usr/bin/hex2 -o /tmp/kaem-minimal.hex0 /amd64/ELF-amd64-debug.hex2 /tmp/kaem-minimal.macro /tmp/kaem-minimal.blood_elf
+/usr/bin/equal /amd64/kaem-minimal.hex0 /tmp/kaem-minimal.hex0
+
+# Check hex0.hex0
+/usr/bin/tcc_cc -64 -o /tmp/hex0.sl64 hex0.c
+/usr/bin/stack_c -i /amd64/stack_c_intro.M1 /tmp/hex0.sl64 -o /tmp/hex0.M1
+/usr/bin/blood-elf --64 --file /tmp/hex0.M1 --little-endian --output /tmp/hex0.blood_elf
+/usr/bin/M1 /tmp/hex0.M1 -o /tmp/hex0.macro
+/usr/bin/hex2 -o /tmp/hex0.hex0 /amd64/ELF-amd64-debug.hex2 /tmp/hex0.macro /tmp/hex0.blood_elf
+/usr/bin/equal /amd64/hex0.hex0 /tmp/hex0.hex0
+
+cd ..
+
