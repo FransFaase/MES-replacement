@@ -4756,6 +4756,11 @@ void gen_initializer(expr_p expr, type_p type)
 		else
 			fprintf(stderr, "%s Error: unfit type %d for initializer\n", token_it_pos(), type->kind);
 	}
+	else if (type->size > long_long_size && !(expr->type == type_char_ptr && type->kind == TYPE_KIND_ARRAY))
+	{
+		gen_expr(expr, FALSE);
+		fprintf(fcode, "%d memcpy () ;\n", type->size);
+	}
 	else
 	{
 		gen_expr(expr, TRUE);
