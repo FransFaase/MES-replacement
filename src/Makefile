@@ -124,7 +124,7 @@ equal.sl64 : equal.c tcc_cc
 
 unittest.amd64_OK : unittest.amd64 stack_c_interpreter
 	./unittest.amd64
-	#./stack_c_interpreter unittest.sl64
+	./stack_c_interpreter unittest.sl64
 
 stack_c_diff_amd64_OK : stack_c_amd64.amd64 stack_c_intro_amd64.M1 stack_c.sl64 stack_c.M1_amd64
 	./stack_c_amd64.amd64 -i stack_c_intro_amd64.M1 stack_c.sl64 -o stack_c_s2.M1_amd64
