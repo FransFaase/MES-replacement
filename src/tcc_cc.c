@@ -4768,8 +4768,10 @@ void gen_initializer(expr_p expr, type_p type)
 		gen_expr(expr, TRUE);
 		if (expr->type == type_char_ptr && type->kind == TYPE_KIND_ARRAY)
 			fprintf(fcode, "%d strncpy () ;\n", type->size);
+		else if (type != NULL && type->size < long_long_size)
+			fprintf(fcode, "=%d ;\n", type->size);
 		else
-			fprintf(fcode, "=%s ;\n", type != NULL && type->size == 1 ? "1" : "");
+			fprintf(fcode, "= ;\n");
 	}
 }
 
