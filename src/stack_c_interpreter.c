@@ -945,7 +945,8 @@ int_t get_array_byte(cell_p cell, int_t index)
 			printf("%s %d.%d\n", elem->memory->name, elem->memory->line, elem->memory->column);
 		report_error("Pointer is not pointing to array of bytes but %s", cell_kind_name(elem));
 	}
-	return 0xff & (elem->int_value >> (8 * (offset % nr_bytes_per_cell)));
+	//printf("elem->int_value = %llx, offset = %lld, value = %d\n", elem->int_value, offset, ((char*)&elem->int_value)[offset % nr_bytes_per_cell]);
+	return ((unsigned char*)&elem->int_value)[offset % nr_bytes_per_cell];
 }
 
 void set_array_byte(cell_p cell, int_t index, char ch)
@@ -961,9 +962,10 @@ void set_array_byte(cell_p cell, int_t index, char ch)
 	cell_p elem =  cell->kind == C_GLOBAL
 				 ? &cell->memory->cells[offset / nr_bytes_per_cell]
 				 : &locals_stack[cell->locals_offset + offset / nr_bytes_per_cell];
-	int byte_shift = 8 * (offset % nr_bytes_per_cell);
+	//printf("set_array_byte offset %lld, change %llx into ", offset, elem->int_value);
 	elem->kind = C_VALUE;
-	elem->int_value = (elem->int_value & ~(0xFF << byte_shift)) | ((ch & 0xFF) << byte_shift);
+	((unsigned char*)&elem->int_value)[offset % nr_bytes_per_cell] = ch;
+	//printf("%llx\n", elem->int_value);
 	elem->command = cur_command;
 }
 
@@ -1732,7 +1734,14 @@ int main(int argc, char *argv[])
 
 		if (opt_trace_command)
 		{
-			printf("Execute command %d.%d: %c %s (%d:", cur_command->line, cur_command->column, cur_command->sym, command_name(cur_command), value_depth);
+			printf("Execute command %d.%d: ", cur_command->line, cur_command->column);
+			if (cur_command->sym == '0')
+				printf("%lld", cur_command->int_value);
+			else if ((cur_command->sym == 'V'|| cur_command->sym == 'S') && cur_command->memory != 0)
+				printf("var %s", cur_command->memory->name);
+			else
+				printf("%s", command_name(cur_command));
+			printf(" (%d:", value_depth);
 			print_value_stack(stdout);
 		}
 
