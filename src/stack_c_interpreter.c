@@ -450,7 +450,8 @@ typedef struct function_s *function_p;
 
 // Identifiers
 
-typedef struct
+typedef struct ident_s *ident_p;
+struct ident_s
 {
 	char type;   // 'F': Function, 'C': constant, 'M': global variable, 'L': local variable
 	char name[MAX_VARIABLE_LENGTH+1];
@@ -459,11 +460,28 @@ typedef struct
 	int value;   // value for constant, nr for static
 	function_p function;
 	memory_p memory;
-} ident_t, *ident_p;
+	ident_p prev;
+};
 
-ident_t idents[MAX_NR_VARIABLES];
+ident_p idents[MAX_NR_VARIABLES];
 int nr_idents = 0;
 int pos = 0;
+
+ident_p new_ident(char type, const char *name)
+{
+	ident_p ident = (ident_p)malloc(sizeof(struct ident_s));
+	idents[nr_idents++] = ident;
+	ident->type = type;
+	strncpy(ident->name, name, MAX_VARIABLE_LENGTH);
+	ident->name[MAX_VARIABLE_LENGTH] = '\0';
+	ident->pos = 0;
+	ident->size = 0;
+	ident->value = 0;
+	ident->function = NULL;
+	ident->memory = NULL;
+	ident->prev = NULL;
+	return ident;
+}
 
 //
 
@@ -498,6 +516,7 @@ string_p unique_string(const char *s, int length)
 
 int nesting_depth = 0;
 int nesting_nr_vars[MAX_NESTING];
+ident_p nesting_locals[MAX_NESTING];
 int nesting_pos[MAX_NESTING];
 char nesting_type[MAX_NESTING];
 int nesting_id[MAX_NESTING];
@@ -520,6 +539,7 @@ struct command_s
 	int column;
 	char *c_filename;
 	int c_line;
+	ident_p locals;
 	command_p next;
 };
 
@@ -533,9 +553,7 @@ struct function_s
 
 ident_p add_function(const char *name)
 {
-	ident_p ident = &idents[nr_idents++];
-	ident->type = 'F';
-	strcpy(ident->name, name);
+	ident_p ident = new_ident('F', name);
 	ident->function = (function_p)malloc(sizeof(struct function_s));
 	ident->function->sys_function = 0;
 	ident->function->commands = NULL;
@@ -604,6 +622,8 @@ void add_label(label_p label)
 	labels_next_command = label;
 }
 
+ident_p locals = NULL;
+
 command_p add_command(char sym)
 {
 	command_p command = (command_p)malloc(sizeof(struct command_s));
@@ -614,6 +634,7 @@ command_p add_command(char sym)
 	command->column = cur_column;
 	command->c_filename = c_filename;
 	command->c_line = c_line;
+	command->locals = locals;
 	command->next = NULL;
 	if (ref_command != NULL)
 	{
@@ -718,6 +739,7 @@ struct
 {
 	function_p function;
 	command_p command;
+	int locals_offset;
 } function_stack[MAX_FUNCTION_DEPTH];
 int function_depth = 0;
 function_p cur_function = NULL;
@@ -745,40 +767,77 @@ const char *command_name(command_p command)
 	return name;
 }
 
+void cell_print(FILE *f, cell_p cell)
+{
+	if (cell == NULL)
+	{
+		fprintf(f, " NULL");
+		return;
+	}
+	fprintf(f, " %s ", cell_kind_name(cell));
+	if (cell->kind == C_GLOBAL || cell->kind == C_LOCAL)
+	{
+		memory_p memory = cell->memory;
+		fprintf(f, "%s %d.%d", memory->name, memory->line, memory->column);
+		if (cell->int_value != 0)
+			fprintf(f, "[%lld]", cell->int_value);
+		if (cell->kind == C_LOCAL)
+			fprintf(f, "(%d)", cell->locals_offset);
+	}
+	else
+	{
+		if (cell->kind == C_VALUE)
+			fprintf(f, "%lld ", cell->int_value);
+		if (cell->command != NULL)
+			fprintf(f, " %d.%d", cell->command->line, cell->command->column);
+		else
+			fprintf(f, " ?.?");
+		if (cell->kind == C_STRING)
+			fprintf(f, " '%s'", cell->str->value);
+	}
+}
+
 void print_value_stack(FILE *f)
 {
 	for (int i = 1; i <= value_depth; i++)
 	{
 		if (i >= 2)
 			fprintf(f, ",");
-		fprintf(f, " %s ", cell_kind_name(&value_stack[i]));
-		if (value_stack[i].kind == C_GLOBAL || value_stack[i].kind == C_LOCAL)
-		{
-			memory_p memory = value_stack[i].memory;
-			fprintf(f, "%s %d.%d", memory->name, memory->line, memory->column);
-			if (value_stack[i].int_value != 0)
-				fprintf(f, "[%lld]", value_stack[i].int_value);
-			if (value_stack[i].kind == C_LOCAL)
-				fprintf(f, "(%d)", value_stack[i].locals_offset);
-		}
-		else
-		{
-			if (value_stack[i].kind == C_VALUE)
-				fprintf(f, "%lld ", value_stack[i].int_value);
-			if (value_stack[i].command != NULL)
-				fprintf(f, " %d.%d", value_stack[i].command->line, value_stack[i].command->column);
-			else
-				fprintf(f, " ?.?");
-			if (value_stack[i].kind == C_STRING)
-				fprintf(f, " '%s'", value_stack[i].str->value);
-		}
+		cell_print(f, &value_stack[i]);
 	}
 	fprintf(f, ")\n");
+}
+
+void print_locals(FILE *f, ident_p local, int locals_offset)
+{
+	for (; local != 0; local = local->prev)
+	{
+		fprintf(f, " %s = ", local->name); //, locals_offset, local->pos);
+		//cell_print(f, &locals_stack[locals_offset + local->pos]);
+		memory_p memory = local->memory;
+		if (memory != 0)
+		{
+			fprintf(f, ": ");
+			if (memory->nr_cells > 1)
+				fprintf(f, ": %d[", memory->nr_cells);
+			for (int i = 0; i < memory->nr_cells && i < 10; i++)
+			{
+				if (i > 0)
+					fprintf(f, ", ");
+				fprintf(f, "(%d+%d=%d) ", locals_offset, local->pos + i, locals_offset + local->pos + i);
+				cell_print(f, &locals_stack[locals_offset + local->pos + i]);
+			}
+			if (memory->nr_cells > 1)
+				fprintf(f, "]");
+		}
+		fprintf(f, "\n");
+	}
 }
 
 void report_error(const char *fmt, ...)
 {
 	for (int i = 0; i < function_depth; i++)
+	{
 		if (function_stack[i].command->c_filename != NULL)
 			fprintf(ferr, "At %s:%d (%d.%d) in function %s\n",
 				function_stack[i].command->c_filename, function_stack[i].command->c_line, 
@@ -786,6 +845,8 @@ void report_error(const char *fmt, ...)
 		else
 			fprintf(ferr, "At %d.%d in function %s\n",
 				function_stack[i].command->line, function_stack[i].command->column, function_stack[i].function->ident->name);
+		print_locals(ferr, function_stack[i].command->locals, function_stack[i].locals_offset);
+	}
 	if (cur_command == NULL)
 		fprintf(ferr, "In function %s\n", cur_function->ident->name);
 	else if (cur_command->c_filename != NULL)
@@ -795,6 +856,7 @@ void report_error(const char *fmt, ...)
 	else
 		fprintf(ferr, "At %d.%d in function %s\n",
 			cur_command->line, cur_command->column, cur_function->ident->name);
+	print_locals(ferr, cur_command->locals, locals_offset);
 	fprintf(ferr, "Stack: ");
 	print_value_stack(ferr);
 	static char message[300];
@@ -1169,6 +1231,16 @@ void sys_realloc(void)
 	}
 }
 
+void enter_nesting(char type, int id)
+{
+	nesting_type[nesting_depth] = type;
+	nesting_nr_vars[nesting_depth] = nr_idents;
+	nesting_locals[nesting_depth] = locals;
+	nesting_pos[nesting_depth] = pos;
+	nesting_id[nesting_depth] = id;
+	nesting_depth++;
+}
+
 int main(int argc, char *argv[])
 {
 	ferr = stderr;
@@ -1251,10 +1323,10 @@ int main(int argc, char *argv[])
 			{
 				bool found = FALSE;
 				for (int i = 0; i < nr_idents; i++)
-					if (strcmp(token, idents[i].name) == 0)
+					if (strcmp(token, idents[i]->name) == 0)
 					{
 						found = TRUE;
-						ref_command = &idents[i].function->commands;
+						ref_command = &idents[i]->function->commands;
 						break;
 					}
 				if (!found)
@@ -1284,10 +1356,7 @@ int main(int argc, char *argv[])
 					return -1;
 				}
 				func_labels = NULL;
-				nesting_type[nesting_depth] = 'F';
-				nesting_nr_vars[nesting_depth] = nr_idents;
-				nesting_pos[nesting_depth] = pos;
-				nesting_depth++;
+				enter_nesting('F', 0);
 				id = 1;
 			}
 		}
@@ -1305,16 +1374,14 @@ int main(int argc, char *argv[])
 				fprintf(ferr, "ERROR %d.%d: More than %d variables\n", cur_line, cur_column, MAX_NR_VARIABLES);
 				return 1;
 			}
-			idents[nr_idents].type = 'C';
-			strcpy(idents[nr_idents].name, token);
+			ident_p const_ident = new_ident('C', token);
 			get_token();
 			if (sym != '0')
 			{
 				fprintf(ferr, "ERROR %d.%d: Expecting number after 'const' <name>\n", cur_line, cur_column);
 				return 1;
 			}
-			idents[nr_idents].value = int_value;
-			nr_idents++;
+			const_ident->value = int_value;
 		}
 		else if (sym == 'V' || sym == 'S')
 		{
@@ -1342,7 +1409,7 @@ int main(int argc, char *argv[])
 			if (type == 'M')
 			{
 				for (int i = 0; i < nr_idents; i++)
-					if (idents[i].type == 'M' && strcmp(idents[i].name, token) == 0)
+					if (idents[i]->type == 'M' && strcmp(idents[i]->name, token) == 0)
 					{
 						repeated_global = TRUE;
 						break;
@@ -1350,9 +1417,12 @@ int main(int argc, char *argv[])
 			}
 			if (!repeated_global)
 			{
-				ident_p ident = &idents[nr_idents++];
-				ident->type = type;
-				strcpy(ident->name, token);
+				ident_p ident = new_ident(type, token);
+				if (type != 'M')
+				{
+					ident->prev = locals;
+					locals = ident;
+				}
 				ident->size = size;
 				memory_p memory = (memory_p)malloc(sizeof(struct memory_s));
 				ident->memory = memory;
@@ -1395,11 +1465,7 @@ int main(int argc, char *argv[])
 				fprintf(ferr, "ERROR %d.%d: Nesting deeper than %d\n", cur_line, cur_column, MAX_NESTING);
 				return 1;
 			}
-			nesting_type[nesting_depth] = 'L';
-			nesting_id[nesting_depth] = id++;
-			nesting_nr_vars[nesting_depth] = nr_idents;
-			nesting_pos[nesting_depth] = pos;
-			nesting_depth++;
+			enter_nesting('L', id++);
 		}
 		else if (sym == 'B' || sym == 'D')
 		{
@@ -1431,11 +1497,7 @@ int main(int argc, char *argv[])
 				fprintf(ferr, "ERROR %d.%d: Nesting deeper than %d\n", cur_line, cur_column, MAX_NESTING);
 				return 1;
 			}
-			nesting_type[nesting_depth] = 'I';
-			nesting_id[nesting_depth] = id++;
-			nesting_nr_vars[nesting_depth] = nr_idents;
-			nesting_pos[nesting_depth] = pos;
-			nesting_depth++;
+			enter_nesting('I', id++);
 		}
 		else if (sym == 'E')
 		{
@@ -1444,10 +1506,7 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == '{')
 		{
-			nesting_type[nesting_depth] = ' ';
-			nesting_nr_vars[nesting_depth] = nr_idents;
-			nesting_pos[nesting_depth] = pos;
-			nesting_depth++;
+			enter_nesting(' ', 0);
 		}
 		else if (sym == '}')
 		{
@@ -1458,6 +1517,7 @@ int main(int argc, char *argv[])
 			}
 			nesting_depth--;
 			nr_idents = nesting_nr_vars[nesting_depth];
+			locals = nesting_locals[nesting_depth];
 			pos = nesting_pos[nesting_depth];
 			if (nesting_type[nesting_depth] == 'L')
 			{
@@ -1482,10 +1542,7 @@ int main(int argc, char *argv[])
 						fprintf(ferr, "ERROR %d.%d: Nesting deeper than %d\n", cur_line, cur_column, MAX_NESTING);
 						return 1;
 					}
-					nesting_type[nesting_depth] = 'E';
-					nesting_nr_vars[nesting_depth] = nr_idents;
-					nesting_pos[nesting_depth] = pos;
-					nesting_depth++;
+					enter_nesting('E', nesting_id[nesting_depth]);
 				}
 				else
 				{
@@ -1521,7 +1578,7 @@ int main(int argc, char *argv[])
 		{
 			int i = nr_idents - 1;
 			for (; i >= 0; i--)
-				if (strcmp(token, idents[i].name) == 0)
+				if (strcmp(token, idents[i]->name) == 0)
 					break;
 			if (i < 0)
 			{
@@ -1534,16 +1591,16 @@ int main(int argc, char *argv[])
 			//else if (idents[i].type == 'C')
 			//	fprintf(fout, "\tvalue %d", idents[i].value);
 			//fprintf(fout, "\n");
-			command_p command = add_command(idents[i].type);
-			if (idents[i].type == 'F')
-				command->function = idents[i].function;
-			else if (idents[i].type == 'C')
-				command->int_value = idents[i].value;
+			command_p command = add_command(idents[i]->type);
+			if (idents[i]->type == 'F')
+				command->function = idents[i]->function;
+			else if (idents[i]->type == 'C')
+				command->int_value = idents[i]->value;
 			else
 			{
-				command->memory = idents[i].memory;
-				if (idents[i].type == 'V')
-					command->int_value = idents[i].pos;
+				command->memory = idents[i]->memory;
+				if (idents[i]->type == 'V')
+					command->int_value = idents[i]->pos;
 			}
 		}
 		else if (sym == '0')
@@ -1586,11 +1643,7 @@ int main(int argc, char *argv[])
 				fprintf(ferr, "ERROR %d.%d: Nesting deeper than %d\n", cur_line, cur_column, MAX_NESTING);
 				return 1;
 			}
-			nesting_type[nesting_depth] = 'A';
-			nesting_id[nesting_depth] = id++;
-			nesting_nr_vars[nesting_depth] = nr_idents;
-			nesting_pos[nesting_depth] = pos;
-			nesting_depth++;
+			enter_nesting('A', id++);
 		}
 		else if (sym == SYM_LOG_OR)
 		{
@@ -1606,11 +1659,7 @@ int main(int argc, char *argv[])
 				fprintf(ferr, "ERROR %d.%d: Nesting deeper than %d\n", cur_line, cur_column, MAX_NESTING);
 				return 1;
 			}
-			nesting_type[nesting_depth] = 'O';
-			nesting_id[nesting_depth] = id++;
-			nesting_nr_vars[nesting_depth] = nr_idents;
-			nesting_pos[nesting_depth] = pos;
-			nesting_depth++;
+			enter_nesting('O', id++);
 		}
 		else if (sym == SYM_ARROW)
 		{
@@ -1622,9 +1671,9 @@ int main(int argc, char *argv[])
 			}
 			int i = nr_idents - 1;
 			for (; i >= 0; i--)
-				if (strcmp(token, idents[i].name) == 0)
+				if (strcmp(token, idents[i]->name) == 0)
 					break;
-			if (i < 0 || idents[i].type != 'C')
+			if (i < 0 || idents[i]->type != 'C')
 			{
 				fprintf(ferr, "ERROR %d: Ident %s is not defined\n", cur_line, token);
 				error = 1;
@@ -1632,7 +1681,7 @@ int main(int argc, char *argv[])
 			else
 			{
 				command_p command = add_command(SYM_ARROW);
-				command->int_value = idents[i].value;
+				command->int_value = idents[i]->value;
 			}
 		}
 		else if (sym == ' ')
@@ -1655,9 +1704,9 @@ int main(int argc, char *argv[])
 	{
 		int i = nr_idents - 1;
 		for (; i >= 0; i--)
-			if (strcmp("main", idents[i].name) == 0)
+			if (strcmp("main", idents[i]->name) == 0)
 			{
-				cur_function = idents[i].function;
+				cur_function = idents[i]->function;
 				break;
 			}
 	}
@@ -1674,7 +1723,7 @@ int main(int argc, char *argv[])
 	}
 
 
-	for (int i = 0; i < idents[i].function->max_locals_depth; i++)
+	for (int i = 0; i < idents[i]->function->max_locals_depth; i++)
 		locals_stack[i].kind = C_UNDEFINED;
 
 	top_value = &value_stack[value_depth];
@@ -1982,6 +2031,7 @@ int main(int argc, char *argv[])
 					printf("Call at %d to %d\n", cur_command->line, function->commands->line);
 					indent++;
 				}
+				function_stack[function_depth].locals_offset = locals_offset;
 				locals_offset += cur_command->int_value;
 				if (locals_offset + cur_function->max_locals_depth >= MAX_LOCALS_DEPTH)
 					report_error("Stack locals overflow");
