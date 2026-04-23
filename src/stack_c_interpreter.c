@@ -675,7 +675,7 @@ void add_jump_command(char sym, label_p label)
 	}
 }
 
-int nr_bytes_per_cell = 4;
+bool mode_64bits = FALSE;
 
 struct memory_s
 {
@@ -693,6 +693,7 @@ typedef enum {
 	C_GLOBAL,
 	C_LOCAL,
 	C_FUNCTION,
+	C_SECOND, // Second cell for 64 bit mode
 } cell_kind_e;
 
 struct cell_s
@@ -706,7 +707,9 @@ struct cell_s
 		string_p str;
 	};
 	command_p command;
+	int cell_id;
 };
+int cell_id = 1;
 
 const char* cell_kind_name(cell_p cell)
 {
@@ -718,6 +721,7 @@ const char* cell_kind_name(cell_p cell)
 		case C_GLOBAL: return "global";
 		case C_LOCAL: return "local";
 		case C_FUNCTION: return "function";
+		case C_SECOND: return "second";
 	}
 	return "<incorrect>";
 }
@@ -761,6 +765,8 @@ const char *command_name(command_p command)
 			if (keywords[i].sym == sym)
 				return keywords[i].name;
 	}
+	if ('a' <= sym && sym < 'a' + NR_SYMBOLS)
+		return symbols[sym - 'a'].name;
 	static char name[2];
 	name[0] = sym;
 	name[1] = '\0';
@@ -774,7 +780,7 @@ void cell_print(FILE *f, cell_p cell)
 		fprintf(f, " NULL");
 		return;
 	}
-	fprintf(f, " %s ", cell_kind_name(cell));
+	fprintf(f, " C%d %s ", cell->cell_id, cell_kind_name(cell));
 	if (cell->kind == C_GLOBAL || cell->kind == C_LOCAL)
 	{
 		memory_p memory = cell->memory;
@@ -793,7 +799,16 @@ void cell_print(FILE *f, cell_p cell)
 		else
 			fprintf(f, " ?.?");
 		if (cell->kind == C_STRING)
-			fprintf(f, " '%s'", cell->str->value);
+		{
+			fprintf(f, " '");
+			char *s = cell->str->value;
+			for (int i = 0; i < cell->str->length; i++, s++)
+				if (*s == '\n')
+					fprintf(f, "\\n");
+				else if (*s >= ' ')
+					fprintf(f, "%c", *s);
+			fprintf(f, "' (%lld)", cell->int_value);
+		}
 	}
 }
 
@@ -817,9 +832,8 @@ void print_locals(FILE *f, ident_p local, int locals_offset)
 		memory_p memory = local->memory;
 		if (memory != 0)
 		{
-			fprintf(f, ": ");
 			if (memory->nr_cells > 1)
-				fprintf(f, ": %d[", memory->nr_cells);
+				fprintf(f, "%d[", memory->nr_cells);
 			for (int i = 0; i < memory->nr_cells && i < 10; i++)
 			{
 				if (i > 0)
@@ -834,19 +848,24 @@ void print_locals(FILE *f, ident_p local, int locals_offset)
 	}
 }
 
-void report_error(const char *fmt, ...)
+void print_stack(FILE *f)
 {
 	for (int i = 0; i < function_depth; i++)
 	{
 		if (function_stack[i].command->c_filename != NULL)
-			fprintf(ferr, "At %s:%d (%d.%d) in function %s\n",
+			fprintf(f, "At %s:%d (%d.%d) in function %s\n",
 				function_stack[i].command->c_filename, function_stack[i].command->c_line, 
 				function_stack[i].command->line, function_stack[i].command->column, function_stack[i].function->ident->name);
 		else
-			fprintf(ferr, "At %d.%d in function %s\n",
+			fprintf(f, "At %d.%d in function %s\n",
 				function_stack[i].command->line, function_stack[i].command->column, function_stack[i].function->ident->name);
-		print_locals(ferr, function_stack[i].command->locals, function_stack[i].locals_offset);
+		print_locals(f, function_stack[i].command->locals, function_stack[i].locals_offset);
 	}
+}
+
+void report_error(const char *fmt, ...)
+{
+	print_stack(ferr);
 	if (cur_command == NULL)
 		fprintf(ferr, "In function %s\n", cur_function->ident->name);
 	else if (cur_command->c_filename != NULL)
@@ -961,13 +980,13 @@ cell_p deref(cell_p cell, bool is_word)
 	int_t offset = cell->int_value;
 	if (offset < 0)
 		report_error("offset %d is negative", offset);
-	if (offset >= memory->nr_cells * nr_bytes_per_cell)
+	if (offset + (mode_64bits ? 4 : 0) >= memory->nr_cells * 4)
 		report_error("offset %d outside of memory (%d)", offset, memory->nr_cells);
 	if (is_word && (offset & 3) != 0)
-		report_error("offset %d, not multiple of %d", offset, nr_bytes_per_cell);
+		report_error("offset %d, not multiple of 4", offset);
 	return   cell->kind == C_GLOBAL
-		   ? &cell->memory->cells[offset / nr_bytes_per_cell]
-		   : &locals_stack[cell->locals_offset + offset / nr_bytes_per_cell];
+		   ? &cell->memory->cells[offset / 4]
+		   : &locals_stack[cell->locals_offset + offset / 4];
 }
 
 bool ignore_undefined = TRUE;
@@ -980,20 +999,20 @@ int_t get_array_byte(cell_p cell, int_t index)
 	memory_p memory = cell->memory;
 	int_t offset = cell->int_value + index;
 	if (offset < 0)
-		report_error("get array byte: offset %d is negative", offset);
+		report_error("get array byte: offset %d (= %lld + %d) is negative", offset, cell->int_value, index);
 	if (cell->kind == C_STRING)
 	{
 		if (offset > cell->str->length)
-			report_error("get string byte: offset %d outside of string (%d, '%s')", offset, cell->str->length, cell->str->value);
+			report_error("get string byte: offset %d (= %lld + %d) outside of string (%d, '%s')", offset, cell->int_value, index, cell->str->length, cell->str->value);
 		return cell->str->value[offset];
 	}
-	if (offset >= memory->nr_cells * nr_bytes_per_cell)
+	if (offset >= memory->nr_cells * 4)
 		report_error("get array byte: offset %d outside of memory (%d)", offset, memory->nr_cells);
 	cell_p elem =   cell->kind == C_GLOBAL
-				  ? &cell->memory->cells[offset / nr_bytes_per_cell]
-				  : &locals_stack[cell->locals_offset + offset / nr_bytes_per_cell];
+				  ? &cell->memory->cells[offset / 4]
+				  : &locals_stack[cell->locals_offset + offset / 4];
 	//if (cell->kind == C_LOCAL)
-	//	printf("Contenst of local %d + %d = %d\n", cell->locals_offset, offset, cell->locals_offset + offset / nr_bytes_per_cell);
+	//	printf("Contenst of local %d + %d = %d\n", cell->locals_offset, offset, cell->locals_offset + offset / 4);
 	if (ignore_undefined && elem->kind == C_UNDEFINED)
 	{
 		if (!no_undefined_warnings)
@@ -1007,9 +1026,11 @@ int_t get_array_byte(cell_p cell, int_t index)
 			printf("%s %d.%d\n", elem->memory->name, elem->memory->line, elem->memory->column);
 		report_error("Pointer is not pointing to array of bytes but %s", cell_kind_name(elem));
 	}
-	//printf("elem->int_value = %llx, offset = %lld, value = %d\n", elem->int_value, offset, ((char*)&elem->int_value)[offset % nr_bytes_per_cell]);
-	return ((unsigned char*)&elem->int_value)[offset % nr_bytes_per_cell];
+	//printf("elem->int_value = %llx, offset = %lld, value = %d\n", elem->int_value, offset, ((char*)&elem->int_value)[offset % 4]);
+	return ((unsigned char*)&elem->int_value)[offset % 4];
 }
+
+bool opt_trace_assignments = FALSE;
 
 void set_array_byte(cell_p cell, int_t index, char ch)
 {
@@ -1019,19 +1040,40 @@ void set_array_byte(cell_p cell, int_t index, char ch)
 	int_t offset = cell->int_value + index;
 	if (offset < 0)
 		report_error("set array byte: offset %d is negative", offset);
-	if (offset >= memory->nr_cells * nr_bytes_per_cell)
+	if (offset >= memory->nr_cells * 4)
 		report_error("set array byte: offset %d outside of memory (%d)", offset, memory->nr_cells);
 	cell_p elem =  cell->kind == C_GLOBAL
-				 ? &cell->memory->cells[offset / nr_bytes_per_cell]
-				 : &locals_stack[cell->locals_offset + offset / nr_bytes_per_cell];
+				 ? &cell->memory->cells[offset / 4]
+				 : &locals_stack[cell->locals_offset + offset / 4];
 	//printf("set_array_byte offset %lld, change %llx into ", offset, elem->int_value);
+	if (mode_64bits && elem->kind != C_VALUE && elem->kind != C_UNDEFINED)
+	{
+		if (elem->kind == C_SECOND)
+		{
+			if (opt_trace_assignments)
+				printf("Overwrite second C%d from %d.%d with byte value by %d.%d\n", elem[-1].cell_id,
+					elem->command->line, elem->command->column,
+					cur_command->line, cur_command->column);
+			elem[-1].kind = C_VALUE;
+			elem[-1].command = cur_command;
+		}
+		else
+		{
+			if (opt_trace_assignments)
+				printf("Overwrite 'pointer' C%d from %d.%d with byte value by %d.%d\n", elem[1].cell_id,
+					elem->command->line, elem->command->column,
+					cur_command->line, cur_command->column);
+			elem[1].kind = C_VALUE;
+			elem[1].command = cur_command;
+		}
+	}
 	elem->kind = C_VALUE;
-	((unsigned char*)&elem->int_value)[offset % nr_bytes_per_cell] = ch;
+	((unsigned char*)&elem->int_value)[offset % 4] = ch;
 	//printf("%llx\n", elem->int_value);
 	elem->command = cur_command;
+	if (opt_trace_assignments)
+		printf("Assign byte to C%d\n", elem->cell_id);
 }
-
-bool opt_trace_assignments = FALSE;
 
 void copy_cell(cell_p dst, cell_p src, bool set_command)
 {
@@ -1042,12 +1084,62 @@ void copy_cell(cell_p dst, cell_p src, bool set_command)
 	dst->command = src->command;
 
 	if (set_command)
-	{
-		if (opt_trace_assignments)
-			printf("Assign value from %d.%d to %d.%d\n",
-				src->command->line, src->command->column,
-				cur_command->line, cur_command->column);
 		dst->command = cur_command;
+
+	if (opt_trace_assignments)
+		printf("Assign value from C%d %d.%d to C%d %p %d.%d\n",
+			src->cell_id, src->command->line, src->command->column,
+			dst->cell_id, dst, cur_command->line, cur_command->column);
+}
+
+void copy_cell_to_memory(cell_p dst, cell_p src, bool set_command)
+{
+	if (dst->cell_id <= 0 || src->cell_id > 0)
+		printf("Error: copy (to memory) from C%d to C%d\n", src->cell_id, dst->cell_id);
+
+	copy_cell(dst, src, set_command);
+
+	if (mode_64bits)
+	{
+		if (src->kind == C_VALUE)
+		{
+			dst[1].kind = C_VALUE;
+			dst[1].int_value = src->int_value >> 32;
+			dst->int_value = src->int_value & 0xffffffff;
+		}
+		else
+		{
+			dst[1].kind = C_SECOND;
+			dst[1].int_value = 0;
+		}
+		if (opt_trace_assignments)
+			printf("Assign %s to C%d %p,%p\n", cell_kind_name(&dst[1]), dst[1].cell_id, dst, &dst[1]);
+		dst[1].locals_offset = 0;
+		dst[1].memory = NULL;
+		dst[1].command = src->command;
+	}
+}
+
+void copy_cell_from_memory(cell_p dst, cell_p src, bool set_command)
+{
+	if (dst->cell_id > 0 || src->cell_id <= 0)
+		printf("Error: copy (from memory) from C%d to C%d\n", src->cell_id, dst->cell_id);
+
+	copy_cell(dst, src, set_command);
+
+	if (mode_64bits)
+	{
+		if (src[1].kind != (src->kind == C_VALUE ? C_VALUE : C_SECOND))
+		{
+			if (src[1].command != NULL)
+				report_warning("Second half of %s C%d was overwritten with %s by command %d.%d",
+					cell_kind_name(src), src[1].cell_id, cell_kind_name(&src[1]), src[1].command->line, src[1].command->column);
+			else
+				report_warning("Second half of %s C%d was overwritten with %s by unknwon command",
+					cell_kind_name(src), src[1].cell_id, cell_kind_name(&src[1]));
+		}
+		if (src->kind == C_VALUE)
+			dst->int_value += src[1].int_value << 32;
 	}
 }
 
@@ -1061,7 +1153,7 @@ void sys_int80(void)
 		report_error("First argument for int80 should be int, but it is %s", cell_kind_name(arg1));
 
 	int_t result = 0;
-	switch (arg1->int_value + (nr_bytes_per_cell == 8 ? 1000 : 0))
+	switch (arg1->int_value + (mode_64bits ? 1000 : 0))
 	{
 		case 1: case 1060:
 			fprintf(fout, "EXIT\n");
@@ -1182,8 +1274,7 @@ cell_kind_e undefined_kind = C_UNDEFINED;
 memory_p alloc_memory(int_t size)
 {
 	memory_p result = (memory_p)malloc(sizeof(struct memory_s));
-	result->nr_cells = (size + nr_bytes_per_cell - 1) / nr_bytes_per_cell;
-	//printf("alloc_memory %d cells = %d", size, result->nr_cells);
+	result->nr_cells = (size + 3) / 4;
 	result->cells = (cell_p)malloc(result->nr_cells * sizeof(struct cell_s));
 	result->name = "**heap**";
 	result->line = cur_command != 0 ? cur_command->line : 0;
@@ -1192,7 +1283,8 @@ memory_p alloc_memory(int_t size)
 	{
 		result->cells[i].kind = undefined_kind;
 		result->cells[i].int_value = 0;
-		result->cells[i].command = NULL;
+		result->cells[i].command = cur_command;
+		result->cells[i].cell_id = cell_id++;
 	}
 	return result;
 }
@@ -1251,6 +1343,17 @@ int main(int argc, char *argv[])
 	bool opt_trace_functions = FALSE;
 	int opt_indent_calls = 60000; //1307;
 
+	bool opt_debugging = FALSE;
+	bool stop_at_next_command = FALSE;
+	struct
+	{
+		char filename[100];
+		bool filename_matches;
+		int line;
+	} break_points[20];
+	int nr_break_points = 0;
+	const char *last_filename = NULL;
+
 	const char **col_argv = (const char**)malloc(argc * sizeof(char*));
 	int col_argc = 0;
 	
@@ -1267,10 +1370,18 @@ int main(int argc, char *argv[])
 			opt_trace_assignments = TRUE;
 			opt_trace_functions = TRUE;
 		}
+		else if (strcmp(arg, "-D") == 0)
+		{
+			opt_debugging = TRUE;
+			stop_at_next_command = TRUE;
+		}
 		else if (strcmp(arg, "-u") == 0)
 			undefined_kind = C_VALUE;
 		else
-			col_argv[col_argc++] = arg;
+		{
+			for (; i < argc; i++)
+				col_argv[col_argc++] = argv[i];
+		}
 	}
 
 	if (col_argc == 0)
@@ -1288,7 +1399,7 @@ int main(int argc, char *argv[])
 	{
 		int file_name_len = strlen(file_name);
 		if (file_name_len > 5 && strcmp(file_name + (file_name_len - 5), ".sl64") == 0)
-			nr_bytes_per_cell = 8;
+			mode_64bits = TRUE;
 	}
 
 	// Add predefined system functions
@@ -1395,6 +1506,8 @@ int main(int argc, char *argv[])
 				size = int_value;
 				get_token();
 			}
+			if (mode_64bits)
+				size *= 2;
 			if (sym != 'A')
 			{
 				fprintf(ferr, "ERROR %d.%d: Expecting name after 'int'\n", cur_line, cur_column);
@@ -1438,6 +1551,7 @@ int main(int argc, char *argv[])
 						memory->cells[i].kind = C_VALUE;
 						memory->cells[i].int_value = 0;
 						memory->cells[i].memory = NULL; // not applicable
+						memory->cells[i].cell_id = cell_id++;
 					}
 					ident->pos = 0;
 				}
@@ -1724,7 +1838,17 @@ int main(int argc, char *argv[])
 
 
 	for (int i = 0; i < idents[i]->function->max_locals_depth; i++)
+	{
 		locals_stack[i].kind = C_UNDEFINED;
+		locals_stack[i].cell_id = cell_id++;
+		locals_stack[i].command = cur_command;
+	}
+
+	for (int i = 0; i < MAX_LOCALS_DEPTH; i++)
+		locals_stack[i].cell_id = cell_id++;
+
+	for (int i = 0; i < MAX_VALUE_DEPTH; i++)
+		value_stack[i].cell_id = -1 - i;
 
 	top_value = &value_stack[value_depth];
 
@@ -1736,22 +1860,46 @@ int main(int argc, char *argv[])
 		// Push argv
 		push_value(col_argc);
 		push(C_GLOBAL);
-		top_value->memory = alloc_memory(nr_bytes_per_cell * (col_argc + 1 + nr_env + 1));
+		int nr_cells_per_ll = mode_64bits ? 2 : 1;
+		top_value->memory = alloc_memory(4 * nr_cells_per_ll * (col_argc + 1 + nr_env + 1));
+		cell_p cells = top_value->memory->cells;
 		for (int i = 0; i < col_argc; i++)
 		{
-			top_value->memory->cells[i].kind = C_STRING;
-			top_value->memory->cells[i].str = unique_string(col_argv[i], strlen(col_argv[i]));
-			top_value->memory->cells[i].command = cur_command;
+			cell_t cell;
+			cell.kind = C_STRING;
+			cell.str = unique_string(col_argv[i], strlen(col_argv[i]));
+			cell.int_value = 0;
+			cell.command = cur_command;
+			cell.cell_id = -200;
+			copy_cell_to_memory(cells, &cell, TRUE);
+			cells += nr_cells_per_ll;
 		}
-		top_value->memory->cells[col_argc].kind = C_VALUE;
+		{
+			cell_t cell;
+			cell.kind = C_VALUE;
+			cell.int_value = 0;
+			cell.cell_id = -201;
+			copy_cell_to_memory(cells, &cell, TRUE);
+			cells += nr_cells_per_ll;
+		}
 		for (int i = 0; i < nr_env; i++)
 		{
-			int env_i = col_argc + 1 + i;
-			top_value->memory->cells[env_i].kind = C_STRING;
-			top_value->memory->cells[env_i].str = unique_string(argv[argc + 1 + i], strlen(argv[argc + 1 + i]));
-			top_value->memory->cells[env_i].command = cur_command;
+			cell_t cell;
+			cell.kind = C_STRING;
+			cell.str = unique_string(argv[argc + 1 + i], strlen(argv[argc + 1 + i]));
+			cell.command = cur_command;
+			cell.cell_id = -202;
+			copy_cell_to_memory(cells, &cell, TRUE);
+			cells += nr_cells_per_ll;
 		}
-		top_value->memory->cells[col_argc + 1 + nr_env].kind = C_VALUE;
+		{
+			cell_t cell;
+			cell.kind = C_VALUE;
+			cell.int_value = 0;
+			cell.cell_id = -203;
+			copy_cell_to_memory(cells, &cell, TRUE);
+			cells += nr_cells_per_ll;
+		}
 	}
 
 	int indent = 0;
@@ -1763,7 +1911,7 @@ int main(int argc, char *argv[])
 			if (opt_trace_functions) printf("function depth = %d\n", function_depth);
 			if (--function_depth < 0)
 				return pop_value();
-			if (opt_trace_functions) printf("Leaving function %s\n", cur_function->ident->name);
+			if (opt_trace_functions || stop_at_next_command) printf("Leaving function %s\n", cur_function->ident->name);
 			cur_function = function_stack[function_depth].function;
 			cur_command = function_stack[function_depth].command;
 			if (opt_trace_functions) printf("Continue with %s at %d.%d\n", cur_function->ident->name,
@@ -1781,17 +1929,123 @@ int main(int argc, char *argv[])
 			cur_command = cur_command->next;
 		}
 
-		if (opt_trace_command)
+		if (opt_debugging && !stop_at_next_command && nr_break_points > 0)
 		{
-			printf("Execute command %d.%d: ", cur_command->line, cur_command->column);
+			if (last_filename != cur_command->c_filename)
+			{
+				last_filename = cur_command->c_filename;
+				for (int i = 0; i < nr_break_points; i++)
+					break_points[i].filename_matches = strcmp(break_points[i].filename, last_filename) == 0;
+			}
+			for (int i = 0; i < nr_break_points; i++)
+				if (   (break_points[i].filename_matches && cur_command->c_line == break_points[i].line)
+					|| (cur_command->line == break_points[i].line && break_points[i].filename[0] == '\0'))
+				{
+					printf("Break\n");
+					stop_at_next_command = TRUE;
+					break;
+				}
+		}
+
+		if (opt_trace_command || stop_at_next_command)
+		{
+			if (cur_command->c_filename != NULL)
+				fprintf(stdout, "At %s:%d (%d.%d) in function %s\n",
+					cur_command->c_filename, cur_command->c_line, 
+					cur_command->line, cur_command->column, cur_function->ident->name);
+			else
+				fprintf(stdout, "At %d.%d in function %s\n",
+					cur_command->line, cur_command->column, cur_function->ident->name);
 			if (cur_command->sym == '0')
 				printf("%lld", cur_command->int_value);
 			else if ((cur_command->sym == 'V'|| cur_command->sym == 'S') && cur_command->memory != 0)
 				printf("var %s", cur_command->memory->name);
+			else if (cur_command->sym == 'F' && cur_command->function != NULL)
+				printf("function %s", cur_command->function->ident->name);
 			else
 				printf("%s", command_name(cur_command));
 			printf(" (%d:", value_depth);
 			print_value_stack(stdout);
+			if (stop_at_next_command)
+				print_locals(stdout, cur_command->locals, locals_offset);
+		}
+
+		if (stop_at_next_command)
+		{
+			stop_at_next_command = FALSE;
+			for (;;)
+			{
+				fprintf(stdout, "\n> ");
+				char command[100];
+				fgets(command, 99, stdin);
+				for (char *s = command; *s != '\0'; s++)
+					if (*s == '\n')
+						*s = '\0';
+				if (strcmp(command, "") == 0)
+				{
+					stop_at_next_command = TRUE;
+					break;
+				}
+				if (strcmp(command, "cont") == 0)
+					break;
+				if (   strncmp(command, "break ", 6) == 0
+					|| strncmp(command, "clear ", 6) == 0)
+				{
+					char *s = command + 6;
+					while (*s == ' ')
+						s++;
+					const char *b_filename = "";
+					int b_line = 0;
+					if (!('0' <= *s && *s <= '9')) {
+						b_filename = s;
+						while (*s != '\0' && *s != ':')
+							s++;
+						if (*s == ':')
+							*s++ = '\0';
+					}
+					for (; '0' <= *s && *s <= '9'; s++)
+						b_line = 10 * b_line + *s - '0';
+					if (b_line == 0)
+						fprintf(stdout, "Do not understand '%s'\n", command);
+					else
+					{
+						printf("File %s at %d\n", b_filename, b_line);
+						if (*command == 'b')
+						{
+							if (nr_break_points == 20)
+								printf("To many break points\n");
+							else
+							{
+								strncpy(break_points[nr_break_points].filename, b_filename, 99);
+								break_points[nr_break_points].filename[99] = '\0';
+								break_points[nr_break_points].filename_matches = strcmp(cur_command->c_filename, b_filename) == 0;
+								break_points[nr_break_points].line = b_line;
+								nr_break_points++;
+							}
+						}
+						else
+						{
+							for (int i = 0; i < nr_break_points; i++)
+								if (break_points[i].line == b_line && strcmp(break_points[i].filename, b_filename) == 0)
+								{
+									nr_break_points--;
+									for (; i < nr_break_points; i++)
+										break_points[i] = break_points[i+1];
+									break;
+								}
+						}
+					}
+				}
+				else if (strcmp(command, "breaks") == 0)
+				{
+					for (int i = 0; i < nr_break_points; i++)
+						printf("%s at %d\n", break_points[i].filename, break_points[i].line);
+				}
+				else if (strcmp(command, "call") == 0)
+					print_stack(stdout);
+				else
+					fprintf(stdout, "Do not understand '%s'\n", command);
+			}
 		}
 
 		char sym = cur_command->sym;
@@ -1864,7 +2118,7 @@ int main(int argc, char *argv[])
 		else if (sym == '?')
 		{
 			check_stack(1);
-			copy_cell(top_value, deref(top_value, TRUE), FALSE);
+			copy_cell_from_memory(top_value, deref(top_value, TRUE), FALSE);
 			if (ignore_undefined && top_value->kind == C_UNDEFINED)
 			{
 				if (!no_undefined_warnings)
@@ -1877,7 +2131,7 @@ int main(int argc, char *argv[])
 		{
 			check_stack(2);
 			cell_p lhs = &value_stack[value_depth-1];
-			copy_cell(deref(lhs, TRUE), top_value, TRUE);
+			copy_cell_to_memory(deref(lhs, TRUE), top_value, FALSE);
 			copy_cell(lhs, top_value, FALSE);
 			pop();
 		}
@@ -1945,7 +2199,7 @@ int main(int argc, char *argv[])
 		{
 			check_stack(2);
 			cell_p lhs = &value_stack[value_depth-1];
-			copy_cell(deref(top_value, TRUE), lhs, TRUE);
+			copy_cell_to_memory(deref(top_value, TRUE), lhs, FALSE);
 			pop();
 			pop();
 		}
@@ -2036,7 +2290,10 @@ int main(int argc, char *argv[])
 				if (locals_offset + cur_function->max_locals_depth >= MAX_LOCALS_DEPTH)
 					report_error("Stack locals overflow");
 				for (int i = 0; i < cur_function->max_locals_depth; i++)
+				{
 					locals_stack[locals_offset + i].kind = C_UNDEFINED;
+					locals_stack[locals_offset + i].command = cur_command;
+				}
 				function_stack[function_depth].function = cur_function;
 				function_stack[function_depth].command = cur_command;
 				if (++function_depth >= MAX_FUNCTION_DEPTH)
@@ -2049,7 +2306,7 @@ int main(int argc, char *argv[])
 		else if (sym == SYM_ARROW)
 		{
 			check_stack(1);
-			copy_cell(top_value, deref(top_value, TRUE), TRUE);
+			copy_cell_from_memory(top_value, deref(top_value, TRUE), FALSE);
 			if (top_value->kind != C_GLOBAL && top_value->kind != C_LOCAL)
 				report_error("Arrow needs pointer");
 			top_value->int_value += cur_command->int_value;
@@ -2058,6 +2315,7 @@ int main(int argc, char *argv[])
 		{
 			check_stack(2);
 			cell_t cell;
+			cell.cell_id = -205;
 			copy_cell(&cell, top_value, FALSE);
 			copy_cell(top_value, &value_stack[value_depth-1], FALSE);
 			copy_cell(&value_stack[value_depth-1], &cell, FALSE);
