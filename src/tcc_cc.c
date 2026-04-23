@@ -3224,14 +3224,7 @@ int save_decl_depth = 0;
 bool inside_function = FALSE;
 bool inside_argument_list = FALSE;
 
-int round_up_word(int size) { return (size + 3) & ~3; }
-
-int array_element_size(type_p type)
-{
-	return   type->size == 1 && (type->base_type == BT_S8 || type->base_type == BT_U8)
-		   ? 1
-		   : round_up_word(type->size);
-}
+int round_up_word(int size) { return (size + long_long_size - 1) & -long_long_size; }
 
 /*
 	array_indexes : expr ']' ('[' array_indexes) OPT .
@@ -3255,7 +3248,7 @@ bool parse_array_indexes(type_p type, type_p *arr_type)
 	(*arr_type) = new_type(TYPE_KIND_ARRAY, nr_elems * type->size, 1);
 	(*arr_type)->members[0] = type;
 	(*arr_type)->nr_elems = nr_elems;
-	(*arr_type)->size = nr_elems * array_element_size(type);
+	(*arr_type)->size = nr_elems * type->size;
 	return TRUE;
 }
 
@@ -3510,7 +3503,7 @@ bool parse_declaration(bool is_param)
 					// Fix type:
 					int nr_elems = decl->value->nr_children;
 					decl->type->kind = TYPE_KIND_ARRAY;
-					decl->type->size = nr_elems * array_element_size(decl->type->members[0]);
+					decl->type->size = nr_elems * decl->type->members[0]->size;
 					decl->type->nr_elems = nr_elems;
 				}
 			}
@@ -4572,7 +4565,7 @@ void gen_expr(expr_p expr, bool as_value)
 			gen_expr(expr->children[0], TRUE);
 			gen_expr(expr->children[1], TRUE);
 			{
-				int elem_size = array_element_size(expr->type);
+				int elem_size = expr->type->size;
 				if (elem_size > 1)
 					fprintf(fcode, "%d * ", elem_size);
 			}
@@ -4734,7 +4727,7 @@ void gen_initializer(expr_p expr, type_p type)
 				if (i + 1 < expr->nr_children)
 				{
 					gen_indent();
-					fprintf(fcode, "%u + ", array_element_size(type->members[0]));
+					fprintf(fcode, "%u + ", type->members[0]->size);
 				}
 			}
 		}
