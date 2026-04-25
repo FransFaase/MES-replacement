@@ -773,12 +773,12 @@ const char *command_name(command_p command)
 	return name;
 }
 
-void cell_print(FILE *f, cell_p cell)
+bool cell_print(FILE *f, cell_p cell, bool room_for_second)
 {
 	if (cell == NULL)
 	{
 		fprintf(f, " NULL");
-		return;
+		return FALSE;
 	}
 	fprintf(f, " C%d %s ", cell->cell_id, cell_kind_name(cell));
 	if (cell->kind == C_GLOBAL || cell->kind == C_LOCAL)
@@ -793,12 +793,52 @@ void cell_print(FILE *f, cell_p cell)
 	else
 	{
 		if (cell->kind == C_VALUE)
-			fprintf(f, "%lld ", cell->int_value);
-		if (cell->command != NULL)
-			fprintf(f, " %d.%d", cell->command->line, cell->command->column);
-		else
-			fprintf(f, " ?.?");
-		if (cell->kind == C_STRING)
+		{
+			int_t value = cell->int_value;
+			if (mode_64bits && room_for_second && cell[1].kind == C_SECOND)
+			{
+				value += cell[1].int_value << 32;
+				fprintf(f, "%lld,%llxL", value, value);
+			}
+			else
+			{
+				fprintf(f, "%lld,%llx", value, value);
+				bool looks_like_string = TRUE;
+				for (int i = 0; i < 4; i++)
+				{
+					char ch = (char)((value >> (8 * i)) & 0xFF);
+					if (ch == '\0')
+					{
+						if (i == 0)
+							looks_like_string = FALSE;
+						break;
+					}
+					else if ((ch < ' ' || ch >= 127) && ch != '\n' && ch != '\r')
+					{
+						looks_like_string = FALSE;
+						break;
+					} 
+				}
+				if (looks_like_string)
+				{
+					fprintf(f, ",\"");
+					for (int i = 0; i < 4; i++)
+					{
+						char ch = (char)((value >> (8 * i)) & 0xFF);
+						if (ch == '\0')
+							break;
+						if (ch == '\n')
+							fprintf(f, "\\n");
+						else if (ch == '\n')
+							fprintf(f, "\\r");
+						else
+							fprintf(f, "%c", ch);
+					}
+					fprintf(f, "\"");
+				}
+			}
+		}
+		else if (cell->kind == C_STRING)
 		{
 			fprintf(f, " '");
 			char *s = cell->str->value;
@@ -809,7 +849,14 @@ void cell_print(FILE *f, cell_p cell)
 					fprintf(f, "%c", *s);
 			fprintf(f, "' (%lld)", cell->int_value);
 		}
+		else if (cell->kind == C_FUNCTION)
+			fprintf(f, "%s", cell->function == NULL ? "NULL" : cell->function->ident->name);
 	}
+	if (cell->command != NULL)
+		fprintf(f, " %d.%d", cell->command->line, cell->command->column);
+	else
+		fprintf(f, " ?.?");
+	return mode_64bits && room_for_second && cell[1].kind == C_SECOND;
 }
 
 void print_value_stack(FILE *f)
@@ -818,7 +865,7 @@ void print_value_stack(FILE *f)
 	{
 		if (i >= 2)
 			fprintf(f, ",");
-		cell_print(f, &value_stack[i]);
+		cell_print(f, &value_stack[i], FALSE);
 	}
 	fprintf(f, ")\n");
 }
@@ -828,20 +875,21 @@ void print_locals(FILE *f, ident_p local, int locals_offset)
 	for (; local != 0; local = local->prev)
 	{
 		fprintf(f, " %s = ", local->name); //, locals_offset, local->pos);
-		//cell_print(f, &locals_stack[locals_offset + local->pos]);
 		memory_p memory = local->memory;
 		if (memory != 0)
 		{
-			if (memory->nr_cells > 1)
+			bool single_value = memory->nr_cells == 1 || (memory->nr_cells == 2 && locals_stack[locals_offset + local->pos + 1].kind == C_SECOND);
+			if (!single_value)
 				fprintf(f, "%d[", memory->nr_cells);
 			for (int i = 0; i < memory->nr_cells && i < 10; i++)
 			{
 				if (i > 0)
 					fprintf(f, ", ");
 				fprintf(f, "(%d+%d=%d) ", locals_offset, local->pos + i, locals_offset + local->pos + i);
-				cell_print(f, &locals_stack[locals_offset + local->pos + i]);
+				if (cell_print(f, &locals_stack[locals_offset + local->pos + i], i + 1 < memory->nr_cells))
+					i++;
 			}
-			if (memory->nr_cells > 1)
+			if (!single_value)
 				fprintf(f, "]");
 		}
 		fprintf(f, "\n");
@@ -1129,7 +1177,7 @@ void copy_cell_from_memory(cell_p dst, cell_p src, bool set_command)
 
 	if (mode_64bits)
 	{
-		if (src[1].kind != (src->kind == C_VALUE ? C_VALUE : C_SECOND))
+		if (src->kind != C_VALUE && src->kind != C_UNDEFINED && src[1].kind != C_SECOND)
 		{
 			if (src[1].command != NULL)
 				report_warning("Second half of %s C%d was overwritten with %s by command %d.%d",
