@@ -347,6 +347,16 @@ int main (int argc, char *argv[])
 	const char *line = "var=val";
 	is_true(strchr(line, '=') != 0, "strchr =");
 
+	ssize_t neg = 0x3020100;
+#ifndef __TCC_CC_32__
+	neg += 0x7060504 << 32;
+#endif
+	for (size_t i = 0; i < sizeof(ssize_t); i++)
+	{
+		is_true(((neg >> (8 * i)) & 0xff) == i, ">>");
+		is_true((i << (8 * i)) == (neg & (0xff << (8 * i))), "<<");
+	}
+
 	if (result == 0)
 	{
 		char buffer[100];
