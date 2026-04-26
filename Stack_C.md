@@ -6,9 +6,9 @@ properties:
 * Serves as an intermediate language for a C-compiler.
 * Could be easily compared with the original C program.
 * Can be easily compiled to M1 assembly in a single pass.
-* Has not type checking.
-* All values are considered to be 32-bit integers. No support for
-  floating numbers
+* Has no type checking.
+* All values are considered to be 32-bit (or 64-bit) integers.
+  No support for floating numbers
 * Used C keywords to avoid introducing 'forbidden' identifiers
   in the C programs that are compiled by the C-compiler.
 * Identifiers follow C-syntax rules.
@@ -24,6 +24,9 @@ can be simply emulated with an if-statement on one hand,
 while on the other hand it has no support for for and
 switch-statements.
 
+The 64-bit variant of the language uses the `sl64` file extention
+where the 32-bit variant uses `sl`.
+
 ## Keywords
 
 The following C keywords are used:
@@ -38,12 +41,15 @@ The following C keywords are used:
 * `else`: for the else part of an if-statement.
 * `return`: to return from a function.
 * `goto`: to goto a specified label.
-* `char`: to sign extend a byte value to a 32 bit value.
+* `char`: to sign extend a byte value to a 32-bit value.
+* `long`: to sign extend a 32-bit integer to 64-bit value
+  for 64-bits variant.
 
 ## Comments
 
-Lines starting with the `#` character are considered comments
-and copied verbatim to the output.
+Lines starting with the `#` character are considered comments.
+(These are copied to the output when compiled to assembly. The
+Stack-C interpreter recognizes line directives in the comments.)
 
 ## Values
 
@@ -88,17 +94,20 @@ The following special operators are defined:
 * `;`: Pop the top value of the stack.
 * `><`: Swap the top two value of the stack.
 * `?`: Replace the top value of the stack by the value from the
-  memory four location pointed to by the value on the stack.
-* `?2`: Similar for two memory locations.
+  memory four (or eight for 64 bits) location pointed to by the
+  value on the stack.
 * `?1`: Similar for one memory location.
-* `!`: Store the top value in four memory locations pointed to
-  the second top value on the stack. It removes the second top
-  value from the stack.
-* `!2`: Similar for two memory locations.
+* `?2`: Similar for two memory locations.
+* `?4`: Similar (only for 64 bits) for four memory locations.
+* `!`: Store the top value in four (or eight for 64 bits) memory
+  locations pointed to the second top value on the stack. It
+  removes the second top value from the stack.
 * `!1`: Similar for one memory location.
-* `=:`: Store the second value on the stack in four locations
-  pointed to the top value on the stack. Removes the top two
-  values from the stack. (Similar to `<> = ;`)
+* `!2`: Similar for two memory locations.
+* `!4`: Similar (only for 64 bits) for four memory locations.
+* `=:`: Store the second value on the stack in four (or eight
+  for 64 bits) locations pointed to the top value on the stack.
+  Removes the top two values from the stack. (Similar to `<> = ;`)
 * `-p`: Equvalent with `-`. (Is needed for the Stack-C
   interpreter to work correctly.)
 * `->` followed by a constant identifier: This will retrieve
@@ -109,6 +118,9 @@ The following special operators are defined:
   stack. The top value is popped from the stack.
 * `char`: Replaces the top of the stack with the sign extended
   value of the least significant byte.
+* `long`: Replaces the top of the stack with the sign extended
+  value of the least significant four byte. (Does not do anything
+  for 32 bits variant).
 
 ## Statements
 
@@ -162,7 +174,8 @@ equivalent with `$ if { ;` and `|| {` with `$ ! if { ;`.
 ### Return statements
 
 The return statements consists of the `return` keyword. The stack is
-not affected.
+not affected. (This allows a function to return multiple values on
+the stack as the result.)
 
 ### Goto statement
 
@@ -171,12 +184,12 @@ identifier representing a label. Labels are defined by `:` followed
 by an identifier. The label definition may occur before or after
 the goto statement.
 
-# Stack-c compiler
+# Stack-C compiler
 
 The Stack-C compiler is implemented in [`stack_c.c`](stack_c.c).
-It produces output for the M1 assembler. The contents of the
-file [`stack_c_intro.M1`](stack_c_intro.M1) is copied to the
-start of the output, which does introduce the labels `ELF_text`,
+It produces output for the M1 assembler for (32 bit) x64. The
+contents of the file [`stack_c_intro.M1`](stack_c_intro.M1) is copied
+to the start of the output, which does introduce the labels `ELF_text`,
 `_start`, `f_sys_int80`, `f_sys_malloc`, and `SYS_MALLOC`. The
 compiler also does generate some new labels, such as `ELF_end`
 and as described below. For all the global variables, the
@@ -222,7 +235,7 @@ respect to the second stack pointer. The stack pointer is
 moved on function call and exit. Before `main` is called,
 100.000 bytes are allocated for it.
 
-# stack-c interpreter
+# Stack-C interpreter
 
 The Stack-C interpreter is implemented in
 [`stack_c_interpreter.c`](stack_c_interpreter.c). This interpreter
@@ -256,9 +269,10 @@ calls, namely:
 * 19: lseek
 * 183: getcwd
 
-There have been plans to incorporate a debugger to allow inspection
-of values on the stack and the values of variables.
-
+A limited debugger has been implemented which is activated when
+using the `-D` command line option. The debugger has commands
+for setting and clearing break points and can also print the
+stack with the values of all local variables that are in scope.
 
 
 
