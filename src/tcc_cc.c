@@ -1919,6 +1919,7 @@ typedef enum
 	TYPE_KIND_POINTER,
 	TYPE_KIND_ARRAY,
 	TYPE_KIND_FUNCTION,
+	TYPE_KIND_ENUM,
 } type_kind_e;
 
 typedef struct decl_s *decl_p;
@@ -1968,12 +1969,12 @@ type_p new_ptr_type(type_p base_type)
 
 bool type_is_integer(type_p type)
 {
-	return type != NULL && type->kind == TYPE_KIND_BASE && (type->base_type & 1) == 1;
+	return type != NULL && type->kind == TYPE_KIND_BASE && ((int)type->base_type & 1) == 1;
 }
 
 bool type_is_signed_integer(type_p type)
 {
-	return type != NULL && type->kind == TYPE_KIND_BASE && (type->base_type & 3) == 3;
+	return type != NULL && type->kind == TYPE_KIND_BASE && ((int)type->base_type & 3) == 3;
 }
 
 bool type_is_pointer(type_p type)
@@ -3752,7 +3753,7 @@ type_p parse_enum_specifier(void)
 			FAIL_NULL
 	}
 	if (type == NULL)
-		type = new_type(DK_ENUM, 4, 0);
+		type = new_type(TYPE_KIND_ENUM, 4, 0);
 	return type;
 }
 
@@ -4350,11 +4351,22 @@ void expr_print_error(expr_p expr, const char *mesg)
 	printf("%s %d.%d: Error: %s\n", expr->filename, expr->line, expr->column, mesg);
 	for (int i = 0; i < expr->nr_children; i++)
 	{
-		printf("Operand %d: ", i);
+		printf("  Operand %d: ", i);
 		expr_print(stdout, expr->children[i]);
 		printf("\n");
 	}
 	has_error = TRUE;
+}
+
+void expr_print_warning(expr_p expr, const char *mesg)
+{
+	printf("%s %d.%d: Warning: %s\n", expr->filename, expr->line, expr->column, mesg);
+	for (int i = 0; i < expr->nr_children; i++)
+	{
+		printf("  Operand %d: ", i);
+		expr_print(stdout, expr->children[i]);
+		printf("\n");
+	}
 }
 
 void gen_expr(expr_p expr, bool as_value)
@@ -4406,16 +4418,46 @@ void gen_expr(expr_p expr, bool as_value)
 			gen_expr(expr->children[0], expr->type->kind == TYPE_KIND_BASE);
 			if (expr->type->kind == TYPE_KIND_BASE)
 			{
+				type_p child_type = expr->children[0]->type;
+				if (child_type->kind != TYPE_KIND_BASE && child_type->kind != TYPE_KIND_ENUM)
+					expr_print_warning(expr, "Cast non base type to base type");
+				if (child_type->kind != TYPE_KIND_BASE || child_type->base_type != expr->type->base_type)
+			{
 				switch (expr->type->base_type)
 				{
+						case BT_VOID: break;
 					case BT_U8: fprintf(fcode, "0xFF & "); break;
 					case BT_S8: fprintf(fcode, "char "); break;
 					case BT_U16: fprintf(fcode, "0xFFFF & "); break;
-					default: break;
+						case BT_U32:
+							if (long_long_size == TARGET_64BITS)
+								fprintf(fcode, "0xFFFFFFFF & ");
+							break;
+						case BT_S32:
+							if (long_long_size == TARGET_64BITS)
+								fprintf(fcode, "long ");
+							break;
+						case BT_U64: break;
+						case BT_S64: break;
+						default:
+							if (child_type->kind == TYPE_KIND_BASE)
+							{
+								char buffer[100];
+								sprintf(buffer, "Cast base type %d to %d", child_type->base_type, expr->type->base_type);
+								expr_print_warning(expr, buffer);
+							}
+							break;
+					}
 				}
 			}
 			else if (is_lvalue(expr->children[0]))
 				fprintf(fcode, "?%s%s ", expr_size_ind, signed_ind);
+			else if (   expr->type == expr->children[0]->type
+					 || (   expr->type->kind == TYPE_KIND_POINTER
+						 && (expr->children[0]->type->kind == TYPE_KIND_POINTER || expr->children[0]->type->kind == TYPE_KIND_ARRAY)))
+				; // can be ignored
+			else
+				expr_print_warning(expr, "Cast is ignored"); 
 			break;
 		case ',':
 			for (int i = 0; i < expr->nr_children; i++)
