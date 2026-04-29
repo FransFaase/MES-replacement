@@ -3477,6 +3477,7 @@ bool parse_declaration(bool is_param)
 				if (   type->kind == TYPE_KIND_STRUCT
 					&& (   strcmp(decl->name, "Stab_Sym") == 0
 						|| strncmp(decl->name, "Elf32_", 6) == 0
+						|| strncmp(decl->name, "Elf64_", 6) == 0
 						|| strcmp(decl->name, "ArchiveHeader") == 0
 						|| strcmp(decl->name, "ArHdr") == 0))
 				{
