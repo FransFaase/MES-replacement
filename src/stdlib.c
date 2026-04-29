@@ -335,6 +335,11 @@ size_t __sys_printf(FILE *stream, char *trg, size_t len, char *format, va_list a
 						sign = -1;
 						format++;
 					}
+					if (*format == '.')
+					{
+						// ignore
+						format++;
+					}
 					while ('0' <= *format && *format <= '9')
 					{
 						modifier = 10 * modifier + *format - '0';
