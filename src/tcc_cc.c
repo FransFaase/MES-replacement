@@ -1204,7 +1204,10 @@ int conditional_iterator_parse_primary(conditional_iterator_p it)
 	}
 	else if (it->_token_it->kind == 'i')
 	{
+		// The code assumes that expansion always leads to a single numeric value
 		env_p env = get_env(it->_token_it->token, FALSE);
+		while (env != NULL && env->tokens != NULL && env->tokens->kind == 'i')
+			env = get_env(env->tokens->token, FALSE);
 		if (env != NULL && env->tokens != NULL && env->tokens->kind == '0')
 		{
 			result = string_int_value(env->tokens->token);
@@ -4423,13 +4426,13 @@ void gen_expr(expr_p expr, bool as_value)
 				if (child_type->kind != TYPE_KIND_BASE && child_type->kind != TYPE_KIND_ENUM)
 					expr_print_warning(expr, "Cast non base type to base type");
 				if (child_type->kind != TYPE_KIND_BASE || child_type->base_type != expr->type->base_type)
-			{
-				switch (expr->type->base_type)
 				{
+					switch (expr->type->base_type)
+					{
 						case BT_VOID: break;
-					case BT_U8: fprintf(fcode, "0xFF & "); break;
-					case BT_S8: fprintf(fcode, "char "); break;
-					case BT_U16: fprintf(fcode, "0xFFFF & "); break;
+						case BT_U8: fprintf(fcode, "0xFF & "); break;
+						case BT_S8: fprintf(fcode, "char "); break;
+						case BT_U16: fprintf(fcode, "0xFFFF & "); break;
 						case BT_U32:
 							if (long_long_size == TARGET_64BITS)
 								fprintf(fcode, "0xFFFFFFFF & ");

@@ -357,6 +357,14 @@ int main (int argc, char *argv[])
 		is_true((i << (8 * i)) == (neg & (0xff << (8 * i))), "<<");
 	}
 
+#define VARA 4
+#define VARX VARA
+#if VARX == VARA
+	is_true(1, "VARX == VARA");
+#else
+	is_true(0, "VARX == VARA");
+#endif
+
 	if (result == 0)
 	{
 		char buffer[100];
