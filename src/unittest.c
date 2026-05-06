@@ -365,6 +365,9 @@ int main (int argc, char *argv[])
 	is_true(0, "VARX == VARA");
 #endif
 
+	int diff = 400;
+	is_true(!(diff < -2147483648LL || diff > 2147483647LL), "bounds");
+
 	if (result == 0)
 	{
 		char buffer[100];

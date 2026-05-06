@@ -2472,7 +2472,8 @@ expr_p parse_primary_expr(void)
 		for (char *s = token_it->token; *s != '\0'; s++)
 			if (*s == 'L')
 				nr_L++;
-		expr->type = nr_L > 1 ? base_type_U64 : base_type_U32;
+		if (nr_L > 1 && expr->int_val > 0xFFFFFFFF)
+			fprintf(stderr, "%s Warning: long long const not supported\n", token_it_pos());
 		next_token();
 		return expr;
 	}
@@ -4392,8 +4393,6 @@ void gen_expr(expr_p expr, bool as_value)
 			fprintf(fcode, "%s ", expr->str_val);
 			break;
 		case '0':
-			if (expr->type == base_type_U64)
-				fprintf(stderr, "%s Warning: long long const not supported\n", token_it_pos());
 			fprintf(fcode, "%u%s ", expr->int_val & 0xFFFFFFFF, signed_ind);
 			break;
 		case '"':
