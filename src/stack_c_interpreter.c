@@ -1371,6 +1371,40 @@ void sys_realloc(void)
 	}
 }
 
+void sys_memcpy(void)
+{
+	check_stack(3);
+	if (top_value->kind != C_VALUE)
+		report_error("Calling memcpy with %s for size", cell_kind_name(top_value));
+	int_t size = pop_value();
+	if (top_value->kind != C_LOCAL && top_value->kind != C_GLOBAL && top_value->kind != C_STRING)
+		report_error("Calling memcpy with %s for src", cell_kind_name(top_value));
+	cell_p src = top_value;
+	pop();
+	if (top_value->kind != C_LOCAL && top_value->kind != C_GLOBAL)
+		report_error("Calling memcpy with %s for dst", cell_kind_name(top_value));
+	int m_size = mode_64bits ? 8 : 4;
+	if (src->kind != C_STRING && size % m_size == 0 && src->int_value % m_size == 0 && top_value->int_value % m_size == 0)
+	{
+		for (int i = 0; i < size; i += m_size)
+		{
+			cell_t cell;
+			cell.cell_id = -1;
+			copy_cell_from_memory(&cell, deref(src, TRUE), FALSE);
+			copy_cell_to_memory(deref(top_value, TRUE), &cell, TRUE);
+			src->int_value += m_size;
+			top_value->int_value += m_size;
+		}
+		src->int_value -= size;
+		top_value->int_value -= size;
+	}
+	else
+	{
+		for (int i = 0; i < size; i++)
+			set_array_byte(top_value, i, get_array_byte(src, i));
+	}
+}
+
 void enter_nesting(char type, int id)
 {
 	nesting_type[nesting_depth] = type;
@@ -1457,6 +1491,8 @@ int main(int argc, char *argv[])
 	sys_malloc_ident->function->sys_function = sys_malloc;
 	ident_p sys_realloc_ident = add_function("sys_realloc");
 	sys_realloc_ident->function->sys_function = sys_realloc;
+	ident_p memcpy_ident = add_function("memcpy");
+	memcpy_ident->function->sys_function = sys_memcpy;
 	
 	read_char();
 
