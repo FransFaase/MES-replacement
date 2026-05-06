@@ -4477,7 +4477,7 @@ void gen_expr(expr_p expr, bool as_value)
 			fprintf(fcode, "%c ", expr->kind);
 			break;
 		case TK_SHR:
-			if (expr->children[1]->kind == '0' && expr->children[1]->int_val > 31)
+			if (expr->children[1]->kind == '0' && expr->children[1]->int_val >= long_long_size * 8)
 			{
 				fprintf(fcode, "0 ");
 				break;
