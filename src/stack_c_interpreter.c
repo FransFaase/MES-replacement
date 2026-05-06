@@ -2325,7 +2325,7 @@ int main(int argc, char *argv[])
 		else if (sym == SYM_ASS_WORD)
 		{
 			check_stack(2);
-			int_t value = pop_value() & 0xffff;
+			int_t value = pop_value();
 			set_array_byte(top_value, 0, value & 0xff);
 			set_array_byte(top_value, 1, (value >> 8) & 0xff);
 			top_value->kind = C_VALUE;
@@ -2334,7 +2334,7 @@ int main(int argc, char *argv[])
 		else if (sym == SYM_ASS_WORD)
 		{
 			check_stack(2);
-			int_t value = pop_value() & 0xffff;
+			int_t value = pop_value();
 			set_array_byte(top_value, 0, value & 0xff);
 			set_array_byte(top_value, 1, (value >> 8) & 0xff);
 			top_value->kind = C_VALUE;
@@ -2343,7 +2343,7 @@ int main(int argc, char *argv[])
 		else if (sym == SYM_ASS_LONG)
 		{
 			check_stack(2);
-			int_t value = pop_value() & 0xffffffffL;
+			int_t value = pop_value();
 			set_array_byte(top_value, 0, value & 0xff);
 			set_array_byte(top_value, 1, (value >> 8) & 0xff);
 			set_array_byte(top_value, 2, (value >> 16) & 0xff);
