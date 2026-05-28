@@ -6,4 +6,4 @@
 	url = https://github.com/oriansj/M2libc.git
 [submodule "mes"]
 	path = mes
-	url = https://git.savannah.gnu.org/git/mes.git
+	url = https://github.com/haampie/mes.git
