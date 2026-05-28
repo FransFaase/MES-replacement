@@ -19,6 +19,7 @@ DEFINE POP_X0 408640F8
 DEFINE PUSH_X1 418E1FF8
 DEFINE POP_X1 418640F8
 DEFINE POP_X2 428640F8
+DEFINE POP_X3 438640F8
 DEFINE POP_X8 488640F8
 
 # register moves
@@ -146,6 +147,17 @@ DEFINE SVC_0 010000D4
 # return address stays in x30 (set by blr) since svc preserves it.
 
 :f_sys_syscall
+	POP_X2                      # arg3
+	POP_X1                      # arg2
+	POP_X0                      # arg1
+	POP_X8                      # syscall number
+	SVC_0
+	RETURN
+
+# Four-argument variant for the aarch64 *at syscalls (openat/fchmodat/...),
+# which take a leading dirfd. Carries the extra argument in x3.
+:f_sys_syscall4
+	POP_X3                      # arg4
 	POP_X2                      # arg3
 	POP_X1                      # arg2
 	POP_X0                      # arg1
