@@ -16,6 +16,28 @@
 #define __NR_symlink  83
 #define __NR_uname   109
 #define __NR_getcwd  183
+#elif defined(TCC_TARGET_ARM64)
+// aarch64 (asm-generic) syscall numbers. File-related calls that x86 exposes as
+// open/access/mkdir/... only exist as the *at variants here; the numbers below
+// are the *at syscalls, so the open()/access()/... wrappers need adapting in a
+// later milestone. write/read/close/exit (used by tcc_s -version) are correct.
+#define __NR_exit 93
+#define __NR_fork 220   // clone
+#define __NR_read 63
+#define __NR_write 64
+#define __NR_open 56    // openat
+#define __NR_close 57
+#define __NR_waitpid 260 // wait4
+#define __NR_unlink 35  // unlinkat
+#define __NR_execve 221
+#define __NR_chdir 49
+#define __NR_chmod 53   // fchmodat
+#define __NR_lseek 62
+#define __NR_access 48  // faccessat
+#define __NR_mkdir 34   // mkdirat
+#define __NR_symlink 36 // symlinkat
+#define __NR_uname 160
+#define __NR_getcwd 17
 #else
 #define __NR_exit 60
 #define __NR_fork 57
