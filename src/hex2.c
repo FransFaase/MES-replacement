@@ -162,6 +162,7 @@ void process_file(const char *name, int add_labels, void (*output_byte)(unsigned
                     label_p new_label = (label_p)malloc(sizeof(struct label_s));
                     new_label->name = (char*)malloc(label_len + 1);
                     strncpy(new_label->name, label, label_len);
+                    new_label->name[label_len] = '\0';
                     new_label->ip = ip;
                     new_label->next = labels;
                     labels = new_label;
