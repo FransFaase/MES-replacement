@@ -79,6 +79,8 @@ char *strncpy(char *dest, const char *src, size_t n)
 
 #endif
 
+#define LABEL_BUCKETS 1024
+
 void fhputc(int ch, int fh)
 {
     write(fh, &ch, 1);
@@ -122,11 +124,19 @@ struct label_s
     int ip;
     label_p next;
 };
-label_p labels = NULL;
+label_p labels[LABEL_BUCKETS];
+
+unsigned int hash(const char *name, int len)
+{
+    unsigned int h = 0;
+    for (int i = 0; i < len; i++) h = (h << 5) + h + name[i];
+    return h;
+}
 
 int pos_for_label(const char *name, int len)
 {
-    for (label_p label = labels; label != NULL; label = label->next)
+    unsigned int bucket = hash(name, len) % LABEL_BUCKETS;
+    for (label_p label = labels[bucket]; label != NULL; label = label->next)
         if (strncmp(label->name, name, len) == 0 && label->name[len] == '\0')
             return label->ip;
     return 0;
@@ -164,8 +174,9 @@ void process_file(const char *name, int add_labels, void (*output_byte)(unsigned
                     strncpy(new_label->name, label, label_len);
                     new_label->name[label_len] = '\0';
                     new_label->ip = ip;
-                    new_label->next = labels;
-                    labels = new_label;
+                    unsigned int bucket = hash(new_label->name, label_len) % LABEL_BUCKETS;
+                    new_label->next = labels[bucket];
+                    labels[bucket] = new_label;
                 }
             }
             else if (is_hex(*s) >= 0 && is_hex(s[1]) >= 0)
