@@ -1,0 +1,182 @@
+# Stack-C runtime prologue for aarch64 (arm64), self-contained.
+#
+# Runtime model (mirrors stack_c_intro_amd64.M1, RISC equivalents):
+#   x18 = operand stack pointer (push: str x,[x18,-8]! / pop: ldr x,[x18],8)
+#   x17 = locals base pointer (BP); [x17] holds the return address of the frame
+#   x0  = top-of-stack accumulator (rax), x1 = second operand (rbx)
+#   x16 = call target scratch, x2/x3 = scratch
+# Calls use "blr x16" (return address in x30, saved to [x17] by the prologue).
+# 32-bit immediates and addresses are loaded with a PC-relative literal:
+#   ldr w,#8 ; b #8 ; <4-byte literal>   (zero-extended into x).
+# Branches to labels load the absolute &address into w16 and "br x16"; a
+# conditional branch is an inverted fixed-offset skip over that load+br block.
+
+DEFINE NULL 0000000000000000
+
+# operand stack (x18)
+DEFINE PUSH_X0 408E1FF8
+DEFINE POP_X0 408640F8
+DEFINE PUSH_X1 418E1FF8
+DEFINE POP_X1 418640F8
+DEFINE POP_X2 428640F8
+DEFINE POP_X3 438640F8
+DEFINE POP_X8 488640F8
+
+# register moves
+DEFINE MOV_X1_X0 E10300AA
+DEFINE MOV_X1_X18 E10312AA
+DEFINE MOV_X17_X0 F10300AA
+DEFINE MOV_X0_X2 E00302AA
+DEFINE MOV_X0_X3 E00303AA
+DEFINE SET_X16_FROM_X0 F00300AA
+DEFINE MOV_X18_SP F2030091
+
+# memory
+DEFINE LDR_X0_X0 000040F9
+DEFINE STR_X0_X1 200000F9
+DEFINE STR_X1_X0 010000F9
+DEFINE STR_X30_BP 3E0200F9
+DEFINE LDR_X30_BP 3E0240F9
+DEFINE LDRB_W0_X0 00004039
+DEFINE LDRH_W0_X0 00004079
+DEFINE LDR_W0_X0 000040B9
+DEFINE STRB_W0_X1 20000039
+DEFINE STRH_W0_X1 20000079
+DEFINE STR_W0_X1 200000B9
+DEFINE LDR_X2_X1 220040F9
+DEFINE STR_X3_X1 230000F9
+
+# arithmetic / logic
+DEFINE ADD_X0_X0_X1 0000018B
+DEFINE SUB_X0_X1_X0 200000CB
+DEFINE MUL_X0_X0_X1 007C019B
+DEFINE AND_X0_X0_X1 0000018A
+DEFINE ORR_X0_X0_X1 000001AA
+DEFINE EOR_X0_X0_X1 000001CA
+DEFINE MVN_X0_X0 E00320AA
+DEFINE UDIV_X0_X0_X1 0008C19A
+DEFINE UDIV_X2_X0_X1 0208C19A
+DEFINE SDIV_X0_X0_X1 000CC19A
+DEFINE SDIV_X2_X0_X1 020CC19A
+DEFINE MSUB_X0_X2_X1_X0 4080019B
+DEFINE LSL_X0_X0_X1 0020C19A
+DEFINE LSR_X0_X0_X1 0024C19A
+DEFINE ADD_X3_X2_X0 4300008B
+
+# sign extension
+DEFINE SXTB_X0_W0 001C4093
+DEFINE SXTH_X0_W0 003C4093
+DEFINE SXTW_X0_W0 007C4093
+
+# compare
+DEFINE CMP_X1_X0 3F0000EB
+DEFINE CMP_X0_0 1F0000F1
+
+# cset (condition -> w0, zero-extended)
+DEFINE CSET_X0_EQ E0179F1A
+DEFINE CSET_X0_NE E0079F1A
+DEFINE CSET_X0_LT E0A79F1A
+DEFINE CSET_X0_LE E0C79F1A
+DEFINE CSET_X0_GT E0D79F1A
+DEFINE CSET_X0_GE E0B79F1A
+DEFINE CSET_X0_CC E0279F1A
+DEFINE CSET_X0_LS E0879F1A
+DEFINE CSET_X0_CS E0379F1A
+DEFINE CSET_X0_HI E0979F1A
+
+# frame adjust / call / return
+DEFINE ADD_X17_X17_X1 3102018B
+DEFINE SUB_X17_X17_X1 310201CB
+DEFINE ADD_X0_X17_X1 2002018B
+DEFINE BLR_X16 00023FD6
+DEFINE BR_X16 00021FD6
+DEFINE RETURN C0035FD6
+
+# PC-relative literal loads and skips
+DEFINE LOAD_W0_AHEAD 40000018
+DEFINE LOAD_W1_AHEAD 41000018
+DEFINE LOAD_W16_AHEAD 50000018
+DEFINE SKIP_32_DATA 02000014
+DEFINE SKIP_INST_EQ A0000054
+DEFINE SKIP_INST_NE A1000054
+
+# syscall scaffolding
+DEFINE MOVZ_X0_0 000080D2
+DEFINE MOVZ_X8_214 C81A80D2
+DEFINE MOVZ_X8_93 A80B80D2
+DEFINE SVC_0 010000D4
+
+:ELF_text
+
+:_start
+	MOV_X18_SP                  # operand stack = entry stack (holds argc/argv)
+	# brk(0): query current program break
+	MOVZ_X0_0
+	MOVZ_X8_214
+	SVC_0                       # x0 = current break
+	# store break into the SYS_MALLOC pointer cell
+	LOAD_W1_AHEAD
+	SKIP_32_DATA
+	&SYS_MALLOC
+	STR_X0_X1
+	# allocate 100000 bytes for the locals stack
+	LOAD_W0_AHEAD
+	SKIP_32_DATA
+	%100000
+	PUSH_X0                     # push size argument
+	LOAD_W16_AHEAD
+	SKIP_32_DATA
+	&f_sys_malloc
+	BLR_X16                     # x0 = base of locals stack
+	MOV_X17_X0                  # x17 (BP) = locals base
+	# set up argc / &argv on the operand stack for main
+	POP_X0                      # x0 = argc; x18 now -> &argv[0]
+	MOV_X1_X18                  # x1 = &argv[0]
+	PUSH_X0                     # push argc
+	PUSH_X1                     # push &argv
+	# call main
+	LOAD_W16_AHEAD
+	SKIP_32_DATA
+	&f_main
+	BLR_X16                     # x0 = main return value
+	# exit(x0)
+	MOVZ_X8_93
+	SVC_0
+
+# These sys_ functions use the normal calling convention but are leaves: the
+# return address stays in x30 (set by blr) since svc preserves it.
+
+:f_sys_syscall
+	POP_X2                      # arg3
+	POP_X1                      # arg2
+	POP_X0                      # arg1
+	POP_X8                      # syscall number
+	SVC_0
+	RETURN
+
+# Four-argument variant for the aarch64 *at syscalls (openat/fchmodat/...),
+# which take a leading dirfd. Carries the extra argument in x3.
+:f_sys_syscall4
+	POP_X3                      # arg4
+	POP_X2                      # arg3
+	POP_X1                      # arg2
+	POP_X0                      # arg1
+	POP_X8                      # syscall number
+	SVC_0
+	RETURN
+
+:f_sys_malloc
+	POP_X0                      # x0 = size
+	LOAD_W1_AHEAD
+	SKIP_32_DATA
+	&SYS_MALLOC
+	LDR_X2_X1                   # x2 = current break (value to return)
+	ADD_X3_X2_X0                # x3 = new break = current + size
+	STR_X3_X1                   # update SYS_MALLOC
+	MOV_X0_X3                   # brk(new break)
+	MOVZ_X8_214
+	SVC_0
+	MOV_X0_X2                   # return the old break pointer
+	RETURN
+:SYS_MALLOC
+	NULL
