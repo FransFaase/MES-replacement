@@ -1,0 +1,16 @@
+#! /usr/bin/env bash
+# Entry script, run by the kaem-optional-seed (kaem-minimal, aarch64) inside the
+# chroot. Mirrors task1/kaem.x86 but for arm64: every binary it touches is an
+# aarch64 ELF, run natively via the qemu-aarch64 binfmt handler (F flag, so no
+# qemu binary is needed inside the rootfs).
+
+##############################################################
+# Phase 0: build hex0 + kaem-0 from the committed seed bytes #
+##############################################################
+./bootstrap-seeds/POSIX/AArch64/kaem-optional-seed ./arm64/tools-seed-kaem.kaem
+./arm64/artifact/kaem-0 ./arm64/tools-mini-kaem.kaem
+
+#######################################
+# Run remaining phases with full kaem #
+#######################################
+./usr/bin/kaem --verbose --strict --file ./arm64/kaem.run

@@ -1,0 +1,48 @@
+#! /usr/bin/env bash
+# Run by kaem-0 (kaem-minimal). Rebuild the aarch64 tool chain from committed
+# seed assemblies, then use tcc_cc to compile full kaem, catm and equal from C.
+# Mirrors task1/tools-mini-kaem.kaem, with arm64 specifics: blood-elf --64, the
+# aarch64 ELF header (ELF-aarch64-debug.hex2), the aarch64 stack_c prologue, and
+# tcc_cc's "-a arm64 -D TCC_TARGET_ARM64=1" target selection.
+#
+# NB kaem-minimal has a 200-char line buffer and at most 9 tokens per command;
+# keep every line below those limits.
+
+# hex2 (assembled by hex0 from its hex0 listing)
+./usr/bin/hex0 ./arm64/hex2.arm64_hex0 ./usr/bin/hex2
+
+# blood-elf and M1 (linked by hex2 from committed macro+blood_elf seeds)
+./usr/bin/hex2 -o ./usr/bin/blood-elf ./arm64/ELF-aarch64-debug.hex2 ./arm64/blood-elf.macro_arm64 ./arm64/blood-elf.blood_elf_arm64
+./usr/bin/hex2 -o ./usr/bin/M1 ./arm64/ELF-aarch64-debug.hex2 ./arm64/M1.macro_arm64 ./arm64/M1.blood_elf_arm64
+
+# stack_c (from its prebuilt M1)
+./usr/bin/blood-elf --64 --file ./arm64/stack_c.M1 --little-endian --output ./tmp/stack_c.blood_elf
+./usr/bin/M1 -o ./tmp/stack_c.macro ./arm64/stack_c.M1
+./usr/bin/hex2 -o ./usr/bin/stack_c ./arm64/ELF-aarch64-debug.hex2 ./tmp/stack_c.macro ./tmp/stack_c.blood_elf
+
+# tcc_cc (from its prebuilt Stack-C)
+./usr/bin/stack_c -i ./arm64/stack_c_intro_arm64.M1 ./arm64/tcc_cc.sl -o ./tmp/tcc_cc.M1
+./usr/bin/blood-elf --64 --file ./tmp/tcc_cc.M1 --little-endian --output ./tmp/tcc_cc.blood_elf
+./usr/bin/M1 ./tmp/tcc_cc.M1 -o ./tmp/tcc_cc.macro
+./usr/bin/hex2 -o ./usr/bin/tcc_cc ./arm64/ELF-aarch64-debug.hex2 ./tmp/tcc_cc.macro ./tmp/tcc_cc.blood_elf
+
+# full kaem (compiled from C with stdlib.c)
+./usr/bin/tcc_cc -a arm64 -D TCC_TARGET_ARM64=1 -o ./tmp/kaem.sl ./src/stdlib.c ./src/kaem.c
+./usr/bin/stack_c -i ./arm64/stack_c_intro_arm64.M1 ./tmp/kaem.sl -o ./tmp/kaem.M1
+./usr/bin/blood-elf --64 --file ./tmp/kaem.M1 --little-endian --output ./tmp/kaem.blood_elf
+./usr/bin/M1 ./tmp/kaem.M1 -o ./tmp/kaem.macro
+./usr/bin/hex2 -o ./usr/bin/kaem ./arm64/ELF-aarch64-debug.hex2 ./tmp/kaem.macro ./tmp/kaem.blood_elf
+
+# catm (concatenation helper used by kaem.run)
+./usr/bin/tcc_cc -a arm64 -D TCC_TARGET_ARM64=1 -o ./tmp/catm.sl ./src/stdlib.c ./src/catm.c
+./usr/bin/stack_c -i ./arm64/stack_c_intro_arm64.M1 ./tmp/catm.sl -o ./tmp/catm.M1
+./usr/bin/blood-elf --64 --file ./tmp/catm.M1 --little-endian --output ./tmp/catm.blood_elf
+./usr/bin/M1 ./tmp/catm.M1 -o ./tmp/catm.macro
+./usr/bin/hex2 -o ./usr/bin/catm ./arm64/ELF-aarch64-debug.hex2 ./tmp/catm.macro ./tmp/catm.blood_elf
+
+# equal (byte-compare for the fixpoint check; compiled WITHOUT stdlib.c)
+./usr/bin/tcc_cc -a arm64 -D TCC_TARGET_ARM64=1 -o ./tmp/equal.sl ./src/equal.c
+./usr/bin/stack_c -i ./arm64/stack_c_intro_arm64.M1 ./tmp/equal.sl -o ./tmp/equal.M1
+./usr/bin/blood-elf --64 --file ./tmp/equal.M1 --little-endian --output ./tmp/equal.blood_elf
+./usr/bin/M1 ./tmp/equal.M1 -o ./tmp/equal.macro
+./usr/bin/hex2 -o ./usr/bin/equal ./arm64/ELF-aarch64-debug.hex2 ./tmp/equal.macro ./tmp/equal.blood_elf

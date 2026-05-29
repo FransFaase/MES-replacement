@@ -1,0 +1,130 @@
+#!/bin/sh
+# Build tcc 0.9.26 for aarch64, entirely with aarch64 binaries, inside the chroot.
+# Run by the in-chroot full kaem (./usr/bin/kaem). Adapted from task1/kaem.run
+# with the arm64 specifics from build_arm64.sh: ARM64 target, blood-elf --64, the
+# aarch64 ELF header, the aarch64 stack_c prologue, an empty crti/crtn, and a
+# libtcc1.a that bundles lib-arm64.c (the binary128 soft-float runtime). The boot
+# loop tcc_s -> boot0 -> boot1 -> boot2 rebuilds the mes libc at each stage, then
+# a fixpoint check (boot2 recompiling tcc.c must reproduce itself byte-for-byte).
+
+set -ex
+
+# Arch is fixed (this script is arm64-only).
+MES_ARCH=aarch64
+
+MES_PKG=/mes
+TCC_PKG=/steps/tcc-0.9.26/build/tcc-0.9.26-1147-gee75a10c
+BINDIR=/usr/bin
+SRCDIR=/src
+ARCHSRCSDIR=/arm64
+TMPDIR=/tmp
+LIBDIR=/usr/lib/mes
+PREFIX=/usr
+TCC_BOOT=${BINDIR}/tcc_s
+ELF=${ARCHSRCSDIR}/ELF-aarch64-debug.hex2
+INTRO=${ARCHSRCSDIR}/stack_c_intro_arm64.M1
+
+# Empty config.h files (all defines are passed on the command line).
+${BINDIR}/catm ${MES_PKG}/include/mes/config.h
+${BINDIR}/catm ${TCC_PKG}/config.h
+
+# Concatenate the unified mes C library (MES_ARCH=aarch64 pulls the aarch64
+# syscall/_exit/_write/setjmp and the AAPCS64 va.c). Same list as build_arm64.sh.
+cd ${MES_PKG}/lib
+${BINDIR}/catm ${MES_PKG}/unified-libc.c ctype/isalnum.c ctype/isalpha.c ctype/isascii.c ctype/iscntrl.c ctype/isdigit.c ctype/isgraph.c ctype/islower.c ctype/isnumber.c ctype/isprint.c ctype/ispunct.c ctype/isspace.c ctype/isupper.c ctype/isxdigit.c ctype/tolower.c ctype/toupper.c dirent/closedir.c dirent/__getdirentries.c dirent/opendir.c linux/readdir.c linux/access.c linux/brk.c linux/chdir.c linux/chmod.c linux/clock_gettime.c linux/close.c linux/dup2.c linux/dup.c linux/execve.c linux/fcntl.c linux/fork.c linux/fsync.c linux/fstat.c linux/_getcwd.c linux/getdents.c linux/getegid.c linux/geteuid.c linux/getgid.c linux/getpid.c linux/getppid.c linux/getrusage.c linux/gettimeofday.c linux/getuid.c linux/ioctl.c linux/ioctl3.c linux/kill.c linux/link.c linux/lseek.c linux/lstat.c linux/malloc.c linux/mkdir.c linux/mknod.c linux/nanosleep.c linux/_open3.c linux/pipe.c linux/_read.c linux/readlink.c linux/rename.c linux/rmdir.c linux/setgid.c linux/settimer.c linux/setuid.c linux/signal.c linux/sigprogmask.c linux/symlink.c linux/stat.c linux/time.c linux/unlink.c linux/waitpid.c linux/wait4.c linux/${MES_ARCH}-mes-gcc/_exit.c linux/${MES_ARCH}-mes-gcc/syscall.c linux/${MES_ARCH}-mes-gcc/_write.c math/ceil.c math/fabs.c math/floor.c mes/abtod.c mes/abtol.c mes/__assert_fail.c mes/assert_msg.c mes/__buffered_read.c mes/__init_io.c mes/cast.c mes/dtoab.c mes/eputc.c mes/eputs.c mes/fdgetc.c mes/fdgets.c mes/fdputc.c mes/fdputs.c mes/fdungetc.c mes/globals.c mes/itoa.c mes/ltoab.c mes/ltoa.c mes/__mes_debug.c mes/mes_open.c mes/ntoab.c mes/oputc.c mes/oputs.c mes/search-path.c mes/ultoa.c mes/utoa.c posix/alarm.c posix/buffered-read.c posix/execl.c posix/execlp.c posix/execv.c posix/execvp.c posix/getcwd.c posix/getenv.c posix/isatty.c posix/mktemp.c posix/open.c posix/pathconf.c posix/raise.c posix/sbrk.c posix/setenv.c posix/sleep.c posix/unsetenv.c posix/wait.c posix/write.c stdio/clearerr.c stdio/fclose.c stdio/fdopen.c stdio/feof.c stdio/ferror.c stdio/fflush.c stdio/fgetc.c stdio/fgets.c stdio/fileno.c stdio/fopen.c stdio/fprintf.c stdio/fputc.c stdio/fputs.c stdio/fread.c stdio/freopen.c stdio/fscanf.c stdio/fseek.c stdio/ftell.c stdio/fwrite.c stdio/getc.c stdio/getchar.c stdio/perror.c stdio/printf.c stdio/putc.c stdio/putchar.c stdio/remove.c stdio/snprintf.c stdio/sprintf.c stdio/sscanf.c stdio/ungetc.c stdio/vfprintf.c stdio/vfscanf.c stdio/vprintf.c stdio/vsnprintf.c stdio/vsprintf.c stdio/vsscanf.c stdlib/abort.c stdlib/abs.c stdlib/alloca.c stdlib/atexit.c stdlib/atof.c stdlib/atoi.c stdlib/atol.c stdlib/calloc.c stdlib/__exit.c stdlib/exit.c stdlib/free.c stdlib/mbstowcs.c stdlib/puts.c stdlib/qsort.c stdlib/realloc.c stdlib/strtod.c stdlib/strtof.c stdlib/strtol.c stdlib/strtold.c stdlib/strtoll.c stdlib/strtoul.c stdlib/strtoull.c string/bcmp.c string/bcopy.c string/bzero.c string/index.c string/memchr.c string/memcmp.c string/memcpy.c string/memmem.c string/memmove.c string/memset.c string/rindex.c string/strcat.c string/strchr.c string/strcmp.c string/strcpy.c string/strcspn.c string/strdup.c string/strerror.c string/strlen.c string/strlwr.c string/strncat.c string/strncmp.c string/strncpy.c string/strpbrk.c string/strrchr.c string/strspn.c string/strstr.c string/strupr.c stub/atan2.c stub/bsearch.c stub/chown.c stub/__cleanup.c stub/cos.c stub/ctime.c stub/exp.c stub/fpurge.c stub/freadahead.c stub/frexp.c stub/getgrgid.c stub/getgrnam.c stub/getlogin.c stub/getpgid.c stub/getpgrp.c stub/getpwnam.c stub/getpwuid.c stub/gmtime.c stub/ldexp.c stub/localtime.c stub/log.c stub/mktime.c stub/modf.c stub/mprotect.c stub/pclose.c stub/popen.c stub/pow.c stub/putenv.c stub/rand.c stub/realpath.c stub/rewind.c stub/setbuf.c stub/setgrent.c stub/setlocale.c stub/setvbuf.c stub/sigaction.c stub/sigaddset.c stub/sigblock.c stub/sigdelset.c stub/sigemptyset.c stub/sigsetmask.c stub/sin.c stub/sys_siglist.c stub/system.c stub/sqrt.c stub/strftime.c stub/times.c stub/ttyname.c stub/umask.c stub/utime.c ${MES_ARCH}-mes-gcc/setjmp.c ${MES_ARCH}-mes-gcc/va.c
+
+#############################################################################
+# Build tcc_s (the self-hosted seed tcc) via the seed pipeline
+#############################################################################
+cd ${TCC_PKG}
+${BINDIR}/tcc_cc -a arm64 -o ${TMPDIR}/tcc.sl -D BOOTSTRAP=1 -D HAVE_LONG_LONG=1 -D CONFIG_SYSROOT=\"/\" -D CONFIG_TCC_LIBTCC1_MES=0 -D TCC_TARGET_ARM64=1 -D CONFIG_TCCDIR=\"${LIBDIR}/tcc\" -D CONFIG_TCC_CRTPREFIX=\"${LIBDIR}\" -D CONFIG_TCC_ELFINTERP=\"/mes/loader\" -D CONFIG_TCC_LIBPATHS=\"${LIBDIR}:${LIBDIR}/tcc\" -D CONFIG_TCC_SYSINCLUDEPATHS=\"${PREFIX}/include/mes\" -D TCC_LIBGCC=\"${LIBDIR}/libc.a\" -D TCC_LIBTCC1=\"libtcc1.a\" -D CONFIG_TCCBOOT=1 -D CONFIG_TCC_STATIC=1 -D CONFIG_USE_LIBGCC=1 -D TCC_VERSION=\"0.9.26\" -D ONE_SOURCE=1 ${SRCDIR}/stdlib.c tcc.c
+${BINDIR}/stack_c -i ${INTRO} ${TMPDIR}/tcc.sl -o ${TMPDIR}/tcc_s.M1
+${BINDIR}/blood-elf --64 --file ${TMPDIR}/tcc_s.M1 --little-endian --output ${TMPDIR}/tcc_s.blood_elf
+${BINDIR}/M1 ${TMPDIR}/tcc_s.M1 -o ${TMPDIR}/tcc_s.macro
+${BINDIR}/hex2 -o ${TCC_BOOT} ${ELF} ${TMPDIR}/tcc_s.macro ${TMPDIR}/tcc_s.blood_elf
+
+# Test tcc_s
+${TCC_BOOT} -version
+
+#############################################################################
+# Rebuild libs with tcc_s
+#############################################################################
+cd ${MES_PKG}
+${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crt1.o lib/linux/${MES_ARCH}-mes-gcc/crt1.c
+${BINDIR}/catm ${LIBDIR}/crtn.o
+${BINDIR}/catm ${LIBDIR}/crti.o
+${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o unified-libc.o unified-libc.c
+${TCC_BOOT} -ar cr ${LIBDIR}/libc.a unified-libc.o
+${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o libtcc1.o lib/libtcc1.c
+${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ${TCC_PKG}/lib/lib-arm64.c
+${TCC_BOOT} -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o lib-arm64.o
+${TCC_BOOT} -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} lib/posix/getopt.c
+${TCC_BOOT} -ar cr ${LIBDIR}/libgetopt.a getopt.o
+
+#############################################################################
+# boot0 (compiled by tcc_s; needs -L LIBDIR to find the seed libc.a)
+#############################################################################
+cd ${TCC_PKG}
+${TCC_BOOT} -g -v -static -o ${BINDIR}/tcc-boot0 -D BOOTSTRAP=1 -D HAVE_FLOAT=1 -D HAVE_BITFIELD=1 -D HAVE_LONG_LONG=1 -D HAVE_SETJMP=1 -I . -I ${PREFIX}/include/mes -D TCC_TARGET_ARM64=1 -D CONFIG_TCCDIR=\"${LIBDIR}/tcc\" -D CONFIG_TCC_CRTPREFIX=\"${LIBDIR}\" -D CONFIG_TCC_ELFINTERP=\"/mes/loader\" -D CONFIG_TCC_LIBPATHS=\"${LIBDIR}:${LIBDIR}/tcc\" -D CONFIG_TCC_SYSINCLUDEPATHS=\"${PREFIX}/include/mes\" -D TCC_LIBGCC=\"${LIBDIR}/libc.a\" -D TCC_LIBTCC1=\"libtcc1.a\" -D CONFIG_TCCBOOT=1 -D CONFIG_TCC_STATIC=1 -D CONFIG_USE_LIBGCC=1 -D TCC_VERSION=\"0.9.26\" -D ONE_SOURCE=1 -L . -L ${LIBDIR} tcc.c
+${BINDIR}/tcc-boot0 -version
+
+cd ${MES_PKG}
+${BINDIR}/tcc-boot0 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crt1.o lib/linux/${MES_ARCH}-mes-gcc/crt1.c
+${BINDIR}/catm ${LIBDIR}/crtn.o
+${BINDIR}/catm ${LIBDIR}/crti.o
+${BINDIR}/tcc-boot0 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o unified-libc.o unified-libc.c
+${BINDIR}/tcc-boot0 -ar cr ${LIBDIR}/libc.a unified-libc.o
+${BINDIR}/tcc-boot0 -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o libtcc1.o lib/libtcc1.c
+${BINDIR}/tcc-boot0 -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ${TCC_PKG}/lib/lib-arm64.c
+${BINDIR}/tcc-boot0 -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o lib-arm64.o
+${BINDIR}/tcc-boot0 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} lib/posix/getopt.c
+${BINDIR}/tcc-boot0 -ar cr ${LIBDIR}/libgetopt.a getopt.o
+
+#############################################################################
+# boot1
+#############################################################################
+cd ${TCC_PKG}
+${BINDIR}/tcc-boot0 -g -v -static -o ${BINDIR}/tcc-boot1 -D BOOTSTRAP=1 -D HAVE_FLOAT=1 -D HAVE_BITFIELD=1 -D HAVE_LONG_LONG=1 -D HAVE_SETJMP=1 -I . -I ${PREFIX}/include/mes -D TCC_TARGET_ARM64=1 -D CONFIG_TCCDIR=\"${LIBDIR}/tcc\" -D CONFIG_TCC_CRTPREFIX=\"${LIBDIR}\" -D CONFIG_TCC_ELFINTERP=\"/mes/loader\" -D CONFIG_TCC_LIBPATHS=\"${LIBDIR}:${LIBDIR}/tcc\" -D CONFIG_TCC_SYSINCLUDEPATHS=\"${PREFIX}/include/mes\" -D TCC_LIBGCC=\"${LIBDIR}/libc.a\" -D TCC_LIBTCC1=\"libtcc1.a\" -D CONFIG_TCCBOOT=1 -D CONFIG_TCC_STATIC=1 -D CONFIG_USE_LIBGCC=1 -D TCC_VERSION=\"0.9.26\" -D ONE_SOURCE=1 -L . tcc.c
+${BINDIR}/tcc-boot1 -version
+
+cd ${MES_PKG}
+${BINDIR}/tcc-boot1 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crt1.o lib/linux/${MES_ARCH}-mes-gcc/crt1.c
+${BINDIR}/catm ${LIBDIR}/crtn.o
+${BINDIR}/catm ${LIBDIR}/crti.o
+${BINDIR}/tcc-boot1 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o unified-libc.o unified-libc.c
+${BINDIR}/tcc-boot1 -ar cr ${LIBDIR}/libc.a unified-libc.o
+${BINDIR}/tcc-boot1 -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o libtcc1.o lib/libtcc1.c
+${BINDIR}/tcc-boot1 -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ${TCC_PKG}/lib/lib-arm64.c
+${BINDIR}/tcc-boot1 -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o lib-arm64.o
+${BINDIR}/tcc-boot1 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} lib/posix/getopt.c
+${BINDIR}/tcc-boot1 -ar cr ${LIBDIR}/libgetopt.a getopt.o
+
+#############################################################################
+# boot2 (the final tcc 0.9.26 for arm64)
+#############################################################################
+cd ${TCC_PKG}
+${BINDIR}/tcc-boot1 -g -v -static -o ${BINDIR}/tcc-boot2 -D BOOTSTRAP=1 -D HAVE_FLOAT=1 -D HAVE_BITFIELD=1 -D HAVE_LONG_LONG=1 -D HAVE_SETJMP=1 -I . -I ${PREFIX}/include/mes -D TCC_TARGET_ARM64=1 -D CONFIG_TCCDIR=\"${LIBDIR}/tcc\" -D CONFIG_TCC_CRTPREFIX=\"${LIBDIR}\" -D CONFIG_TCC_ELFINTERP=\"/mes/loader\" -D CONFIG_TCC_LIBPATHS=\"${LIBDIR}:${LIBDIR}/tcc\" -D CONFIG_TCC_SYSINCLUDEPATHS=\"${PREFIX}/include/mes\" -D TCC_LIBGCC=\"${LIBDIR}/libc.a\" -D TCC_LIBTCC1=\"libtcc1.a\" -D CONFIG_TCCBOOT=1 -D CONFIG_TCC_STATIC=1 -D CONFIG_USE_LIBGCC=1 -D TCC_VERSION=\"0.9.26\" -D ONE_SOURCE=1 -L . tcc.c
+${BINDIR}/tcc-boot2 -version
+
+cd ${MES_PKG}
+${BINDIR}/tcc-boot2 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o ${LIBDIR}/crt1.o lib/linux/${MES_ARCH}-mes-gcc/crt1.c
+${BINDIR}/catm ${LIBDIR}/crtn.o
+${BINDIR}/catm ${LIBDIR}/crti.o
+${BINDIR}/tcc-boot2 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o unified-libc.o unified-libc.c
+${BINDIR}/tcc-boot2 -ar cr ${LIBDIR}/libc.a unified-libc.o
+${BINDIR}/tcc-boot2 -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o libtcc1.o lib/libtcc1.c
+${BINDIR}/tcc-boot2 -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ${TCC_PKG}/lib/lib-arm64.c
+${BINDIR}/tcc-boot2 -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o lib-arm64.o
+${BINDIR}/tcc-boot2 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} lib/posix/getopt.c
+${BINDIR}/tcc-boot2 -ar cr ${LIBDIR}/libgetopt.a getopt.o
+
+#############################################################################
+# boot3: boot2 recompiling tcc.c must reproduce itself byte-for-byte (fixpoint)
+#############################################################################
+cd ${TCC_PKG}
+${BINDIR}/tcc-boot2 -g -v -static -o ${TMPDIR}/tcc-boot3 -D BOOTSTRAP=1 -D HAVE_FLOAT=1 -D HAVE_BITFIELD=1 -D HAVE_LONG_LONG=1 -D HAVE_SETJMP=1 -I . -I ${PREFIX}/include/mes -D TCC_TARGET_ARM64=1 -D CONFIG_TCCDIR=\"${LIBDIR}/tcc\" -D CONFIG_TCC_CRTPREFIX=\"${LIBDIR}\" -D CONFIG_TCC_ELFINTERP=\"/mes/loader\" -D CONFIG_TCC_LIBPATHS=\"${LIBDIR}:${LIBDIR}/tcc\" -D CONFIG_TCC_SYSINCLUDEPATHS=\"${PREFIX}/include/mes\" -D TCC_LIBGCC=\"${LIBDIR}/libc.a\" -D TCC_LIBTCC1=\"libtcc1.a\" -D CONFIG_TCCBOOT=1 -D CONFIG_TCC_STATIC=1 -D CONFIG_USE_LIBGCC=1 -D TCC_VERSION=\"0.9.26\" -D ONE_SOURCE=1 -L . tcc.c
+
+# Fixpoint check (equal exits non-zero on mismatch; --strict kaem aborts then).
+${BINDIR}/equal ${BINDIR}/tcc-boot2 ${TMPDIR}/tcc-boot3
+
+echo FIXPOINT-OK-tcc-boot2-equals-tcc-boot3
