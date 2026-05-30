@@ -1,0 +1,28 @@
+#! /usr/bin/env bash
+# arm64 clone of target_amd64/tools-mini-kaem.kaem. NB kaem-minimal has a
+# 200-char line buffer and at most 9 tokens per command; keep lines within both.
+
+# hex2 (assembled by hex0 from its hex0 listing)
+./usr/bin/hex0 ./arm64/hex2.hex0 ./usr/bin/hex2
+
+# blood-elf and M1 (linked by hex2 from committed macro+blood_elf seeds)
+./usr/bin/hex2 -o ./usr/bin/blood-elf ./arm64/ELF-arm64-debug.hex2 ./arm64/blood-elf.macro ./arm64/blood-elf.blood_elf
+./usr/bin/hex2 -o ./usr/bin/M1 ./arm64/ELF-arm64-debug.hex2 ./arm64/M1.macro ./arm64/M1.blood_elf
+
+# stack_c (from its prebuilt M1)
+./usr/bin/blood-elf --64 --file ./arm64/stack_c.M1 --little-endian --output ./tmp/stack_c.blood_elf
+./usr/bin/M1 -o ./tmp/stack_c.macro ./arm64/stack_c.M1
+./usr/bin/hex2 -o ./usr/bin/stack_c ./arm64/ELF-arm64-debug.hex2 ./tmp/stack_c.macro ./tmp/stack_c.blood_elf
+
+# tcc_cc (from its prebuilt Stack-C)
+./usr/bin/stack_c -i ./arm64/stack_c_intro.M1 ./src/tcc_cc.sl64a -o ./tmp/tcc_cc.M1
+./usr/bin/blood-elf --64 --file ./tmp/tcc_cc.M1 --little-endian --output ./tmp/tcc_cc.blood_elf
+./usr/bin/M1 ./tmp/tcc_cc.M1 -o ./tmp/tcc_cc.macro
+./usr/bin/hex2 -o ./usr/bin/tcc_cc ./arm64/ELF-arm64-debug.hex2 ./tmp/tcc_cc.macro ./tmp/tcc_cc.blood_elf
+
+# full kaem (compiled from C with stdlib.c)
+./usr/bin/tcc_cc -a arm64 -o ./tmp/kaem.sl ./src/stdlib.c ./src/kaem.c
+./usr/bin/stack_c -i ./arm64/stack_c_intro.M1 ./tmp/kaem.sl -o ./tmp/kaem.M1
+./usr/bin/blood-elf --64 --file ./tmp/kaem.M1 --little-endian --output ./tmp/kaem.blood_elf
+./usr/bin/M1 ./tmp/kaem.M1 -o ./tmp/kaem.macro
+./usr/bin/hex2 -o ./usr/bin/kaem ./arm64/ELF-arm64-debug.hex2 ./tmp/kaem.macro ./tmp/kaem.blood_elf

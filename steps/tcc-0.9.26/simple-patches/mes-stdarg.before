@@ -1,0 +1,3 @@
+#define va_copy(d, s)      __builtin_va_copy (d, s)
+
+#else // ! SYSTEM_LIBC && ! __riscv

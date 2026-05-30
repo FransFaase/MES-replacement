@@ -28,11 +28,44 @@ simple-patch ${TCC_PKG}/tcctools.c \
 ungz --file ${DISTFILES}/${MES_PKG}.tar.gz --output ${MES_PKG}.tar
 untar --non-strict --file ${MES_PKG}.tar
 
+# arm64 ships the pristine mes tarball (like the other arches) and reconstructs
+# the aarch64 libc in-chroot: drop in the 11 new aarch64 source files (runtime
+# primitives, headers, va/setjmp helpers) and simple-patch the 3 existing headers
+# (setjmp.h/stdarg.h/stdint.h) that upstream 0.27.1 lacks aarch64 cases for. This
+# mirrors the mes submodule's "Add aarch64 libc support" commit exactly.
+if match ${ARCH} arm64; then
+    mkdir -p ${MES_PKG}/include/linux/aarch64
+    mkdir -p ${MES_PKG}/lib/aarch64-mes-gcc
+    mkdir -p ${MES_PKG}/lib/linux/aarch64-mes-gcc
+    cp ../mes-aarch64/include/linux/aarch64/kernel-stat.h ${MES_PKG}/include/linux/aarch64/kernel-stat.h
+    cp ../mes-aarch64/include/linux/aarch64/signal.h      ${MES_PKG}/include/linux/aarch64/signal.h
+    cp ../mes-aarch64/include/linux/aarch64/syscall.h     ${MES_PKG}/include/linux/aarch64/syscall.h
+    cp ../mes-aarch64/lib/aarch64-mes-gcc/setjmp.c        ${MES_PKG}/lib/aarch64-mes-gcc/setjmp.c
+    cp ../mes-aarch64/lib/aarch64-mes-gcc/va.c            ${MES_PKG}/lib/aarch64-mes-gcc/va.c
+    cp ../mes-aarch64/lib/linux/aarch64-mes-gcc/_exit.c   ${MES_PKG}/lib/linux/aarch64-mes-gcc/_exit.c
+    cp ../mes-aarch64/lib/linux/aarch64-mes-gcc/_write.c  ${MES_PKG}/lib/linux/aarch64-mes-gcc/_write.c
+    cp ../mes-aarch64/lib/linux/aarch64-mes-gcc/crt1.c    ${MES_PKG}/lib/linux/aarch64-mes-gcc/crt1.c
+    cp ../mes-aarch64/lib/linux/aarch64-mes-gcc/crti.c    ${MES_PKG}/lib/linux/aarch64-mes-gcc/crti.c
+    cp ../mes-aarch64/lib/linux/aarch64-mes-gcc/crtn.c    ${MES_PKG}/lib/linux/aarch64-mes-gcc/crtn.c
+    cp ../mes-aarch64/lib/linux/aarch64-mes-gcc/syscall.c ${MES_PKG}/lib/linux/aarch64-mes-gcc/syscall.c
+    simple-patch ${MES_PKG}/include/setjmp.h \
+        ../simple-patches/mes-setjmp.before ../simple-patches/mes-setjmp.after
+    simple-patch ${MES_PKG}/include/stdarg.h \
+        ../simple-patches/mes-stdarg.before ../simple-patches/mes-stdarg.after
+    simple-patch ${MES_PKG}/include/stdint.h \
+        ../simple-patches/mes-stdint-intmax.before ../simple-patches/mes-stdint-intmax.after
+    simple-patch ${MES_PKG}/include/stdint.h \
+        ../simple-patches/mes-stdint-limits.before ../simple-patches/mes-stdint-limits.after
+fi
+
 # Create config.h
 catm ${MES_PKG}/include/mes/config.h
 catm ${TCC_PKG}/config.h
 cd ${TCC_PKG}
 
+# Whether libtcc1.a needs the shared lib-arm64.c soft-float/128-bit helpers
+# (used by both riscv64 and arm64).
+LINK_LIBARM64=False
 if match ${ARCH} x86; then
     MES_ARCH=x86
     TCC_TARGET_ARCH=I386
@@ -47,6 +80,26 @@ if match ${ARCH} riscv64; then
     MES_ARCH=riscv64
     TCC_TARGET_ARCH=RISCV64
     HAVE_LONG_LONG=1
+    LINK_LIBARM64=True
+fi
+if match ${ARCH} arm64; then
+    MES_ARCH=aarch64
+    TCC_TARGET_ARCH=ARM64
+    HAVE_LONG_LONG=1
+    LINK_LIBARM64=True
+fi
+
+# arm64 inline-asm + va builtins: drop in the minimal data-directive assembler
+# and apply the source patches in-chroot (the seed tcc_cc miscompiles the
+# original parse_builtin_params loop).
+if match ${ARCH} arm64; then
+    cp /src/arm64-asm.c arm64-asm.c
+    simple-patch tcc.h \
+        ../../simple-patches/arm64-asm-defs.before ../../simple-patches/arm64-asm-defs.after
+    simple-patch libtcc.c \
+        ../../simple-patches/arm64-asm-include.before ../../simple-patches/arm64-asm-include.after
+    simple-patch tccgen.c \
+        ../../simple-patches/arm64-va-builtin-loop.before ../../simple-patches/arm64-va-builtin-loop.after
 fi
 
 
@@ -162,6 +215,12 @@ cd ..
 # Create unified libc file
 cd lib
 catm ../unified-libc.c ctype/isalnum.c ctype/isalpha.c ctype/isascii.c ctype/iscntrl.c ctype/isdigit.c ctype/isgraph.c ctype/islower.c ctype/isnumber.c ctype/isprint.c ctype/ispunct.c ctype/isspace.c ctype/isupper.c ctype/isxdigit.c ctype/tolower.c ctype/toupper.c dirent/closedir.c dirent/__getdirentries.c dirent/opendir.c linux/readdir.c linux/access.c linux/brk.c linux/chdir.c linux/chmod.c linux/clock_gettime.c linux/close.c linux/dup2.c linux/dup.c linux/execve.c linux/fcntl.c linux/fork.c linux/fsync.c linux/fstat.c linux/_getcwd.c linux/getdents.c linux/getegid.c linux/geteuid.c linux/getgid.c linux/getpid.c linux/getppid.c linux/getrusage.c linux/gettimeofday.c linux/getuid.c linux/ioctl.c linux/ioctl3.c linux/kill.c linux/link.c linux/lseek.c linux/lstat.c linux/malloc.c linux/mkdir.c linux/mknod.c linux/nanosleep.c linux/_open3.c linux/pipe.c linux/_read.c linux/readlink.c linux/rename.c linux/rmdir.c linux/setgid.c linux/settimer.c linux/setuid.c linux/signal.c linux/sigprogmask.c linux/symlink.c linux/stat.c linux/time.c linux/unlink.c linux/waitpid.c linux/wait4.c linux/${MES_ARCH}-mes-gcc/_exit.c linux/${MES_ARCH}-mes-gcc/syscall.c linux/${MES_ARCH}-mes-gcc/_write.c math/ceil.c math/fabs.c math/floor.c mes/abtod.c mes/abtol.c mes/__assert_fail.c mes/assert_msg.c mes/__buffered_read.c mes/__init_io.c mes/cast.c mes/dtoab.c mes/eputc.c mes/eputs.c mes/fdgetc.c mes/fdgets.c mes/fdputc.c mes/fdputs.c mes/fdungetc.c mes/globals.c mes/itoa.c mes/ltoab.c mes/ltoa.c mes/__mes_debug.c mes/mes_open.c mes/ntoab.c mes/oputc.c mes/oputs.c mes/search-path.c mes/ultoa.c mes/utoa.c posix/alarm.c posix/buffered-read.c posix/execl.c posix/execlp.c posix/execv.c posix/execvp.c posix/getcwd.c posix/getenv.c posix/isatty.c posix/mktemp.c posix/open.c posix/pathconf.c posix/raise.c posix/sbrk.c posix/setenv.c posix/sleep.c posix/unsetenv.c posix/wait.c posix/write.c stdio/clearerr.c stdio/fclose.c stdio/fdopen.c stdio/feof.c stdio/ferror.c stdio/fflush.c stdio/fgetc.c stdio/fgets.c stdio/fileno.c stdio/fopen.c stdio/fprintf.c stdio/fputc.c stdio/fputs.c stdio/fread.c stdio/freopen.c stdio/fscanf.c stdio/fseek.c stdio/ftell.c stdio/fwrite.c stdio/getc.c stdio/getchar.c stdio/perror.c stdio/printf.c stdio/putc.c stdio/putchar.c stdio/remove.c stdio/snprintf.c stdio/sprintf.c stdio/sscanf.c stdio/ungetc.c stdio/vfprintf.c stdio/vfscanf.c stdio/vprintf.c stdio/vsnprintf.c stdio/vsprintf.c stdio/vsscanf.c stdlib/abort.c stdlib/abs.c stdlib/alloca.c stdlib/atexit.c stdlib/atof.c stdlib/atoi.c stdlib/atol.c stdlib/calloc.c stdlib/__exit.c stdlib/exit.c stdlib/free.c stdlib/mbstowcs.c stdlib/puts.c stdlib/qsort.c stdlib/realloc.c stdlib/strtod.c stdlib/strtof.c stdlib/strtol.c stdlib/strtold.c stdlib/strtoll.c stdlib/strtoul.c stdlib/strtoull.c string/bcmp.c string/bcopy.c string/bzero.c string/index.c string/memchr.c string/memcmp.c string/memcpy.c string/memmem.c string/memmove.c string/memset.c string/rindex.c string/strcat.c string/strchr.c string/strcmp.c string/strcpy.c string/strcspn.c string/strdup.c string/strerror.c string/strlen.c string/strlwr.c string/strncat.c string/strncmp.c string/strncpy.c string/strpbrk.c string/strrchr.c string/strspn.c string/strstr.c string/strupr.c stub/atan2.c stub/bsearch.c stub/chown.c stub/__cleanup.c stub/cos.c stub/ctime.c stub/exp.c stub/fpurge.c stub/freadahead.c stub/frexp.c stub/getgrgid.c stub/getgrnam.c stub/getlogin.c stub/getpgid.c stub/getpgrp.c stub/getpwnam.c stub/getpwuid.c stub/gmtime.c stub/ldexp.c stub/localtime.c stub/log.c stub/mktime.c stub/modf.c stub/mprotect.c stub/pclose.c stub/popen.c stub/pow.c stub/putenv.c stub/rand.c stub/realpath.c stub/rewind.c stub/setbuf.c stub/setgrent.c stub/setlocale.c stub/setvbuf.c stub/sigaction.c stub/sigaddset.c stub/sigblock.c stub/sigdelset.c stub/sigemptyset.c stub/sigsetmask.c stub/sin.c stub/sys_siglist.c stub/system.c stub/sqrt.c stub/strftime.c stub/times.c stub/ttyname.c stub/umask.c stub/utime.c ${MES_ARCH}-mes-gcc/setjmp.c
+# arm64 needs the varargs helpers in the unified libc (catm truncates its
+# output, so build the appended file via a temp and copy it back).
+if match ${ARCH} arm64; then
+    catm ../unified-libc-va.c ../unified-libc.c ${MES_ARCH}-mes-gcc/va.c
+    cp ../unified-libc-va.c ../unified-libc.c
+fi
 cd ..
 
 # crt1.o
@@ -185,7 +244,7 @@ tcc_s -ar cr ${LIBDIR}/libc.a unified-libc.o
 # libtcc1.a
 mkdir -p ${LIBDIR}/tcc
 tcc_s -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o libtcc1.o lib/libtcc1.c
-if match ${ARCH} riscv64; then
+if match ${LINK_LIBARM64} True; then
     tcc_s -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ../${TCC_PKG}/lib/lib-arm64.c
     tcc_s -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o lib-arm64.o
 else
@@ -240,7 +299,7 @@ if match ${ARCH} x86; then
 fi
 
 tcc-boot0 -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o libtcc1.o lib/libtcc1.c
-if match ${ARCH} riscv64; then
+if match ${LINK_LIBARM64} True; then
     tcc-boot0 -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ../${TCC_PKG}/lib/lib-arm64.c
     tcc-boot0 -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o lib-arm64.o
 else
@@ -292,7 +351,7 @@ if match ${ARCH} x86; then
 fi
 
 tcc-boot1 -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o libtcc1.o lib/libtcc1.c
-if match ${ARCH} riscv64; then
+if match ${LINK_LIBARM64} True; then
     tcc-boot1 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ../${TCC_PKG}/lib/lib-arm64.c
     tcc-boot1 -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o lib-arm64.o
 else
@@ -344,7 +403,7 @@ if match ${ARCH} x86; then
 fi
 
 tcc-boot2 -c -D HAVE_CONFIG_H=1 -D HAVE_LONG_LONG=1 -D HAVE_FLOAT=1 -I include -I include/linux/${MES_ARCH} -o libtcc1.o lib/libtcc1.c
-if match ${ARCH} riscv64; then
+if match ${LINK_LIBARM64} True; then
     tcc-boot2 -c -D HAVE_CONFIG_H=1 -I include -I include/linux/${MES_ARCH} -o lib-arm64.o ../${TCC_PKG}/lib/lib-arm64.c
     tcc-boot2 -ar cr ${LIBDIR}/tcc/libtcc1.a libtcc1.o lib-arm64.o
 else

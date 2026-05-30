@@ -1,0 +1,44 @@
+#define va_copy(d, s)      __builtin_va_copy (d, s)
+
+#elif (__GNUC__ || __TINYC__) && __aarch64__
+
+// AArch64 passes arguments in registers per AAPCS64.  tcc's arm64 backend
+// implements the va mechanism natively via the __va_start/__va_arg builtins
+// (arm64-gen.c gen_va_start/gen_va_arg), filling in this AAPCS64 __va_list.
+// Keep the field layout in sync with gen_va_start's stores (offsets 0/8/16/24/28).
+//
+// NOTE: upstream tcc declares this as an array (va_list[1]) so a va_list passed
+// to another function decays to a pointer and is shared.  We deliberately use a
+// plain (non-array) struct passed BY VALUE instead: tcc's gen_va_arg does
+// gaddrof() on the va_list expression, which only yields the struct address when
+// the expression is a struct lvalue.  With an array, forwarding (printf ->
+// vprintf -> vfprintf, as the mes libc does) decays it to a pointer and
+// gaddrof then takes the address of the pointer, reading the wrong arguments.
+// A by-value struct keeps `ap` an lvalue in every frame.  mes' printf never
+// reuses `ap` after forwarding, so by-value copy semantics are sufficient (this
+// mirrors the riscv branch above, whose va_list is also a by-value object).
+
+typedef struct
+{
+  void *__stack;
+  void *__gr_top;
+  void *__vr_top;
+  int __gr_offs;
+  int __vr_offs;
+} va_list[1];
+
+/* va_start stays native (gen_va_start spills the registers and fills the
+ * struct; it is only ever applied to a genuine local va_list array, where its
+ * gaddrof() is correct).  va_arg is implemented in C — see
+ * lib/aarch64-mes-gcc/va.c for why tcc's native __va_arg cannot be used once a
+ * va_list is forwarded to another function. */
+void *__mes_va_arg_gp (va_list ap);
+void *__mes_va_arg_fp (va_list ap);
+
+#define va_start(ap, last) __va_start (ap, last)
+#define va_arg(ap, type)   (*(type *) __mes_va_arg_gp (ap))
+#define va_arg8(ap, type)  (*(type *) __mes_va_arg_fp (ap))
+#define va_end(ap)         (void) (ap)
+#define va_copy(dest, src) (*(dest) = *(src))
+
+#else // ! SYSTEM_LIBC && ! __riscv

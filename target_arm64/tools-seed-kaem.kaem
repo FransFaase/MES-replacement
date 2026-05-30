@@ -1,0 +1,8 @@
+#! /usr/bin/env bash
+# Run by the kaem-optional-seed (kaem-minimal). Assemble hex0 from its committed
+# hex0 listing, then use hex0 to assemble kaem-0 (a second kaem-minimal). Both
+# outputs are aarch64 static ELFs. Mirrors target_amd64/tools-seed-kaem.kaem.
+
+./bootstrap-seeds/POSIX/AArch64/hex0-seed ./arm64/hex0.hex0 ./usr/bin/hex0
+
+./usr/bin/hex0 ./arm64/kaem-minimal.hex0 ./arm64/artifact/kaem-0

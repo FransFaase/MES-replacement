@@ -13,17 +13,27 @@
 
 char **_sys_env = 0;
 int sys_syscall(int a, int b, int c, int d);
+int sys_syscall4(int a, int b, int c, int d, int e);
 void *sys_malloc(size_t size);
 
 #define O_RDONLY 0
 #define O_WRITE 001101
 
 #include "sys_syscall.h"
+#ifdef TCC_TARGET_ARM64
+// aarch64 only has the *at file syscalls (openat/fchmodat), which take a leading
+// dirfd; AT_FDCWD resolves the path relative to the cwd. sys_syscall4 carries the
+// extra argument in x3 (see stack_c_intro_arm64.M1).
+#define AT_FDCWD -100
+#define open(pathname, mode) sys_syscall4(__NR_open, AT_FDCWD, pathname, mode, 0777)
+#define chmod(fn, mode) sys_syscall4(__NR_chmod, AT_FDCWD, fn, mode, 0)
+#else
 #define open(pathname, mode) sys_syscall(__NR_open, pathname, mode, 0777)
+#define chmod(fn, mode) sys_syscall(__NR_chmod, fn, mode, 0)
+#endif
 #define close(fd) sys_syscall(__NR_close, fd, 0, 0)
 #define read(fd, buf, count) sys_syscall(__NR_read, fd, buf, count)
 #define write(fd, buf, count) sys_syscall(__NR_write, fd, buf, count)
-#define chmod(fn, mode) sys_syscall(__NR_chmod, fn, mode, 0)
 
 void *malloc(size_t size) { return sys_malloc((size + 3) & ~3); }
 

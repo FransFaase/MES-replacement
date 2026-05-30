@@ -1,0 +1,2 @@
+#elif __x86_64__ || __riscv_xlen == 64
+typedef long intmax_t;
