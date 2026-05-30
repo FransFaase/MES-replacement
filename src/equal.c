@@ -6,12 +6,20 @@
 
 char **_sys_env = 0;
 int sys_syscall(int a, int b, int c, int d);
+int sys_syscall4(int a, int b, int c, int d, int e);
 #include "sys_syscall.h"
 
 #define O_RDONLY 0
 
 #include "sys_syscall.h"
+#ifdef TCC_TARGET_ARM64
+// aarch64 only has openat (a 4-arg *at syscall with a leading dirfd); AT_FDCWD
+// resolves the path relative to the cwd. sys_syscall4 carries the extra arg in x3.
+#define AT_FDCWD -100
+#define open(pathname, mode) sys_syscall4(__NR_open, AT_FDCWD, pathname, mode, 0777)
+#else
 #define open(pathname, mode) sys_syscall(__NR_open, pathname, mode, 0777)
+#endif
 #define read(fd, buf, count) sys_syscall(__NR_read, fd, buf, count)
 #define close(fd) sys_syscall(__NR_close, fd, 0, 0)
 

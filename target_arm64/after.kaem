@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# SPDX-FileCopyrightText: 2021 Andrius Štikonas <andrius@stikonas.eu>
+# SPDX-FileCopyrightText: 2021 Paul Dersey <pdersey@gmail.com>
+# SPDX-FileCopyrightText: 2020-2022 Samuel Tyler <samuel@samuelt.me>
+# SPDX-FileCopyrightText: 2022 Dor Askayo <dor.askayo@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+set -ex
+
+PATH=/usr/bin
+
+catm seed-full.kaem /steps/bootstrap.cfg /steps/env seed.kaem
+kaem --file seed-full.kaem

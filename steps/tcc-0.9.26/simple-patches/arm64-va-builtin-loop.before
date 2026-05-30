@@ -1,0 +1,15 @@
+    char c, sep = '(';
+    CType t;
+    if (nc)
+        nocode_wanted++;
+    next();
+    while ((c = *args++)) {
+	skip(sep);
+	sep = ',';
+	switch (c) {
+	    case 'e': expr_eq(); continue;
+	    case 't': parse_type(&t); vpush(&t); continue;
+	    default: tcc_error("internal error"); break;
+	}
+    }
+    skip(')');

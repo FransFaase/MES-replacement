@@ -1,8 +1,15 @@
 // Functions implemented in stack_c_intro.M1
 
 ssize_t sys_syscall(ssize_t a, ssize_t b, ssize_t c, ssize_t d); // https://faculty.nps.edu/cseagle/assembly/sys_call.html
+// aarch64 has no plain open/openat-style 3-arg file syscalls; the *at variants
+// take a leading dirfd, so e.g. openat/fchmodat need four syscall arguments.
+// sys_syscall4 (defined in stack_c_intro_arm64.M1) carries one more arg in x3.
+ssize_t sys_syscall4(ssize_t a, ssize_t b, ssize_t c, ssize_t d, ssize_t e);
 #include "sys_syscall.h"
 void *sys_malloc(size_t size);
+
+// AT_FDCWD: resolve *at paths relative to the current working directory.
+#define AT_FDCWD -100
 
 void exit(ssize_t result)
 {
@@ -499,7 +506,11 @@ ssize_t open(const char *filename, ssize_t flag, ...)
 		va_start(ap, flag);
 		mode = ap[0];
 	}
+#ifdef TCC_TARGET_ARM64
+	return sys_syscall4(__NR_open, AT_FDCWD, filename, flag, mode); // openat
+#else
 	return sys_syscall(__NR_open, filename, flag, mode);
+#endif
 }
 
 ssize_t close(ssize_t fd)
@@ -543,7 +554,11 @@ FILE *fopen(const char *pathname, const char *mode)
 	ssize_t open_mode =   rw == 'r'
 						? (plus == 1 ? O_RDWR : O_RDONLY)
 						: ((plus == 1 ? O_RDWR : O_WRONLY) | O_CREAT | O_TRUNC);
+#ifdef TCC_TARGET_ARM64
+	ssize_t fh = sys_syscall4(__NR_open, AT_FDCWD, pathname, open_mode, 0777); // openat
+#else
 	ssize_t fh = sys_syscall(__NR_open, pathname, open_mode, 0777);
+#endif
 	if (fh < 0)
 	{
 		printf("fopen %s %s returned %d\n", pathname, mode, fh);
@@ -768,7 +783,11 @@ void longjmp(jmp_buf env, ssize_t val)
 
 ssize_t unlink(const char *pathname)
 {
+#ifdef TCC_TARGET_ARM64
+	return sys_syscall(__NR_unlink, AT_FDCWD, pathname, 0); // unlinkat
+#else
 	return sys_syscall(__NR_unlink, pathname, 0, 0);
+#endif
 }
 
 size_t sscanf(const char *str, const char *format, ...)
@@ -821,7 +840,11 @@ ssize_t atoi(const char *nptr)
 
 ssize_t remove(const char *pathname)
 {
+#ifdef TCC_TARGET_ARM64
+	return sys_syscall(__NR_unlink, AT_FDCWD, pathname, 0); // unlinkat
+#else
 	return sys_syscall(__NR_unlink, pathname, 0, 0);
+#endif
 }
 
 ssize_t execvp(const char *file, char * argv[])
@@ -832,7 +855,11 @@ ssize_t execvp(const char *file, char * argv[])
 
 ssize_t mkdir(const char *pathname, size_t mode)
 {
+#ifdef TCC_TARGET_ARM64
+	return sys_syscall(__NR_mkdir, AT_FDCWD, pathname, mode); // mkdirat
+#else
 	return sys_syscall(__NR_mkdir, pathname, mode, 0);
+#endif
 }
 
 ssize_t chdir(const char *path)
@@ -842,17 +869,29 @@ ssize_t chdir(const char *path)
 
 ssize_t access(const char *filename, ssize_t mode)
 {
+#ifdef TCC_TARGET_ARM64
+	return sys_syscall(__NR_access, AT_FDCWD, filename, mode); // faccessat
+#else
 	return sys_syscall(__NR_access, filename, mode, 0);
+#endif
 }
 
 ssize_t chmod(const char *filename, ssize_t mode)
 {
+#ifdef TCC_TARGET_ARM64
+	return sys_syscall4(__NR_chmod, AT_FDCWD, filename, mode, 0); // fchmodat
+#else
 	return sys_syscall(__NR_chmod, filename, mode, 0);
+#endif
 }
 
 ssize_t symlink(const char *target, const char *linkpath)
 {
+#ifdef TCC_TARGET_ARM64
+	return sys_syscall(__NR_symlink, target, AT_FDCWD, linkpath); // symlinkat
+#else
 	return sys_syscall(__NR_symlink, target, linkpath, 0);
+#endif
 }
 
 struct utsname {

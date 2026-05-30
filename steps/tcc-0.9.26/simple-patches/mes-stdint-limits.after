@@ -1,0 +1,2 @@
+#elif __x86_64__ || __aarch64__ || __riscv_xlen == 64
+#define LONG_MIN INT64_MIN
