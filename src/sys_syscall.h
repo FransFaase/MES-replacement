@@ -16,8 +16,8 @@
 #define __NR_symlink  83
 #define __NR_uname   109
 #define __NR_getcwd  183
-#elif defined(TCC_TARGET_ARM64)
-// aarch64 (asm-generic) syscall numbers. File-related calls that x86 exposes as
+#elif defined(TCC_TARGET_ARM64) || defined(TCC_TARGET_RISCV64)
+// aarch64 / riscv64 (asm-generic) syscall numbers. File-related calls that x86 exposes as
 // open/access/mkdir/... only exist as the *at variants here; the numbers below
 // are the *at syscalls, so the open()/access()/... wrappers need adapting in a
 // later milestone. write/read/close/exit (used by tcc_s -version) are correct.

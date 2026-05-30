@@ -4852,6 +4852,7 @@ int main(int argc, char *argv[])
 
 	fcode = stdout;
 	bool only_preprocess = FALSE;
+	char *target_arch = NULL;
 
 	for (int i = 1; i < argc; i++)
 		if (strcmp(argv[i], "-E") == 0)
@@ -4861,6 +4862,7 @@ int main(int argc, char *argv[])
 		else if (i + 1 < argc && strcmp(argv[i], "-a") == 0)
 		{
 			i++;
+			target_arch = argv[i];
 			if (strcmp(argv[i], "x86") != 0)
 				long_long_size = TARGET_64BITS;
 		}
@@ -4920,6 +4922,11 @@ int main(int argc, char *argv[])
 				add_predefined_types();
 				if (long_long_size == TARGET_32BITS)
 					get_env("__TCC_CC_32__", TRUE);
+				// -a injects the target macro (sys_syscall.h keys on it).
+				if (target_arch != NULL && strcmp(target_arch, "arm64") == 0)
+					get_env("TCC_TARGET_ARM64", TRUE);
+				if (target_arch != NULL && strcmp(target_arch, "riscv64") == 0)
+					get_env("TCC_TARGET_RISCV64", TRUE);
 				init = TRUE;
 			}
 
