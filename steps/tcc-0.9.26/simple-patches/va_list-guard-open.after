@@ -1,0 +1,1 @@
+/* TCC_TARGET_X86_64 guard removed; va_list.c is only catm'd into unified-libc.c on amd64. */
