@@ -1004,7 +1004,7 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == SYM_GE_SIGNED)
 		{
-			fprintf(fout, "\tpop_rbx               # >=sfv\n\tcmp_rbx,rax\n\tsetge_al\n\tmovzx_rax,al\n");
+			fprintf(fout, "\tpop_rbx               # >=s\n\tcmp_rbx,rax\n\tsetge_al\n\tmovzx_rax,al\n");
 		}
 		else if (sym == SYM_SHL)
 		{
