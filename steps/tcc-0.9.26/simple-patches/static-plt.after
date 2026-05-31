@@ -1,0 +1,4 @@
+    if (file_type == TCC_OUTPUT_EXE && s1->static_link) {
+        fill_got(s1);
+        relocate_plt(s1);
+    }

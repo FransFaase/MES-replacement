@@ -1,0 +1,3 @@
+void *__va_arg(__va_list_struct *ap,
+               enum __va_arg_type arg_type,
+               int size, int align)

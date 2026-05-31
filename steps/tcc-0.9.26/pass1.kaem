@@ -58,6 +58,33 @@ if match ${ARCH} arm64; then
         ../simple-patches/mes-stdint-limits.before ../simple-patches/mes-stdint-limits.after
 fi
 
+# apply the x86_64 bootstrap fixes:
+# 1. tccelf.c: relocate_plt() is never called for static executables upstream,
+#    leaving every PLT stub with a wrong RIP-relative offset.
+# 2. mes stdarg.h: the i386 "char* va_list" fallback is wrong under the System
+#    V AMD64 ABI; route x86_64 TCC to a proper __va_list_struct header.
+# 3. tcc lib/va_list.c: strip the `#if defined TCC_TARGET_X86_64` / `#endif`
+#    guard so the file can be catm'd into the mes unified-libc.c (we already
+#    only do that on amd64), keeping the libc.a build commands arch-uniform.
+if match ${ARCH} amd64; then
+    simple-patch ${TCC_PKG}/tccelf.c \
+        ../simple-patches/static-plt.before ../simple-patches/static-plt.after
+    simple-patch ${MES_PKG}/include/stdarg.h \
+        ../simple-patches/x86_64-stdarg.before ../simple-patches/x86_64-stdarg.after
+    simple-patch ${TCC_PKG}/lib/va_list.c \
+        ../simple-patches/va_list-guard-open.before ../simple-patches/va_list-guard-open.after
+    simple-patch ${TCC_PKG}/lib/va_list.c \
+        ../simple-patches/va_list-guard-close.before ../simple-patches/va_list-guard-close.after
+    # va_list.c is catm'd into unified-libc.c, which already pulls __va_list_struct
+    # in via tcc_x86_64_stdarg.h (through stdarg.h). Drop the duplicate typedef and
+    # match the header's `int arg_type` prototype so the merged TU has one definition.
+    simple-patch ${TCC_PKG}/lib/va_list.c \
+        ../simple-patches/va_list-struct.before ../simple-patches/va_list-struct.after
+    simple-patch ${TCC_PKG}/lib/va_list.c \
+        ../simple-patches/va_list-arg-type.before ../simple-patches/va_list-arg-type.after
+    cp /steps/tcc-0.9.26/tcc_x86_64_stdarg.h ${MES_PKG}/include/tcc_x86_64_stdarg.h
+fi
+
 # Create config.h
 catm ${MES_PKG}/include/mes/config.h
 catm ${TCC_PKG}/config.h
@@ -161,6 +188,9 @@ cp pwd.h ${INCDIR}/pwd.h
 cp setjmp.h ${INCDIR}/setjmp.h
 cp signal.h ${INCDIR}/signal.h
 cp stdarg.h ${INCDIR}/stdarg.h
+if match ${ARCH} amd64; then
+    cp tcc_x86_64_stdarg.h ${INCDIR}/tcc_x86_64_stdarg.h
+fi
 cp stdbool.h ${INCDIR}/stdbool.h
 cp stddef.h ${INCDIR}/stddef.h
 cp stdint.h ${INCDIR}/stdint.h
@@ -219,6 +249,12 @@ catm ../unified-libc.c ctype/isalnum.c ctype/isalpha.c ctype/isascii.c ctype/isc
 # output, so build the appended file via a temp and copy it back).
 if match ${ARCH} arm64; then
     catm ../unified-libc-va.c ../unified-libc.c ${MES_ARCH}-mes-gcc/va.c
+    cp ../unified-libc-va.c ../unified-libc.c
+fi
+# amd64 needs the System V AMD64 va_list runtime in the unified libc; the
+# #if/#endif guard around va_list.c was stripped above so it builds unconditionally.
+if match ${ARCH} amd64; then
+    catm ../unified-libc-va.c ../unified-libc.c ../../${TCC_PKG}/lib/va_list.c
     cp ../unified-libc-va.c ../unified-libc.c
 fi
 cd ..

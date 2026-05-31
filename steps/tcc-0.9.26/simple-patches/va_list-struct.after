@@ -1,0 +1,1 @@
+/* __va_list_struct is provided by tcc_x86_64_stdarg.h (pulled in via stdarg.h). */
