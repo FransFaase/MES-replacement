@@ -3978,7 +3978,7 @@ bool parse_statement(bool in_block, expr_p continue_expr)
 			FAIL_FALSE
 		gen_indent();
 		gen_expr(switch_expr, TRUE);
-		fprintf(fcode, "do\n");
+		fprintf(fcode, "switch\n");
 		gen_stats_open();
 		bool fall_through = FALSE;
 		bool has_default = FALSE;

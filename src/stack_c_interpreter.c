@@ -102,12 +102,13 @@ typedef struct
 	const char *name;
 	char sym;
 } Mapping;
-#define NR_KEYWORDS 13
+#define NR_KEYWORDS 14
 Mapping keywords[NR_KEYWORDS] = {
 	{ "void",		'F' },
 	{ "const",		'C' },
 	{ "int",		'V' },
 	{ "do",			'L' },
+	{ "switch",		'W' },
 	{ "break",		'B' },
 	{ "continue",	'D' },
 	{ "if",			'I' },
@@ -923,7 +924,8 @@ void report_error(const char *fmt, ...)
 	else
 		fprintf(ferr, "At %d.%d in function %s\n",
 			cur_command->line, cur_command->column, cur_function->ident->name);
-	print_locals(ferr, cur_command->locals, locals_offset);
+	if (cur_command != 0)
+		print_locals(ferr, cur_command->locals, locals_offset);
 	fprintf(ferr, "Stack: ");
 	print_value_stack(ferr);
 	static char message[300];
@@ -1649,27 +1651,29 @@ int main(int argc, char *argv[])
 				}
 			}
 		}
-		else if (sym == 'L')
+		else if (sym == 'L' || sym == 'W')
 		{
+			char type = sym;
 			get_token();
 			if (sym != '{')
 			{
 				fprintf(ferr, "ERROR %d.%d: expecting '{' after 'do'\n", cur_line, cur_column);
 				return 1;
 			}
-			add_label(find_label("_%s_loop%d", function_name, id));
+			if (type == 'L')
+				add_label(find_label("_%s_loop%d", function_name, id));
 			if (nesting_depth >= MAX_NESTING)
 			{
 				fprintf(ferr, "ERROR %d.%d: Nesting deeper than %d\n", cur_line, cur_column, MAX_NESTING);
 				return 1;
 			}
-			enter_nesting('L', id++);
+			enter_nesting(type, id++);
 		}
 		else if (sym == 'B' || sym == 'D')
 		{
 			int i = nesting_depth - 1;
 			for (; i >= 0; i--)
-				if (nesting_type[i] == 'L')
+				if (nesting_type[i] == 'L' || (sym == 'B' && nesting_type[i] == 'W'))
 					break;
 			if (i < 0)
 			{
@@ -1677,7 +1681,7 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 			if (sym == 'B')
-				add_jump_command('J', find_label("_%s_loop_end%d", function_name, nesting_id[i]));
+				add_jump_command('J', find_label("_%s_%s_end%d", function_name, nesting_type[i] == 'L' ? "loop" : "switch", nesting_id[i]));
 			else
 				add_jump_command('J', find_label("_%s_loop%d", function_name, nesting_id[i]));
 		}
@@ -1721,6 +1725,10 @@ int main(int argc, char *argv[])
 			{
 				add_jump_command('J', find_label("_%s_loop%d", function_name, nesting_id[nesting_depth]));
 				add_label(find_label("_%s_loop_end%d", function_name, nesting_id[nesting_depth]));
+			}
+			else if (nesting_type[nesting_depth] == 'W')
+			{
+				add_label(find_label("_%s_switch_end%d", function_name, nesting_id[nesting_depth]));
 			}
 			else if (nesting_type[nesting_depth] == 'I')
 			{

@@ -35,6 +35,7 @@ The following C keywords are used:
 * `int`: to define a global or a local variable.
 * `static`: to define a static variable in a function.
 * `do`: to define a loop.
+* `switch`: to define a switch-statement.
 * `break`: to break out from a loop.
 * `continue`: to continue a loop from the start.
 * `if`: for a if-statement.
@@ -159,8 +160,14 @@ keyword the block following that will be executed.
 
 The do statement starts with the `do` keyword followed by a block.
 Within a do statment, the keywords `break` and `continue` may be
-used to indicate a jump out of the loop amd start of the loop
+used to indicate a jump out of the loop and to start of the loop
 respectively.
+
+### Switch statement
+
+The switch statement starts with the `switch` keyword followed by
+a block. Within the switch statement, the keyword `break` may be
+used to indicate a jump out of the switch.
 
 ### Logic and and or statements
 

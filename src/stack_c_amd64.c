@@ -84,12 +84,13 @@ typedef struct
 	const char *name;
 	char sym;
 } Mapping;
-#define NR_KEYWORDS 14
+#define NR_KEYWORDS 15
 Mapping keywords[NR_KEYWORDS] = {
 	{ "void",		'F' },
 	{ "const",		'C' },
 	{ "int",		'V' },
 	{ "do",			'L' },
+	{ "switch",		'W' },
 	{ "break",		'B' },
 	{ "continue",	'D' },
 	{ "if",			'I' },
@@ -667,21 +668,23 @@ int main(int argc, char *argv[])
 			}
 			nr_idents++;
 		}
-		else if (sym == 'L')
+		else if (sym == 'L' || sym == 'W')
 		{
+			char type = sym;
 			get_token();
 			if (sym != '{')
 			{
 				fprintf(ferr, "ERROR %d.%d: expecting '{' after 'do'\n", cur_line, cur_column);
 				return 1;
 			}
-			fprintf(fout, ":_%s_loop%d\n", function_name, id);
+			if (type == 'L')
+				fprintf(fout, ":_%s_loop%d\n", function_name, id);
 			if (nesting_depth >= MAX_NESTING)
 			{
 				fprintf(ferr, "ERROR %d.%d: Nesting deeper than %d\n", cur_line, cur_column, MAX_NESTING);
 				return 1;
 			}
-			nesting_type[nesting_depth] = 'L';
+			nesting_type[nesting_depth] = type;
 			nesting_id[nesting_depth] = id++;
 			nesting_nr_vars[nesting_depth] = nr_idents;
 			nesting_pos[nesting_depth] = pos;
@@ -691,7 +694,7 @@ int main(int argc, char *argv[])
 		{
 			int i = nesting_depth - 1;
 			for (; i >= 0; i--)
-				if (nesting_type[i] == 'L')
+				if (nesting_type[i] == 'L' || (sym == 'B' && nesting_type[i] == 'W'))
 					break;
 			if (i < 0)
 			{
@@ -699,7 +702,7 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 			if (sym == 'B')
-				fprintf(fout, "\tjmp %%_%s_loop_end%d\n", function_name, nesting_id[i]);
+				fprintf(fout, "\tjmp %%_%s_%s_end%d\n", function_name, nesting_type[i] == 'L' ? "loop" : "switch", nesting_id[i]);
 			else
 				fprintf(fout, "\tjmp %%_%s_loop%d\n", function_name, nesting_id[i]);
 		}
@@ -747,6 +750,8 @@ int main(int argc, char *argv[])
 			pos = nesting_pos[nesting_depth];
 			if (nesting_type[nesting_depth] == 'L')
 				fprintf(fout, "\tjmp %%_%s_loop%d\n:_%s_loop_end%d\n", function_name, nesting_id[nesting_depth], function_name, nesting_id[nesting_depth]);
+			else if (nesting_type[nesting_depth] == 'W')
+				fprintf(fout, ":_%s_switch_end%d\n", function_name, nesting_id[nesting_depth]);
 			else if (nesting_type[nesting_depth] == 'I')
 			{
 				get_token();

@@ -368,6 +368,21 @@ int main (int argc, char *argv[])
 	int diff = 400;
 	is_true(!(diff < -2147483648LL || diff > 2147483647LL), "bounds");
 
+	// From issue #15
+	{
+		char c;
+		int n = 0;
+		const char *p = "ab";
+		while ((c = *p++)) {
+			switch (c) {
+				case 'a': n++; continue;
+				default:  break;
+			}
+			n = n + 100;
+		}
+		is_true(n == 101, "switch continue problem");
+	}	
+
 	if (result == 0)
 	{
 		char buffer[100];

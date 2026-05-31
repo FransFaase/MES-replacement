@@ -125,8 +125,8 @@ if match ${ARCH} arm64; then
         ../../simple-patches/arm64-asm-defs.before ../../simple-patches/arm64-asm-defs.after
     simple-patch libtcc.c \
         ../../simple-patches/arm64-asm-include.before ../../simple-patches/arm64-asm-include.after
-    simple-patch tccgen.c \
-        ../../simple-patches/arm64-va-builtin-loop.before ../../simple-patches/arm64-va-builtin-loop.after
+    #simple-patch tccgen.c \
+    #    ../../simple-patches/arm64-va-builtin-loop.before ../../simple-patches/arm64-va-builtin-loop.after
 fi
 
 
