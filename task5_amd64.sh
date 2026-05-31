@@ -49,7 +49,7 @@ mkdir -p rootfs/src
 cp -f -t rootfs/src \
     src/stdlib.c \
     src/sys_syscall.h \
-    src/tcc_cc.sl64 \
+    src/tcc_cc.amd64.sl64 \
     src/kaem.c \
     src/catm.c \
     src/bootstrappable.c \

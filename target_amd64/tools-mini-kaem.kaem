@@ -10,7 +10,7 @@
 ./usr/bin/M1 -o ./tmp/stack_c.macro ./amd64/stack_c.M1
 ./usr/bin/hex2 -o ./usr/bin/stack_c ./amd64/ELF-amd64-debug.hex2 ./tmp/stack_c.macro ./tmp/stack_c.blood_elf
 
-./usr/bin/stack_c -i ./amd64/stack_c_intro.M1 ./src/tcc_cc.sl64 -o tmp/tcc_cc.M1
+./usr/bin/stack_c -i ./amd64/stack_c_intro.M1 ./src/tcc_cc.amd64.sl64 -o tmp/tcc_cc.M1
 ./usr/bin/blood-elf --64 --file tmp/tcc_cc.M1 --little-endian --output ./tmp/tcc_cc.blood_elf
 ./usr/bin/M1 ./tmp/tcc_cc.M1 -o ./tmp/tcc_cc.macro
 ./usr/bin/hex2 -o ./usr/bin/tcc_cc ./amd64/ELF-amd64-debug.hex2 ./tmp/tcc_cc.macro ./tmp/tcc_cc.blood_elf

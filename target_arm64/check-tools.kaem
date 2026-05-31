@@ -19,7 +19,7 @@ cd src
 
 # Check tcc_cc.sl64a
 /usr/bin/tcc_cc -a arm64 -o /tmp/tcc_cc.sl64a stdlib.c tcc_cc.c
-/usr/bin/equal /src/tcc_cc.sl64a /tmp/tcc_cc.sl64a
+/usr/bin/equal /src/tcc_cc.arm64.sl64 /tmp/tcc_cc.sl64a
 
 # Check stack_c.M1
 /usr/bin/tcc_cc -a arm64 -o /tmp/stack_c.sl64a stdlib.c stack_c_arm64.c

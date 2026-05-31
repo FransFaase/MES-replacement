@@ -15,7 +15,7 @@
 ./usr/bin/hex2 -o ./usr/bin/stack_c ./arm64/ELF-arm64-debug.hex2 ./tmp/stack_c.macro ./tmp/stack_c.blood_elf
 
 # tcc_cc (from its prebuilt Stack-C)
-./usr/bin/stack_c -i ./arm64/stack_c_intro.M1 ./src/tcc_cc.sl64a -o ./tmp/tcc_cc.M1
+./usr/bin/stack_c -i ./arm64/stack_c_intro.M1 ./src/tcc_cc.arm64.sl64 -o ./tmp/tcc_cc.M1
 ./usr/bin/blood-elf --64 --file ./tmp/tcc_cc.M1 --little-endian --output ./tmp/tcc_cc.blood_elf
 ./usr/bin/M1 ./tmp/tcc_cc.M1 -o ./tmp/tcc_cc.macro
 ./usr/bin/hex2 -o ./usr/bin/tcc_cc ./arm64/ELF-arm64-debug.hex2 ./tmp/tcc_cc.macro ./tmp/tcc_cc.blood_elf

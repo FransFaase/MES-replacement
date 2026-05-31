@@ -5,8 +5,7 @@
 set -x
 
 # Build sources
-make -C src tcc_cc stack_c_arm64 blood-elf M1 hex2
-make -C src arm64
+make -C src arm64_test
 
 # Delete existing rootfs
 rm -rf rootfs
@@ -51,7 +50,7 @@ mkdir -p rootfs/src
 cp -f -t rootfs/src \
     src/stdlib.c \
     src/sys_syscall.h \
-    src/tcc_cc.sl64a \
+    src/tcc_cc.arm64.sl64 \
     src/kaem.c \
     src/catm.c \
     src/bootstrappable.c \

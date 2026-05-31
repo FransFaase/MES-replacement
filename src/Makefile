@@ -72,12 +72,11 @@ diff4_OK : stack_c.sl stack_c_t.sl
 diff5_OK : tcc_cc.sl tcc_cc_t.sl
 	./run.sh diff tcc_cc.sl tcc_cc_t.sl diff5_OK
 
-
 amd64 : stack_c_amd64 unittest.amd64_OK stack_c_diff_amd64_OK tcc_cc_s tcc_cc_diff_amd64_OK diff3_amd64_OK diff5_amd64_OK diff4_amd64_OK \
       hex0.amd64 hex0.amd64_hex0 hex2.amd64_hex0 \
 	  blood-elf.macro_amd64 blood-elf.blood_elf_amd64 \
 	  M1.macro_amd64 M1.blood_elf_amd64 \
-	  stack_c_amd64.M1_amd64 tcc_cc.sl64 \
+	  stack_c_amd64.M1_amd64 tcc_cc.amd64.sl64 \
 	  kaem-minimal.amd64 kaem-minimal.amd64_hex0 \
 	  kaem.amd64 \
 	  catm.amd64 \
@@ -88,25 +87,25 @@ amd64 : stack_c_amd64 unittest.amd64_OK stack_c_diff_amd64_OK tcc_cc_s tcc_cc_di
       sha256sum.amd64 \
 	  equal.amd64
 
-hex0.sl64 : hex0.c tcc_cc
+hex0.amd64.sl64 : hex0.c tcc_cc
 	./tcc_cc -64 -o $@ $<
 
-hex2.sl64 : hex2.c tcc_cc
+hex2.amd64.sl64 : hex2.c tcc_cc
 	./tcc_cc -64 -o $@ $<
 
-kaem-minimal.sl64 : kaem-minimal.c tcc_cc
+kaem-minimal.amd64.sl64 : kaem-minimal.c tcc_cc
 	./tcc_cc -64 -o $@ $<
 
-equal.sl64 : equal.c tcc_cc
+equal.amd64.sl64 : equal.c tcc_cc
 	./tcc_cc -64 -o $@ $<
 
-%.sl64 : %.c tcc_cc stdlib.c
+%.amd64.sl64 : %.c tcc_cc stdlib.c
 	./tcc_cc -64 -o $@ stdlib.c $<
 
-%_t64.sl64 : %.c tcc_cc.amd64 stdlib.c
+%_tamd64.amd64.sl64 : %.c tcc_cc.amd64 stdlib.c
 	./tcc_cc.amd64 -64 -o $@ stdlib.c $< 
 
-%.M1_amd64 : %.sl64 stack_c_amd64 stack_c_intro_amd64.M1
+%.M1_amd64 : %.amd64.sl64 stack_c_amd64 stack_c_intro_amd64.M1
 	./stack_c_amd64 -i stack_c_intro_amd64.M1 $< -o $@
 
 %.blood_elf_amd64 : %.M1_amd64
@@ -124,61 +123,68 @@ equal.sl64 : equal.c tcc_cc
 
 unittest.amd64_OK : unittest.amd64 stack_c_interpreter
 	./unittest.amd64
-	./stack_c_interpreter unittest.sl64
+	./stack_c_interpreter unittest.amd64.sl64
 
-stack_c_diff_amd64_OK : stack_c_amd64.amd64 stack_c_intro_amd64.M1 stack_c.sl64 stack_c.M1_amd64
-	./stack_c_amd64.amd64 -i stack_c_intro_amd64.M1 stack_c.sl64 -o stack_c_s2.M1_amd64
+stack_c_diff_amd64_OK : stack_c_amd64.amd64 stack_c_intro_amd64.M1 stack_c.amd64.sl64 stack_c.M1_amd64
+	./stack_c_amd64.amd64 -i stack_c_intro_amd64.M1 stack_c.amd64.sl64 -o stack_c_s2.M1_amd64
 	./run.sh diff stack_c.M1_amd64 stack_c_s2.M1_amd64 stack_c_diff_amd64_OK
 
-tcc_cc_diff_amd64_OK : stack_c_amd64.amd64 stack_c_intro_amd64.M1 tcc_cc.sl64 tcc_cc tcc_cc.M1_amd64
-	./stack_c_amd64.amd64 -i stack_c_intro_amd64.M1 tcc_cc.sl64 -o tcc_cc_s2.M1_amd64
+tcc_cc_diff_amd64_OK : stack_c_amd64.amd64 stack_c_intro_amd64.M1 tcc_cc.amd64.sl64 tcc_cc tcc_cc.M1_amd64
+	./stack_c_amd64.amd64 -i stack_c_intro_amd64.M1 tcc_cc.amd64.sl64 -o tcc_cc_s2.M1_amd64
 	./run.sh diff tcc_cc.M1_amd64 tcc_cc_s2.M1_amd64 tcc_cc_diff_amd64_OK
 	
-diff3_amd64_OK : unittest.sl64 unittest_t64.sl64
-	./run.sh diff unittest.sl64 unittest_t64.sl64 diff3_amd64_OK
+diff3_amd64_OK : unittest.amd64.sl64 unittest_tamd64.amd64.sl64
+	./run.sh diff unittest.amd64.sl64 unittest_tamd64.amd64.sl64 diff3_amd64_OK
 
-diff4_amd64_OK : stack_c.sl64 stack_c_t64.sl64
-	./run.sh diff stack_c.sl64 stack_c_t64.sl64 diff4_amd64_OK
+diff4_amd64_OK : stack_c.amd64.sl64 stack_c_tamd64.amd64.sl64
+	./run.sh diff stack_c.amd64.sl64 stack_c_tamd64.amd64.sl64 diff4_amd64_OK
 
-diff5_amd64_OK : tcc_cc.sl64 tcc_cc_t64.sl64
-	./run.sh diff tcc_cc.sl64 tcc_cc_t64.sl64 diff5_amd64_OK
+diff5_amd64_OK : tcc_cc.amd64.sl64 tcc_cc_tamd64.amd64.sl64
+	./run.sh diff tcc_cc.amd64.sl64 tcc_cc_tamd64.amd64.sl64 diff5_amd64_OK
 
 # aarch64 (arm64). Fully-aarch64 seed artifacts: the cross tools (tcc_cc, stack_c_arm64,
 # blood-elf, M1, hex2 — gcc-built, native to the build host) emit aarch64 output. Only the
 # artifacts below are aarch64; they are reassembled into a working toolchain inside the
 # arm64 chroot (see task_arm64.sh / target_arm64). `make arm64` is build-only — running an
 # aarch64 binary on an x86_64 host needs qemu, so the self-test diffs are deliberately omitted.
-arm64 : hex0.arm64 hex0.arm64_hex0 \
-	kaem-minimal.arm64 kaem-minimal.arm64_hex0 \
-	hex2.arm64 hex2.arm64_hex0 \
-	blood-elf.macro_arm64 blood-elf.blood_elf_arm64 \
-	M1.macro_arm64 M1.blood_elf_arm64 \
-	stack_c_arm64.M1_arm64 tcc_cc.sl64a \
-	kaem.arm64 \
-	catm.arm64 \
-	match.arm64 \
-	mkdir.arm64 cp.arm64 chmod.arm64 rm.arm64 \
-	sha256sum.arm64 \
-	equal.arm64
+arm64 :  hex0.arm64 hex0.arm64_hex0 hex2.arm64_hex0 \
+	  blood-elf.macro_arm64 blood-elf.blood_elf_arm64 \
+	  M1.macro_arm64 M1.blood_elf_arm64 \
+	  stack_c_arm64.M1_arm64 tcc_cc.arm64.sl64 \
+	  kaem-minimal.arm64 kaem-minimal.arm64_hex0 \
+	  kaem.arm64 \
+	  catm.arm64 \
+	  match.arm64 \
+	  mkdir.arm64 cp.arm64 chmod.arm64 rm.arm64 \
+	  untar_s ungz.arm64 unxz.arm64 unbz2.arm64 \
+	  configurator.arm64 script-generator.arm64 \
+      sha256sum.arm64 \
+	  equal.arm64
+
+# For building and running tests, use 'make arm64_tests'
+arm64_tests : arm64 stack_c_arm64 unittest.arm64_OK stack_c_diff_arm64_OK tcc_cc_s tcc_cc_diff_arm64_OK diff3_arm64_OK diff5_arm64_OK diff4_arm64_OK
 
 # Self-contained tools (no stdlib.c); -D TCC_TARGET_ARM64=1 selects the aarch64 syscall
 # numbers in sys_syscall.h and the *at wrappers these tools define for arm64.
-hex0.sl64a : hex0.c tcc_cc
-	./tcc_cc -a arm64 -D TCC_TARGET_ARM64=1 -o $@ $<
+hex0.arm64.sl64 : hex0.c tcc_cc
+	./tcc_cc -a arm64 -o $@ $<
 
-hex2.sl64a : hex2.c tcc_cc
-	./tcc_cc -a arm64 -D TCC_TARGET_ARM64=1 -o $@ $<
+hex2.arm64.sl64 : hex2.c tcc_cc
+	./tcc_cc -a arm64 -o $@ $<
 
-kaem-minimal.sl64a : kaem-minimal.c tcc_cc
-	./tcc_cc -a arm64 -D TCC_TARGET_ARM64=1 -o $@ $<
+kaem-minimal.arm64.sl64 : kaem-minimal.c tcc_cc
+	./tcc_cc -a arm64 -o $@ $<
 
-equal.sl64a : equal.c tcc_cc
-	./tcc_cc -a arm64 -D TCC_TARGET_ARM64=1 -o $@ $<
+equal.arm64.sl64 : equal.c tcc_cc
+	./tcc_cc -a arm64 -o $@ $<
 
-%.sl64a : %.c tcc_cc stdlib.c
-	./tcc_cc -a arm64 -D TCC_TARGET_ARM64=1 -o $@ stdlib.c $<
+%.arm64.sl64 : %.c tcc_cc stdlib.c
+	./tcc_cc -a arm64 -o $@ stdlib.c $<
 
-%.M1_arm64 : %.sl64a stack_c_arm64 stack_c_intro_arm64.M1
+%_tarm64.arm64.sl64 : %.c tcc_cc.arm64 stdlib.c
+	./tcc_cc.arm64 -a arm64 -o $@ stdlib.c $< 
+
+%.M1_arm64 : %.arm64.sl64 stack_c_arm64 stack_c_intro_arm64.M1
 	./stack_c_arm64 -i stack_c_intro_arm64.M1 $< -o $@
 
 %.blood_elf_arm64 : %.M1_arm64
@@ -194,7 +200,29 @@ equal.sl64a : equal.c tcc_cc
 %.arm64_hex0 : %.macro_arm64
 	./hex2 -o $@ ../M2libc/aarch64/ELF-aarch64-debug.hex2 $(basename $@).macro_arm64 $(basename $@).blood_elf_arm64
 
+unittest.arm64_OK : unittest.arm64 stack_c_interpreter
+	./unittest.arm64
+	#./stack_c_interpreter unittest.arm64.sl64
+
+stack_c_diff_arm64_OK : stack_c_arm64.arm64 stack_c_intro_arm64.M1 stack_c.arm64.sl64 stack_c.M1_arm64
+	./stack_c_arm64.arm64 -i stack_c_intro_arm64.M1 stack_c.arm64.sl64 -o stack_c_s2.M1_arm64
+	./run.sh diff stack_c.M1_arm64 stack_c_s2.M1_arm64 stack_c_diff_arm64_OK
+
+tcc_cc_diff_arm64_OK : stack_c_arm64.arm64 stack_c_intro_arm64.M1 tcc_cc.arm64.sl64 tcc_cc tcc_cc.M1_arm64
+	./stack_c_arm64.arm64 -i stack_c_intro_arm64.M1 tcc_cc.arm64.sl64 -o tcc_cc_s2.M1_arm64
+	./run.sh diff tcc_cc.M1_arm64 tcc_cc_s2.M1_arm64 tcc_cc_diff_arm64_OK
+	
+diff3_arm64_OK : unittest.arm64.sl64 unittest_tarm64.arm64.sl64
+	./run.sh diff unittest.arm64.sl64 unittest_tarm64.arm64.sl64 diff3_arm64_OK
+
+diff4_arm64_OK : stack_c.arm64.sl64 stack_c_tarm64.arm64.sl64
+	./run.sh diff stack_c.arm64.sl64 stack_c_tarm64.arm64.sl64 diff4_arm64_OK
+
+diff5_arm64_OK : tcc_cc.arm64.sl64 tcc_cc_tarm64.arm64.sl64
+	./run.sh diff tcc_cc.arm64.sl64 tcc_cc_tarm64.arm64.sl64 diff5_arm64_OK
+
 .PRECIOUS: %.sl %_s.M1 %.blood_elf %.macro \
-    %.sl64 %.M1_amd64 %.blood_elf_amd64 %.macro_amd64 \
-    %.sl64a %.M1_arm64 %.blood_elf_arm64 %.macro_arm64
-.PHONY: all x86 amd64 arm64
+	%.sl64 \
+	%.M1_amd64 %.blood_elf_amd64 %.macro_amd64 \
+	%.M1_arm64 %.blood_elf_arm64 %.macro_arm64
+.PHONY: all x86 amd64 arm64 arm64_tests
