@@ -92,9 +92,9 @@ mkdir rootfs/external
 cp -r distfiles rootfs/external
 
 # Execute kaem scripts in change root environment
-sudo chroot --userspec=${USER}:${USER} rootfs /bootstrap-seeds/POSIX/x86/kaem-optional-seed
+sudo chroot --userspec=$(id -u):$(id -g) rootfs /bootstrap-seeds/POSIX/x86/kaem-optional-seed
 
 # Alternative with strace to generate trace.txt file that can be used
 # to generate documentation with the help op scan_trace.cpp
-#sudo strace -f -o trace.txt -e trace=open,openat,close,chmod,chdir,dup,fcntl,link,linkat,unlink,fork,execve chroot --userspec=${USER}:${USER} rootfs /bootstrap-seeds/POSIX/x86/kaem-optional-seed
+#sudo strace -f -o trace.txt -e trace=open,openat,close,chmod,chdir,dup,fcntl,link,linkat,unlink,fork,execve chroot --userspec=$(id -u):$(id -g) rootfs /bootstrap-seeds/POSIX/x86/kaem-optional-seed
 

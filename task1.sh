@@ -80,5 +80,5 @@ cp -f ${MES_PKG}/include/linux/${MES_ARCH}/signal.h ${MES_PKG}/include/arch/sign
 cp -f ${MES_PKG}/include/linux/${MES_ARCH}/syscall.h ${MES_PKG}/include/arch/syscall.h
 
 # Execute the kaem-optional-seed in the change root environment
-sudo chroot --userspec=${USER}:${USER} rootfs /bootstrap-seeds/POSIX/x86/kaem-optional-seed
+sudo chroot --userspec=$(id -u):$(id -g) rootfs /bootstrap-seeds/POSIX/x86/kaem-optional-seed
 
