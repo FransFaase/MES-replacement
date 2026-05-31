@@ -7,8 +7,9 @@
 
 char *copystr(const char *str)
 {
-	char *new_str = (char*)malloc(strlen(str) + 1);
-	strcpy(new_str, str);
+	size_t len = strlen(str) + 1;
+	char *new_str = (char*)malloc(len);
+	memcpy(new_str, str, len);
 	return new_str;
 }
 
@@ -59,10 +60,11 @@ void read_commit_hash(const char *path, char *commit)
 void read_sub_modules(const char *fn, char *modules_dir)
 {
 	char complete_path[MAX_FILENAME_LEN+1];
-	strcpy(complete_path, fn);
+	strncpy(complete_path, fn, MAX_FILENAME_LEN);
+	complete_path[MAX_FILENAME_LEN] = '\0';
 	char *s_path = complete_path + strlen(complete_path);
 	char *m_path = modules_dir + strlen(modules_dir);
-	strcpy(s_path, ".gitmodules");
+	snprintf(s_path, complete_path + MAX_FILENAME_LEN + 1 - s_path, ".gitmodules");
 	FILE *f = fopen(complete_path, "r");
 	if (f == 0)
 		return;
@@ -82,7 +84,7 @@ void read_sub_modules(const char *fn, char *modules_dir)
 			while (url[strlen(url)-1] < ' ') url[strlen(url)-1] = '\0';
 			char *s = strstr(url, ".git");
 			if (s != 0) *s = '\0';
-			sprintf(s_path, "%s/", path + 8);
+			snprintf(s_path, complete_path + MAX_FILENAME_LEN + 1 - s_path, "%s/", path + 8);
 			char *source = complete_path + len_source_dir;
 
 			sprintf(m_path, "%s/HEAD", path + 8);
