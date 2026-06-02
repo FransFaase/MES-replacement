@@ -1415,6 +1415,7 @@ token_iterator_p conditional_iterator_next(token_iterator_p token_it, bool dummy
 			prev_token = NULL;
 			token_it_next(it->_token_it, FALSE);
 			env = get_env(it->_token_it->token, TRUE);
+			env->nr_args = 0;
 			if (it->_source_it->base.ch == '(')
 			{
 				token_it_next(it->_token_it, FALSE);
