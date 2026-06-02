@@ -116,17 +116,14 @@ if match ${ARCH} arm64; then
     LINK_LIBARM64=True
 fi
 
-# arm64 inline-asm + va builtins: drop in the minimal data-directive assembler
-# and apply the source patches in-chroot (the seed tcc_cc miscompiles the
-# original parse_builtin_params loop).
+# arm64 inline-asm: drop in the minimal data-directive assembler
+# and apply the source patches in-chroot.
 if match ${ARCH} arm64; then
     cp /src/arm64-asm.c arm64-asm.c
     simple-patch tcc.h \
         ../../simple-patches/arm64-asm-defs.before ../../simple-patches/arm64-asm-defs.after
     simple-patch libtcc.c \
         ../../simple-patches/arm64-asm-include.before ../../simple-patches/arm64-asm-include.after
-    #simple-patch tccgen.c \
-    #    ../../simple-patches/arm64-va-builtin-loop.before ../../simple-patches/arm64-va-builtin-loop.after
 fi
 
 
