@@ -34,5 +34,5 @@
 build: checksum-transcriber-1.0
 build: simple-patch-1.0
 build: tcc-0.9.26
-build: tcc-0.9.27 ( ARCH != amd64 )
+build: tcc-0.9.27
 

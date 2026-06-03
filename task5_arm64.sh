@@ -88,7 +88,6 @@ cp -f target_arm64/script-generator.arm64.checksums rootfs
 # Copy steps
 cp -r steps rootfs
 cp -f target_arm64/bootstrap.cfg rootfs/steps
-cp -f target_arm64/manifest rootfs/steps/manifest
 
 # Copy the necessary distribution files
 mkdir rootfs/external

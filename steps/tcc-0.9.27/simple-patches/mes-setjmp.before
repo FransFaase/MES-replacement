@@ -1,0 +1,2 @@
+#endif
+#elif __riscv && (__GNUC__ || __TINYC__)
