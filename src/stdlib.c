@@ -1,19 +1,10 @@
 // Functions implemented in stack_c_intro.M1
-
-ssize_t sys_syscall(ssize_t a, ssize_t b, ssize_t c, ssize_t d); // https://faculty.nps.edu/cseagle/assembly/sys_call.html
-// aarch64 has no plain open/openat-style 3-arg file syscalls; the *at variants
-// take a leading dirfd, so e.g. openat/fchmodat need four syscall arguments.
-// sys_syscall4 (defined in stack_c_intro_arm64.M1) carries one more arg in x3.
-ssize_t sys_syscall4(ssize_t a, ssize_t b, ssize_t c, ssize_t d, ssize_t e);
 #include "sys_syscall.h"
 void *sys_malloc(size_t size);
 
-// AT_FDCWD: resolve *at paths relative to the current working directory.
-#define AT_FDCWD -100
-
 void exit(ssize_t result)
 {
-	sys_syscall(__NR_exit, result, 0, 0);
+	SYSCALL_EXIT(result);
 }
 
 #define NULL 0
@@ -282,17 +273,17 @@ void free(void *ptr)
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
-	return sys_syscall(__NR_write, stream->fh, ptr, size * nmemb);
+	return SYSCALL_WRITE(stream->fh, ptr, size * nmemb);
 }
 
 ssize_t fputc(ssize_t c, FILE *stream)
 {
-	return sys_syscall(__NR_write, stream->fh, &c, 1);
+	return SYSCALL_WRITE(stream->fh, &c, 1);
 }
 
 ssize_t fputs(const char *s, FILE *stream)
 {
-	return sys_syscall(__NR_write, stream->fh, s, strlen(s));
+	return SYSCALL_WRITE(stream->fh, s, strlen(s));
 }
 
 typedef ssize_t *va_list;
@@ -506,26 +497,22 @@ ssize_t open(const char *filename, ssize_t flag, ...)
 		va_start(ap, flag);
 		mode = ap[0];
 	}
-#ifdef TCC_TARGET_ARM64
-	return sys_syscall4(__NR_open, AT_FDCWD, filename, flag, mode); // openat
-#else
-	return sys_syscall(__NR_open, filename, flag, mode);
-#endif
+	return SYSCALL_OPEN(filename, flag, mode);
 }
 
 ssize_t close(ssize_t fd)
 {
-	return sys_syscall(__NR_close, fd, 0, 0);
+	return SYSCALL_CLOSE(fd);
 }
 
 size_t read(ssize_t fd, void *buf, size_t count)
 {
-	return sys_syscall(__NR_read, fd, buf, count);
+	return SYSCALL_READ(fd, buf, count);
 }
 
 off_t lseek(ssize_t fd, off_t offset, ssize_t whence)
 {
-	return sys_syscall(__NR_lseek, fd, offset, whence);
+	return SYSCALL_LSEEK(fd, offset, whence);
 }
 
 FILE *fopen(const char *pathname, const char *mode)
@@ -554,11 +541,7 @@ FILE *fopen(const char *pathname, const char *mode)
 	ssize_t open_mode =   rw == 'r'
 						? (plus == 1 ? O_RDWR : O_RDONLY)
 						: ((plus == 1 ? O_RDWR : O_WRONLY) | O_CREAT | O_TRUNC);
-#ifdef TCC_TARGET_ARM64
-	ssize_t fh = sys_syscall4(__NR_open, AT_FDCWD, pathname, open_mode, 0777); // openat
-#else
-	ssize_t fh = sys_syscall(__NR_open, pathname, open_mode, 0777);
-#endif
+	ssize_t fh = SYSCALL_OPEN(pathname, open_mode, 0777);
 	if (fh < 0)
 	{
 		printf("fopen %s %s returned %d\n", pathname, mode, fh);
@@ -580,7 +563,7 @@ FILE *fdopen(ssize_t fd, const char *mode)
 
 ssize_t fclose(FILE *stream)
 {
-	return sys_syscall(__NR_close, stream->fh, 0, 0);
+	return SYSCALL_CLOSE(stream->fh);
 }
 
 ssize_t fflush(FILE *stream)
@@ -618,7 +601,7 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 #define SEEK_END	2
 off_t lseek(size_t fd, off_t offset, size_t whence)
 {
-	return sys_syscall(__NR_lseek, fd, offset, whence);
+	return SYSCALL_LSEEK(fd, offset, whence);
 }
 
 ssize_t feof(FILE *stream)
@@ -631,7 +614,7 @@ ssize_t fgetc(FILE *stream)
 	if (stream->at_eof)
 		return -1;
 	unsigned char ch;
-	ssize_t ret = sys_syscall(__NR_read, stream->fh, &ch, 1);
+	ssize_t ret = SYSCALL_READ(stream->fh, &ch, 1);
 	if (ret <= 0)
 	{
 		stream->at_eof = 1;
@@ -698,7 +681,7 @@ const int LINE_MACRO_OUTPUT_FORMAT_P10 = 11;
 // for tcc_cc.c
 ssize_t write(size_t fd, char* buf, unsigned count)
 {
-	return sys_syscall(__NR_write, fd, buf, count);
+	return SYSCALL_WRITE(fd, buf, count);
 }
 
 size_t fileno(FILE *stream)
@@ -712,7 +695,7 @@ size_t fileno(FILE *stream)
 
 char *getcwd(char *buf, size_t size)
 {
-	sys_syscall(__NR_getcwd, buf, size, 0);
+	SYSCALL_GETCWD(buf, size);
 	return buf;
 }
 
@@ -783,11 +766,7 @@ void longjmp(jmp_buf env, ssize_t val)
 
 ssize_t unlink(const char *pathname)
 {
-#ifdef TCC_TARGET_ARM64
-	return sys_syscall(__NR_unlink, AT_FDCWD, pathname, 0); // unlinkat
-#else
-	return sys_syscall(__NR_unlink, pathname, 0, 0);
-#endif
+	return SYSCALL_UNLINK(pathname);
 }
 
 size_t sscanf(const char *str, const char *format, ...)
@@ -840,11 +819,7 @@ ssize_t atoi(const char *nptr)
 
 ssize_t remove(const char *pathname)
 {
-#ifdef TCC_TARGET_ARM64
-	return sys_syscall(__NR_unlink, AT_FDCWD, pathname, 0); // unlinkat
-#else
-	return sys_syscall(__NR_unlink, pathname, 0, 0);
-#endif
+	return SYSCALL_UNLINK(pathname);
 }
 
 ssize_t execvp(const char *file, char * argv[])
@@ -855,43 +830,27 @@ ssize_t execvp(const char *file, char * argv[])
 
 ssize_t mkdir(const char *pathname, size_t mode)
 {
-#ifdef TCC_TARGET_ARM64
-	return sys_syscall(__NR_mkdir, AT_FDCWD, pathname, mode); // mkdirat
-#else
-	return sys_syscall(__NR_mkdir, pathname, mode, 0);
-#endif
+	return SYSCALL_MKDIR(pathname, mode);
 }
 
 ssize_t chdir(const char *path)
 {
-	sys_syscall(__NR_chdir, path, 0, 0);
+	SYSCALL_CHDIR(path);
 }
 
 ssize_t access(const char *filename, ssize_t mode)
 {
-#ifdef TCC_TARGET_ARM64
-	return sys_syscall(__NR_access, AT_FDCWD, filename, mode); // faccessat
-#else
-	return sys_syscall(__NR_access, filename, mode, 0);
-#endif
+	return SYSCALL_ACCESS(filename, mode);
 }
 
 ssize_t chmod(const char *filename, ssize_t mode)
 {
-#ifdef TCC_TARGET_ARM64
-	return sys_syscall4(__NR_chmod, AT_FDCWD, filename, mode, 0); // fchmodat
-#else
-	return sys_syscall(__NR_chmod, filename, mode, 0);
-#endif
+	return SYSCALL_CHMOD(filename, mode);
 }
 
 ssize_t symlink(const char *target, const char *linkpath)
 {
-#ifdef TCC_TARGET_ARM64
-	return sys_syscall(__NR_symlink, target, AT_FDCWD, linkpath); // symlinkat
-#else
-	return sys_syscall(__NR_symlink, target, linkpath, 0);
-#endif
+	return SYSCALL_SYMLINK(target, linkpath);
 }
 
 struct utsname {
@@ -909,12 +868,12 @@ struct utsname {
 
 ssize_t uname(struct utsname *buf)
 {
-	return sys_syscall(__NR_uname, buf, 0, 0);
+	return SYSCALL_UNAME(buf);
 }
 
 ssize_t execve(char *program, char **argv, char **env)
 {
-	return sys_syscall(__NR_execve, program, argv, env);
+	return SYSCALL_EXECVE(program, argv, env);
 }
 
 char *fgets(char *str, size_t len, FILE *f)

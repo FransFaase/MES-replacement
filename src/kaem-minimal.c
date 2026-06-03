@@ -6,31 +6,19 @@
 #ifdef __TCC_CC__
 
 char **_sys_env = 0;
-int sys_syscall(int a, int b, int c, int d);
-int sys_syscall4(int a, int b, int c, int d, int e);
 #include "sys_syscall.h"
 
 #define O_RDONLY 0
 
-#ifdef TCC_TARGET_ARM64
-// aarch64 lacks plain open/fork/waitpid: open is openat (4-arg *at, leading dirfd;
-// AT_FDCWD = cwd), fork is clone with exit signal SIGCHLD (so waitpid reaps it),
-// and waitpid is wait4 (4 args: pid, status, options, rusage). sys_syscall4 carries
-// the 4th argument in x3 (see stack_c_intro_arm64.M1).
-#define AT_FDCWD -100
-#define SIGCHLD 17
-#define open(pathname, mode) sys_syscall4(__NR_open, AT_FDCWD, pathname, mode, 0777)
-#define fork() sys_syscall(__NR_fork, SIGCHLD, 0, 0)
-#define waitpid(f, status, mode) sys_syscall4(__NR_waitpid, f, status, mode, 0)
-#else
-#define open(pathname, mode) sys_syscall(__NR_open, pathname, mode, 0777)
-#define fork() sys_syscall(__NR_fork, 0, 0, 0)
-#define waitpid(f, status, mode) sys_syscall(__NR_waitpid, f, status, mode)
-#endif
-#define read(fd, buf, count) sys_syscall(__NR_read, fd, buf, count)
-#define execve(program, argv, env) sys_syscall(__NR_execve, program, argv, env)
+#define fork() SYSCALL_FORK()
+#define read(fd, buf, count) SYSCALL_READ(fd, buf, count)
+#define open(pathname, mode) SYSCALL_OPEN(pathname, mode, 0777)
+#define waitpid(f, status, mode) SYSCALL_WAITPID(f, status, mode)
+#define execve(program, argv, env) SYSCALL_EXECVE(program, argv, env)
+
 
 #endif
+
 
 int fhgetc(int fh)
 {

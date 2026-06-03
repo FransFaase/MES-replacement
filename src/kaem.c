@@ -7,20 +7,12 @@
 */
 
 #ifdef __TCC_CC__
-#include "sys_syscall.h"
-#define chdir(path) sys_syscall(__NR_chdir, path, 0, 0)
-#define execve(program, argv, env) sys_syscall(__NR_execve, program, argv, env)
-#ifdef TCC_TARGET_ARM64
-// aarch64 has no fork/waitpid: fork is clone with exit signal SIGCHLD (so the child
-// can be reaped), and waitpid is wait4 (4 args). sys_syscall4 / sys_syscall are
-// declared in stdlib.c, with which kaem.c is always compiled.
-#define SIGCHLD 17
-#define fork() sys_syscall(__NR_fork, SIGCHLD, 0, 0)
-#define waitpid(f, status, mode) sys_syscall4(__NR_waitpid, f, status, mode, 0)
-#else
-#define fork() sys_syscall(__NR_fork, 0, 0, 0)
-#define waitpid(f, status, mode) sys_syscall(__NR_waitpid, f, status, mode)
-#endif
+
+#define fork() SYSCALL_FORK()
+#define waitpid(f, status, mode) SYSCALL_WAITPID(f, status, mode)
+#define chdir(path) SYSCALL_CHDIR(path)
+#define execve(program, argv, env) SYSCALL_EXECVE(program, argv, env)
+
 #endif
 
 /* Copyright (C) 2016-2020 Jeremiah Orians
