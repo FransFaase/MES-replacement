@@ -1,4 +1,4 @@
-/*	Stack_C: Compiler for Stack C language to i386 Assembly
+/*	Stack_C: Compiler for Stack C language to amd64(x86_64) M1 Assembly
 
 	This is to adapted to parse output produced by the tcc_cc.c
 	C compiler. For that reason, it only uses keywords that are
@@ -967,8 +967,6 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == SYM_CALL)
 		{
-			//int nr = pos - nesting_nr_vars[0] + 1;
-			//printf(" call at %d offset %d\n", pos, nr);
 			fprintf(fout, "\tadd_rbp, %%%d         # ()\n\tcall_rax\n\tsub_rbp, %%%d\n", 8 * pos, 8 * pos);
 		}
 		else if (sym == SYM_DIV_SIGNED)

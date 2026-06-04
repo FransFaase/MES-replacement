@@ -178,6 +178,18 @@ int main (int argc, char *argv[])
 	is_true(1 / 10 == 0, "1 / 10 == 0");
 	is_true(-5 < 0, "-5 < 0");
 	is_true(0 < 4, "0 < 4");
+	unsigned long ul_a = 1;
+	unsigned long ul_b = 0x7FFFFFFFL;
+	is_true(ul_a < ul_b, "ul_a(1) < ul_b(large)");
+	is_true(ul_a <= ul_b, "ul_a(1) < ul_b(large)");
+	is_true(ul_b > ul_a, "ul_b(large) > ul_b(1)");
+	is_true(ul_b >= ul_a, "ul_b(large) >= ul_b(1)");
+	long sl_a = -10;
+	long sl_b = 10;
+	is_true(sl_a < sl_b, "sl_a(-10) < sl_b(10)");
+	is_true(sl_a <= sl_b, "sl_a(-10) < sl_b(10)");
+	is_true(sl_b > sl_a, "sl_b(10) > sl_b(-10)");
+	is_true(sl_b >= sl_a, "sl_b(10) >= sl_b(-10)");
 	printf("(%d %d) == (44 -44)\n", 44, -44);
 	char signed_char = 255;
 	is_true(signed_char == -1, "signed_char = -1");

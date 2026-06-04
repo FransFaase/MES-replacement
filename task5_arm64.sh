@@ -5,7 +5,7 @@
 set -x
 
 # Build sources
-make -C src arm64_test
+make -C src arm64_tests
 
 # Delete existing rootfs
 rm -rf rootfs

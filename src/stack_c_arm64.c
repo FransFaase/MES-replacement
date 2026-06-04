@@ -17,6 +17,10 @@
 	load via a PC-relative literal (LOAD_W*_AHEAD ; SKIP_32_DATA ; <4 bytes>).
 	Branches to labels load &address into w16 and "br x16"; conditionals are an
 	inverted fixed-offset skip over that block.
+
+Notes:
+- https://ret.futo.org/arm64/
+- https://developer.arm.com/documentation/ddi0602/2026-03/Base-Instructions
 */
 
 #include <stdio.h>
@@ -896,11 +900,11 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == '/')
 		{
-			fprintf(fout, "\tMOV_X1_X0             # /\n\tPOP_X0\n\tUDIV_X0_X0_X1\n");
+			fprintf(fout, "\tPOP_X1                # /\n\tUDIV_X0_X1_X0\n");
 		}
 		else if (sym == '%')
 		{
-			fprintf(fout, "\tMOV_X1_X0             # %%\n\tPOP_X0\n\tUDIV_X2_X0_X1\n\tMSUB_X0_X2_X1_X0\n");
+			fprintf(fout, "\tPOP_X1                # %%\n\tUDIV_X2_X1_X0\n\tMSUB_X0_X2_X0_X1\n");
 		}
 		else if (sym == '<')
 		{
@@ -970,11 +974,11 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == SYM_DIV_SIGNED)
 		{
-			fprintf(fout, "\tMOV_X1_X0             # /s\n\tPOP_X0\n\tSDIV_X0_X0_X1\n");
+			fprintf(fout, "\tPOP_X1                # /s\n\tSDIV_X0_X1_X0\n");
 		}
 		else if (sym == SYM_MOD_SIGNED)
 		{
-			fprintf(fout, "\tMOV_X1_X0             # %%s\n\tPOP_X0\n\tSDIV_X2_X0_X1\n\tMSUB_X0_X2_X1_X0\n");
+			fprintf(fout, "\tPOP_X1                # %%s\n\tSDIV_X2_X1_X0\n\tMSUB_X0_X2_X0_X1\n");
 		}
 		else if (sym == SYM_EQ)
 		{
@@ -1010,11 +1014,11 @@ int main(int argc, char *argv[])
 		}
 		else if (sym == SYM_SHL)
 		{
-			fprintf(fout, "\tMOV_X1_X0             # <<\n\tPOP_X0\n\tLSL_X0_X0_X1\n");
+			fprintf(fout, "\tPOP_X1                # <<\n\tLSL_X0_X1_X0\n");
 		}
 		else if (sym == SYM_SHR)
 		{
-			fprintf(fout, "\tMOV_X1_X0             # >>\n\tPOP_X0\n\tLSR_X0_X0_X1\n");
+			fprintf(fout, "\tPOP_X1                # >>\n\tLSR_X0_X1_X0\n");
 		}
 		else if (sym == SYM_LOG_AND)
 		{
