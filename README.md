@@ -232,20 +232,39 @@ for `kaem-minimal`, which is used to execute the initial `kaem` files.
 
 ## Task 5: Implement support for other targets
 
-Write versions of the program converting the intermediate stack language
-for other targets besides x86. For x86_64 this will be relatively simply.
-For the other targets this requires some investigation, also figuring out
-how to test this, for example, using some form of emulation, such as QEMU.
+For this task some modifications are made to `tcc_cc.c`. It now also has
+an `-a` command line option which can specify used to specify the target
+architecture. The primary reason for this is the difference with respect
+to system calls.
+
+The `stack_c_interpreter.c` has also been updated and now also supports
+the interpretation for the x86_64/amd64 target.
 
 ### The x86_64/amd64 target
 
-The script `task5_amd64.sh` (still work in progress) creates a `rootfs`
-environment (after first having compiled versions of the necessary programs
-for amd64) for compiling the Tiny C Sources for the x86_64/amd64 target.
+The `stack_c_amd64.c` program was developed to compile the output of
+`tcc_cc.c` to assembly for the target. The script `task5_amd64.sh`
+creates a `rootfs` environment (after first having compiled versions of
+the necessary programs for amd64) and executes all the necessary steps
+to compile tcc-0.9.26 and tcc-0.9.27 for amd64.
+[Harmen Stoppels](https://github.com/haampie) made contributions patches
+to compile the Tiny C cources for this target.
 
-### The arm target
+### The arm64/AArch64 target
 
-Implementing a version for the arm target.
+For this target `tcc_cc` needs to be called with the `-a arm64` command
+line options, which define `TCC_TARGET_ARM64` that is used in `sys_syscall.h`
+to define the correct system calls for target.
+The `stack_c_arm64.c` program was developed by 
+[Harmen Stoppels](https://github.com/haampie) with the help of Claude Code.
+He also developed the necessary patches for the Tiny C Compiler sources.
+The script `task5_arm64.sh` creates a `rootfs` environment (after first
+having compiled versions of the necessary programs for arm64) and
+executes all the necessary steps to compile tcc-0.9.26 and tcc-0.9.27 for
+arm64.
+
+*Remark*: For executing arm64 ELF files on a x86 or am64 machine
+the Quick Emulator (QEMU) can be installed.
 
 ### The riscv64
 
@@ -264,12 +283,17 @@ that is needed for compiling TCC. For this I wrote a minimal C preprocessor:
 `min_tcc_preprocessor.cpp` and `CParser.c` that is heavily based on
 [RawParser](https://github.com/FransFaase/RawParser).
 
+# Contributors
+
+- [Harmen Stoppels](https://github.com/haampie)
+
 # Acknowledgments
 
 The work in this repository falls under the project
 [Verifying and documenting live-bootstrap](https://nlnet.nl/project/live-bootstrap/),
-which was funded through the [NGI0 Core](https://nlnet.nl/core/) Fund, a fund established by
-[NLnet](https://nlnet.nl) with financial support from the European Commission's
+which was funded through the [NGI0 Core](https://nlnet.nl/core/) Fund,
+a fund established by [NLnet](https://nlnet.nl) with financial support
+from the European Commission's
 [Next Generation Internet](https://ngi.eu) programme, under the aegis of
 [DG Communications Networks, Content and Technology](https://commission.europa.eu/about-european-commission/departments-and-executive-agencies/communications-networks-content-and-technology_en) under grant agreement
 Nₒ [101092990](https://cordis.europa.eu/project/id/101092990).
