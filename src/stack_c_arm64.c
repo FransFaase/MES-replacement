@@ -18,6 +18,12 @@
 	Branches to labels load &address into w16 and "br x16"; conditionals are an
 	inverted fixed-offset skip over that block.
 
+    This code was initially generated with the help of Claude Code with a
+    prompt to translate the stack_c_amd64.c file for amd64 to arm64. Only
+	the code generating print statements were adapted. The results where
+	reviewed and some small code generation improvements where made with
+	respect to /, /s, %, %s, <<, and >> translations.
+
 Notes:
 - https://ret.futo.org/arm64/
 - https://developer.arm.com/documentation/ddi0602/2026-03/Base-Instructions

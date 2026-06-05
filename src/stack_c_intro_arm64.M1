@@ -11,6 +11,10 @@
 # Branches to labels load the absolute &address into w16 and "br x16"; a
 # conditional branch is an inverted fixed-offset skip over that load+br block.
 
+# This code was initially generated with the help of Claude Code with a
+# prompt to translate the stack_c_intro_amd64.M1 file for amd64 to arm64.
+# It was reviewed and some edits where made.
+
 DEFINE NULL 0000000000000000
 
 # operand stack (x18)
@@ -110,16 +114,16 @@ DEFINE SVC_0 010000D4
 
 :_start
 	MOV_X18_SP                  # operand stack = entry stack (holds argc/argv)
-	# brk(0): query current program break
-	MOVZ_X0_0
-	MOVZ_X8_214
-	SVC_0                       # x0 = current break
-	# store break into the SYS_MALLOC pointer cell
-	LOAD_W1_AHEAD
+
+	MOVZ_X8_214					# the Syscall # for SYS_BRK
+	MOVZ_X0_0                   # brk(0): query current program break
+	SVC_0                       # Let the kernel do the work
+	LOAD_W1_AHEAD               # store break into the SYS_MALLOC pointer cell
 	SKIP_32_DATA
 	&SYS_MALLOC
 	STR_X0_X1
-	# allocate 100000 bytes for the locals stack
+
+	# allocate memory fo the second stack
 	LOAD_W0_AHEAD
 	SKIP_32_DATA
 	%100000
@@ -129,54 +133,61 @@ DEFINE SVC_0 010000D4
 	&f_sys_malloc
 	BLR_X16                     # x0 = base of locals stack
 	MOV_X17_X0                  # x17 (BP) = locals base
-	# set up argc / &argv on the operand stack for main
+
+    # setup argc and argv for the main function
 	POP_X0                      # x0 = argc; x18 now -> &argv[0]
 	MOV_X1_X18                  # x1 = &argv[0]
 	PUSH_X0                     # push argc
 	PUSH_X1                     # push &argv
+
 	# call main
 	LOAD_W16_AHEAD
 	SKIP_32_DATA
 	&f_main
 	BLR_X16                     # x0 = main return value
-	# exit(x0)
+
+	# program completed Successfully
 	MOVZ_X8_93
 	SVC_0
 
-# These sys_ functions use the normal calling convention but are leaves: the
-# return address stays in x30 (set by blr) since svc preserves it.
+# These sys_ function follow the same calling conventions
+# as all the other functions. To access the arguments on the stack
+# the return address is stored in the rdi address (which is only possible
+# because these functions do not call other function) and the function
+# address (which is stored in the rax register, the top of the stack)
+# needs to be popped as well.
 
 :f_sys_syscall
-	POP_X2                      # arg3
-	POP_X1                      # arg2
-	POP_X0                      # arg1
-	POP_X8                      # syscall number
-	SVC_0
+	POP_X2                      # Pop 4th argument
+	POP_X1                      # Pop 3rd argument
+	POP_X0                      # Pop 2nd argument
+	POP_X8                      # Pop 1st argument
+	SVC_0                       # call the Kernel
 	RETURN
 
 # Four-argument variant for the aarch64 *at syscalls (openat/fchmodat/...),
 # which take a leading dirfd. Carries the extra argument in x3.
 :f_sys_syscall4
-	POP_X3                      # arg4
-	POP_X2                      # arg3
-	POP_X1                      # arg2
-	POP_X0                      # arg1
-	POP_X8                      # syscall number
-	SVC_0
+	POP_X3                      # Pop 5th argument
+	POP_X2                      # Pop 4th argument
+	POP_X1                      # Pop 3rd argument
+	POP_X0                      # Pop 2nd argument
+	POP_X8                      # Pop 1st argument
+	SVC_0                       # call the Kernel
 	RETURN
 
 :f_sys_malloc
-	POP_X0                      # x0 = size
-	LOAD_W1_AHEAD
+	POP_X0                      # Pop size argument
+	LOAD_W1_AHEAD				# Using the current pointer
 	SKIP_32_DATA
 	&SYS_MALLOC
-	LDR_X2_X1                   # x2 = current break (value to return)
-	ADD_X3_X2_X0                # x3 = new break = current + size
-	STR_X3_X1                   # update SYS_MALLOC
-	MOV_X0_X3                   # brk(new break)
-	MOVZ_X8_214
-	SVC_0
-	MOV_X0_X2                   # return the old break pointer
+	LDR_X2_X1                   # Save current value in X2
+	ADD_X3_X2_X0                # Request the number of desired bytes
+	STR_X3_X1                   # Update pointer
+	MOV_X0_X3                   # Set first argument for SYS_BRK
+	MOVZ_X8_214                 # the Syscall # for SYS_BRK
+	SVC_0                       # call the Kernel
+	MOV_X0_X2                   # Return previous value (saved in X2)
 	RETURN
 :SYS_MALLOC
 	NULL

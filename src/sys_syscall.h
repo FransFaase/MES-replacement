@@ -9,24 +9,24 @@ int sys_syscall(int a, int b, int c, int d);
 int sys_syscall4(int a, int b, int c, int d, int e);
 
 #define AT_FDCWD -100
-#define SIGCHLD 17
-#define __NR_exit 93
-#define __NR_fork 220   // clone
-#define __NR_read 63
-#define __NR_write 64
-#define __NR_open 56    // openat
-#define __NR_close 57
-#define __NR_waitpid 260 // wait4
-#define __NR_unlink 35  // unlinkat
-#define __NR_execve 221
-#define __NR_chdir 49
-#define __NR_chmod 53   // fchmodat
-#define __NR_lseek 62
-#define __NR_access 48  // faccessat
-#define __NR_mkdir 34   // mkdirat
-#define __NR_symlink 36 // symlinkat
-#define __NR_uname 160
-#define __NR_getcwd 17
+#define SIGCHLD    17
+#define __NR_exit     93
+#define __NR_fork    220  // clone
+#define __NR_read     63
+#define __NR_write    64
+#define __NR_open     56  // openat
+#define __NR_close    57
+#define __NR_waitpid 260  // wait4
+#define __NR_unlink   35  // unlinkat
+#define __NR_execve  221
+#define __NR_chdir    49
+#define __NR_chmod    53  // fchmodat
+#define __NR_lseek    62
+#define __NR_access   48  // faccessat
+#define __NR_mkdir    34  // mkdirat
+#define __NR_symlink  36  // symlinkat
+#define __NR_uname   160
+#define __NR_getcwd   17
 
 #define SYSCALL_FORK() sys_syscall(__NR_fork, SIGCHLD, 0, 0)
 #define SYSCALL_OPEN(P,M,A) sys_syscall4(__NR_open, AT_FDCWD, P, M, A)
