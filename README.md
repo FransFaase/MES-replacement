@@ -255,9 +255,10 @@ to compile the Tiny C cources for this target.
 For this target `tcc_cc` needs to be called with the `-a arm64` command
 line options, which define `TCC_TARGET_ARM64` that is used in `sys_syscall.h`
 to define the correct system calls for target.
-The `stack_c_arm64.c` program was developed by 
+The `stack_c_arm64.c` program was initialy developed by 
 [Harmen Stoppels](https://github.com/haampie) with the help of Claude Code.
 He also developed the necessary patches for the Tiny C Compiler sources.
+(Some files from [musl libc](https://musl.libc.org/) were used.)
 The script `task5_arm64.sh` creates a `rootfs` environment (after first
 having compiled versions of the necessary programs for arm64) and
 executes all the necessary steps to compile tcc-0.9.26 and tcc-0.9.27 for
@@ -282,6 +283,24 @@ For a first feasability study to analyzing what part of the C-grammar
 that is needed for compiling TCC. For this I wrote a minimal C preprocessor:
 `min_tcc_preprocessor.cpp` and `CParser.c` that is heavily based on
 [RawParser](https://github.com/FransFaase/RawParser).
+
+# Use of Generative Artificial Intelligence
+
+With respect to the use of the (NLnet policy)[https://nlnet.nl/foundation/policies/generativeAI/]
+for the use of Generative Artificial Intelligence: Claude Code
+was used for:
+- Generating initial versions of `stack_c_arm64.c` and `stack_c_intro_arm64.M1`
+  with Claude Code. This did not include the generation of new algorihms
+  but solemny the translation of x86_64/amd64 assembly and machine code
+  mappings to equivalent arm64/AArch64 assemnly and machine code, which
+  are freely available through open documentation of said targets. The
+  generated initial versions were reviewed and some small improvements in
+  the code generation and the comments were made. Statements of the use
+  of Claude Code were included.
+- Fixing problems with respect to compiling the Tiny C Compiler versions
+  inherited from the 'upstream' live-bootstrap project, which are only
+  included as source in this project to prove that the implemented GNU Mes
+  replacement is working as advertized.
 
 # Contributors
 
