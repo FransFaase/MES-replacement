@@ -286,7 +286,7 @@ that is needed for compiling TCC. For this I wrote a minimal C preprocessor:
 
 # Use of Generative Artificial Intelligence
 
-With respect to the use of the (NLnet policy)[https://nlnet.nl/foundation/policies/generativeAI/]
+With respect to the use of the [NLnet policy](https://nlnet.nl/foundation/policies/generativeAI/)
 for the use of Generative Artificial Intelligence: Claude Code
 was used for:
 - Generating initial versions of `stack_c_arm64.c` and `stack_c_intro_arm64.M1`
