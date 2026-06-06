@@ -234,6 +234,12 @@ int main (int argc, char *argv[])
 	v_func();
 	int array[] = { 1, 2, 3 };
 	is_true(sizeof(array) == 3 * sizeof(array[0]), "size of array is 3");
+
+	unsigned int low = 0;
+	unsigned int high = 0xFFFFFFF8;
+	int limit = 4;
+	is_true((low - high) > limit, "32-bit subtraction result in ordered compare");
+
 	static int s_int = 1;
 	is_true(s_int == 1, "static int == 1");
 	

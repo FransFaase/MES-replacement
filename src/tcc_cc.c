@@ -4375,6 +4375,18 @@ void expr_print_warning(expr_p expr, const char *mesg)
 	}
 }
 
+void gen_canon_narrow(expr_p expr, expr_p operand)
+{
+	if (long_long_size != TARGET_64BITS)
+		return;
+	if (operand == NULL || !type_is_integer(operand->type) || operand->type->size != 4)
+		return;
+	if (type_is_signed_integer(expr->children[0]->type) || type_is_signed_integer(expr->children[1]->type))
+		fprintf(fcode, "long ");
+	else
+		fprintf(fcode, "0xFFFFFFFF & ");
+}
+
 void gen_expr(expr_p expr, bool as_value)
 {
 	if (expr == NULL)
@@ -4554,7 +4566,9 @@ void gen_expr(expr_p expr, bool as_value)
 		case TK_LE:
 		case TK_GE:
 			gen_expr(expr->children[0], TRUE);
+			gen_canon_narrow(expr, expr->children[0]);
 			gen_expr(expr->children[1], TRUE);
+			gen_canon_narrow(expr, expr->children[1]);
 			switch (expr->kind)
 			{
 				case TK_LE: fprintf(fcode, "<="); break;
