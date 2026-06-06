@@ -2866,7 +2866,7 @@ void expr_dioper_set_type(expr_p expr)
 	if (type_is_integer(type_lhs) && type_is_integer(type_rhs))
 	{
 		int size = type_lhs->size > type_rhs->size ? type_lhs->size : type_rhs->size;
-		bool signed_int = (((int)type_lhs->base_type | (int)type_lhs->base_type) & 2) == 2;
+		bool signed_int = (((int)type_lhs->base_type | (int)type_rhs->base_type) & 2) == 2;
 		if (size == 8)
 			expr->type = signed_int ? base_type_S64 : base_type_U64;
 		else if (size == 4)
