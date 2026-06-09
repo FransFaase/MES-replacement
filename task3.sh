@@ -18,8 +18,8 @@ mkdir -p rootfs/tmp
 mkdir -p rootfs/bootstrap-seeds
 mkdir -p rootfs/bootstrap-seeds/POSIX
 mkdir -p rootfs/bootstrap-seeds/POSIX/x86
-cp -f src/kaem-minimal_s rootfs/bootstrap-seeds/POSIX/x86/kaem-optional-seed
-cp -f src/hex0_s rootfs/bootstrap-seeds/POSIX/x86/hex0-seed
+cp -f src/kaem-minimal.x86 rootfs/bootstrap-seeds/POSIX/x86/kaem-optional-seed
+cp -f src/hex0.x86 rootfs/bootstrap-seeds/POSIX/x86/hex0-seed
 
 # Copy root kaem script
 cp -f task3/kaem.x86 rootfs/kaem.x86
@@ -33,14 +33,14 @@ cp -f -t rootfs/x86 \
     task3/check-tools.kaem \
     task3/tools-kaem.kaem \
     task3/after.kaem \
-    src/hex0_s.hex0 \
-    src/kaem-minimal_s.hex0 \
-    src/hex2_s.hex0 \
-    src/blood-elf_s.macro \
-    src/blood-elf_s.blood_elf \
-    src/M1_s.macro \
-    src/M1_s.blood_elf \
-    src/stack_c_s.M1 \
+    src/hex0.x86_hex0 \
+    src/kaem-minimal.x86_hex0 \
+    src/hex2.x86_hex0 \
+    src/blood-elf.macro_x86 \
+    src/blood-elf.blood_elf_x86 \
+    src/M1.macro_x86 \
+    src/M1.blood_elf_x86 \
+    src/stack_c.M1_x86 \
     src/stack_c_intro.M1 \
     M2libc/x86/ELF-x86-debug.hex2
 

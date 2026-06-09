@@ -1,18 +1,20 @@
 all : x86 amd64
-x86 : unittest_s_OK stack_c_s stack_c_diff_OK tcc_cc_s tcc_cc_diff_OK diff3_OK diff5_OK diff4_OK \
-      hex0_s hex0_s.hex0 hex2_s.hex0 \
-	  blood-elf_s.macro blood-elf_s.blood_elf \
-	  M1_s.macro M1_s.blood_elf \
-	  stack_c_s.M1 tcc_cc.sl \
-	  kaem-minimal_s kaem-minimal_s.hex0 \
-	  kaem_s \
-	  catm_s \
-	  match_s \
-	  mkdir_s cp_s chmod_s rm_s \
-	  untar_s ungz_s unxz_s unbz2_s \
-	  configurator_s script-generator_s \
-      sha256sum_s \
-	  equal_s
+x86 : tools stack_c unittest.x86_OK stack_c.x86 stack_c_diff_OK tcc_cc.x86 tcc_cc_diff_OK diff3_OK diff5_OK diff4_OK \
+      hex0.x86 hex0.x86_hex0 hex2.x86_hex0 \
+	  blood-elf.macro_x86 blood-elf.blood_elf_x86 \
+	  M1.macro_x86 M1.blood_elf_x86 \
+	  stack_c.M1_x86 tcc_cc.sl \
+	  kaem-minimal.x86 kaem-minimal.x86_hex0 \
+	  kaem.x86 \
+	  catm.x86 \
+	  match.x86 \
+	  mkdir.x86 cp.x86 chmod.x86 rm.x86 \
+	  untar.x86 ungz.x86 unxz.x86 unbz2.x86 \
+	  configurator.x86 script-generator.x86 \
+      sha256sum.x86 \
+	  equal.x86
+
+tools : tcc_cc M1 hex2 hex0 blood-elf
 
 % : %.c
 	./run.sh gcc $(basename $@)
@@ -32,36 +34,36 @@ equal.sl : equal.c tcc_cc
 %.sl : %.c tcc_cc stdlib.c
 	./tcc_cc -o $@ stdlib.c $<
 
-%_t.sl : %.c tcc_cc_s stdlib.c
-	./tcc_cc_s -o $@ stdlib.c $< 
+%_t.sl : %.c tcc_cc.x86 stdlib.c
+	./tcc_cc.x86 -o $@ stdlib.c $<
 
-%_s.M1 : %.sl stack_c stack_c_intro.M1
+%.M1_x86 : %.sl stack_c stack_c_intro.M1
 	./stack_c -i stack_c_intro.M1 $< -o $@
 
-%.blood_elf : %.M1 blood-elf
+%.blood_elf_x86 : %.M1_x86 blood-elf
 	./blood-elf --file $< --little-endian --output $@
 
-%.macro : %.blood_elf M1
-	./M1 $(basename $@).M1 -o $@
+%.macro_x86 : %.blood_elf_x86 M1
+	./M1 $(basename $@).M1_x86 -o $@
 
-% : %.macro hex2
-	./hex2 -o $@ ../M2libc/x86/ELF-x86-debug.hex2 $(basename $@).macro $(basename $@).blood_elf
+%.x86 : %.macro_x86
+	./hex2 -o $@ ../M2libc/x86/ELF-x86-debug.hex2 $(basename $@).macro_x86 $(basename $@).blood_elf_x86
 	objdump -d -M intel $@ >$@.txt
 
-%.hex0 : %.macro hex2
-	./hex2 -o $@ ../M2libc/x86/ELF-x86-debug.hex2 $(basename $@).macro $(basename $@).blood_elf
+%.x86_hex0 : %.macro_x86
+	./hex2 -o $@ ../M2libc/x86/ELF-x86-debug.hex2 $(basename $@).macro_x86 $(basename $@).blood_elf_x86
 
-unittest_s_OK : unittest_s stack_c_interpreter unittest.sl
-	./unittest_s
+unittest.x86_OK : unittest.x86 stack_c_interpreter unittest.sl
+	./unittest.x86
 	./stack_c_interpreter unittest.sl
 
-stack_c_diff_OK : stack_c_s stack_c_intro.M1 stack_c.sl stack_c_s.M1
-	./stack_c_s -i stack_c_intro.M1 stack_c.sl -o stack_c_s2.M1
-	./run.sh diff stack_c_s.M1 stack_c_s2.M1 stack_c_diff_OK
+stack_c_diff_OK : stack_c.x86 stack_c_intro.M1 stack_c.sl stack_c.M1_x86
+	./stack_c.x86 -i stack_c_intro.M1 stack_c.sl -o stack_c_s2.M1_x86
+	./run.sh diff stack_c.M1_x86 stack_c_s2.M1_x86 stack_c_diff_OK
 
-tcc_cc_diff_OK : stack_c_s stack_c_intro.M1 tcc_cc.sl tcc_cc_s.M1
-	./stack_c_s -i stack_c_intro.M1 tcc_cc.sl -o tcc_cc_s2.M1
-	./run.sh diff tcc_cc_s.M1 tcc_cc_s2.M1 tcc_cc_diff_OK
+tcc_cc_diff_OK : stack_c.x86 stack_c_intro.M1 tcc_cc.sl tcc_cc.M1_x86
+	./stack_c.x86 -i stack_c_intro.M1 tcc_cc.sl -o tcc_cc_s2.M1_x86
+	./run.sh diff tcc_cc.M1_x86 tcc_cc_s2.M1_x86 tcc_cc_diff_OK
 	
 diff3_OK : unittest.sl unittest_t.sl
 	./run.sh diff unittest.sl unittest_t.sl diff3_OK
@@ -72,7 +74,7 @@ diff4_OK : stack_c.sl stack_c_t.sl
 diff5_OK : tcc_cc.sl tcc_cc_t.sl
 	./run.sh diff tcc_cc.sl tcc_cc_t.sl diff5_OK
 
-amd64 : stack_c_amd64 unittest.amd64_OK stack_c_diff_amd64_OK tcc_cc_s tcc_cc_diff_amd64_OK diff3_amd64_OK diff5_amd64_OK diff4_amd64_OK \
+amd64 : stack_c_amd64 unittest.amd64_OK stack_c_diff_amd64_OK tcc_cc_diff_amd64_OK diff3_amd64_OK diff5_amd64_OK diff4_amd64_OK \
       hex0.amd64 hex0.amd64_hex0 hex2.amd64_hex0 \
 	  blood-elf.macro_amd64 blood-elf.blood_elf_amd64 \
 	  M1.macro_amd64 M1.blood_elf_amd64 \
@@ -82,7 +84,7 @@ amd64 : stack_c_amd64 unittest.amd64_OK stack_c_diff_amd64_OK tcc_cc_s tcc_cc_di
 	  catm.amd64 \
 	  match.amd64 \
 	  mkdir.amd64 cp.amd64 chmod.amd64 rm.amd64 \
-	  untar_s ungz.amd64 unxz.amd64 unbz2.amd64 \
+	  untar.amd64 ungz.amd64 unxz.amd64 unbz2.amd64 \
 	  configurator.amd64 script-generator.amd64 \
       sha256sum.amd64 \
 	  equal.amd64
@@ -147,7 +149,7 @@ diff5_amd64_OK : tcc_cc.amd64.sl64 tcc_cc_tamd64.amd64.sl64
 # artifacts below are aarch64; they are reassembled into a working toolchain inside the
 # arm64 chroot (see task_arm64.sh / target_arm64). `make arm64` is build-only — running an
 # aarch64 binary on an x86_64 host needs qemu, so the self-test diffs are deliberately omitted.
-arm64 : stack_c_arm64 \
+arm64 : tools stack_c_arm64 \
 	  hex0.arm64 hex0.arm64_hex0 hex2.arm64_hex0 \
 	  blood-elf.macro_arm64 blood-elf.blood_elf_arm64 \
 	  M1.macro_arm64 M1.blood_elf_arm64 \
@@ -157,7 +159,7 @@ arm64 : stack_c_arm64 \
 	  catm.arm64 \
 	  match.arm64 \
 	  mkdir.arm64 cp.arm64 chmod.arm64 rm.arm64 \
-	  untar_s ungz.arm64 unxz.arm64 unbz2.arm64 \
+	  untar.arm64 ungz.arm64 unxz.arm64 unbz2.arm64 \
 	  configurator.arm64 script-generator.arm64 \
       sha256sum.arm64 \
 	  equal.arm64
@@ -222,8 +224,8 @@ diff4_arm64_OK : stack_c.arm64.sl64 stack_c_tarm64.arm64.sl64
 diff5_arm64_OK : tcc_cc.arm64.sl64 tcc_cc_tarm64.arm64.sl64
 	./run.sh diff tcc_cc.arm64.sl64 tcc_cc_tarm64.arm64.sl64 diff5_arm64_OK
 
-.PRECIOUS: %.sl %_s.M1 %.blood_elf %.macro \
+.PRECIOUS: %.sl %.M1_x86 %.blood_elf_x86 %.macro_x86 \
 	%.sl64 \
 	%.M1_amd64 %.blood_elf_amd64 %.macro_amd64 \
 	%.M1_arm64 %.blood_elf_arm64 %.macro_arm64
-.PHONY: all x86 amd64 arm64 arm64_tests
+.PHONY: all tools x86 amd64 arm64 arm64_tests

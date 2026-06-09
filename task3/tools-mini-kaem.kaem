@@ -1,14 +1,14 @@
 #! /usr/bin/env bash
 
-./usr/bin/hex0 ./x86/hex2_s.hex0 ./usr/bin/hex2
+./usr/bin/hex0 ./x86/hex2.x86_hex0 ./usr/bin/hex2
 
-./usr/bin/hex2 -o ./usr/bin/blood-elf ./x86/ELF-x86-debug.hex2 ./x86/blood-elf_s.macro ./x86/blood-elf_s.blood_elf
+./usr/bin/hex2 -o ./usr/bin/blood-elf ./x86/ELF-x86-debug.hex2 ./x86/blood-elf.macro_x86 ./x86/blood-elf.blood_elf_x86
 
-./usr/bin/hex2 -o ./usr/bin/M1 ./x86/ELF-x86-debug.hex2 ./x86/M1_s.macro ./x86/M1_s.blood_elf
+./usr/bin/hex2 -o ./usr/bin/M1 ./x86/ELF-x86-debug.hex2 ./x86/M1.macro_x86 ./x86/M1.blood_elf_x86
 
-./usr/bin/blood-elf --file ./x86/stack_c_s.M1 --little-endian --output ./tmp/stack_c_s.blood_elf
-./usr/bin/M1 -o ./tmp/stack_c_s.macro ./x86/stack_c_s.M1
-./usr/bin/hex2 -o ./usr/bin/stack_c ./x86/ELF-x86-debug.hex2 ./tmp/stack_c_s.macro ./tmp/stack_c_s.blood_elf
+./usr/bin/blood-elf --file ./x86/stack_c.M1_x86 --little-endian --output ./tmp/stack_c.blood_elf_x86
+./usr/bin/M1 -o ./tmp/stack_c.macro_x86 ./x86/stack_c.M1_x86
+./usr/bin/hex2 -o ./usr/bin/stack_c ./x86/ELF-x86-debug.hex2 ./tmp/stack_c.macro_x86 ./tmp/stack_c.blood_elf_x86
 
 ./usr/bin/stack_c -i ./x86/stack_c_intro.M1 ./src/tcc_cc.sl -o tmp/tcc_cc.M1
 ./usr/bin/blood-elf --file tmp/tcc_cc.M1 --little-endian --output ./tmp/tcc_cc.blood_elf
