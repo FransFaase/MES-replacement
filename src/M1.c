@@ -2,31 +2,6 @@
 #include <malloc.h>
 #include <string.h>
 
-#ifdef __TCC_CC__
-
-int fgets(char *buffer, int size, FILE *f)
-{
-    int i = 0;
-    while (i < size - 1)
-    {
-        char ch;
-        if (read(f->fh, &ch, 1) == 0)
-        {
-            if (i == 0)
-                return 0;
-            break;
-        }
-        buffer[i++] = ch;
-        if (ch == '\n')
-            break;
-    }
-    buffer[i] = '\0';
-    return 1;
-}
-
-#endif
-
-
 typedef struct define_s *define_p;
 struct define_s
 {
@@ -124,7 +99,9 @@ int main(int argc, char *argv[])
                     if (*s <= ' ')
                     {
                         fputc(' ', fout);
-                        s++;
+                        do
+                            s++;
+                        while (*s == ' ');
                     }
                     else if ((*s == '%' || *s == '!') && (('0' <= s[1] && s[1] <= '9') || s[1] == '-'))
                     {
@@ -189,6 +166,8 @@ int main(int argc, char *argv[])
                 fputc('\n', fout);
             }
         }
-        fclose(fout);
+        fclose(fin);
     }
+    if (fout != stdout)
+        fclose(fout);
 }

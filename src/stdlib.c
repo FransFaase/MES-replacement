@@ -17,10 +17,14 @@ typedef struct
 {
 	size_t fh;
 	size_t at_eof;
+	char mode;
+	size_t size;
+	size_t pos;
+	unsigned char *buffer;
 } FILE;
-FILE __sys_stdin = { 0, 0 };
-FILE __sys_stdout = { 1, 0 };
-FILE __sys_stderr = { 2, 0 };
+FILE __sys_stdin = { 0, 0, 'S' };
+FILE __sys_stdout = { 1, 0, 'S' };
+FILE __sys_stderr = { 2, 0, 'S' };
 
 const FILE *stdin = &__sys_stdin;
 const FILE *stdout = &__sys_stdout;
@@ -225,15 +229,34 @@ float strtof(const char* str, char **endptr)
 	return 0;
 }
 
+
+char *__s_malloc_mem = 0;
+int __s_malloc_left = 0;
+
 void *malloc(size_t size)
 {
+	size_t m_size
 #ifdef __TCC_CC_32__
 	size = (size + 3) & ~3;
-	size_t *result = sys_malloc(size + 4);
+	m_size = size + 4;
 #else
 	size = (size + 7) & ~7;
-	size_t *result = sys_malloc(size + 8);
+	m_size = size + 8;
 #endif
+	size_t *result;
+	if (size > 50000)
+		result = sys_malloc(m_size);
+	else
+	{
+		if (__s_malloc_left < m_size)
+		{
+			__s_malloc_left = 100000;
+			__s_malloc_mem = (char*)malloc(__s_malloc_left);
+		}
+		result = __s_malloc_mem;
+		__s_malloc_mem += m_size;
+		__s_malloc_left -= m_size;
+	}
 	*result = size;
 	result++;
 	return result;
@@ -271,18 +294,60 @@ void free(void *ptr)
 	return 0
 }
 
+#define __FILE_WRITE_BUF_SIZE 65536
+
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
+	if (stream->mode == 'w')
+	{
+		size_t nr_bytes = size * nmemb;
+		char *s = ptr;
+		for (; nr_bytes > 0; --nr_bytes)
+		{
+			stream->buffer[stream->pos] = *s++;
+			if (++stream->pos == __FILE_WRITE_BUF_SIZE)
+			{
+				SYSCALL_WRITE(stream->fh, stream->buffer, __FILE_WRITE_BUF_SIZE);
+				stream->pos = 0;
+			}
+		}
+		return nmemb;
+	}
 	return SYSCALL_WRITE(stream->fh, ptr, size * nmemb);
 }
 
 ssize_t fputc(ssize_t c, FILE *stream)
 {
+	if (stream->mode == 'w')
+	{
+		stream->buffer[stream->pos] = c;
+		if (++stream->pos == __FILE_WRITE_BUF_SIZE)
+		{
+			SYSCALL_WRITE(stream->fh, stream->buffer, __FILE_WRITE_BUF_SIZE);
+			stream->pos = 0;
+		}
+		return 1;
+	}
+
 	return SYSCALL_WRITE(stream->fh, &c, 1);
 }
 
 ssize_t fputs(const char *s, FILE *stream)
 {
+	if (stream->mode == 'w')
+	{
+		while (*s != '\0')
+		{
+			stream->buffer[stream->pos] = *s++;
+			if (++stream->pos == __FILE_WRITE_BUF_SIZE)
+			{
+				SYSCALL_WRITE(stream->fh, stream->buffer, __FILE_WRITE_BUF_SIZE);
+				stream->pos = 0;
+			}
+		}
+		return 1;
+	}
+
 	return SYSCALL_WRITE(stream->fh, s, strlen(s));
 }
 
@@ -547,9 +612,32 @@ FILE *fopen(const char *pathname, const char *mode)
 		printf("fopen %s %s returned %d\n", pathname, mode, fh);
 		return 0;
 	}
+	if (plus)
+		rw = '+';
 	FILE *f = (FILE*)malloc(sizeof(FILE));
 	f->fh = fh;
 	f->at_eof = 0;
+	f->mode = rw;
+	f->pos = 0;
+	if (rw == 'r')
+	{
+		if (plus)
+			printf("fopen %s with r+\n", pathname);
+		f->size = lseek(fh, 0, SEEK_END);
+		f->buffer = malloc(f->size);
+		lseek(fh, 0, SEEK_SET);
+		read(fh, f->buffer, f->size);
+	}
+	else if (rw == 'w')
+	{
+		if (plus)
+			printf("fopen %s with w+\n", pathname);
+		f->buffer = malloc(__FILE_WRITE_BUF_SIZE);
+	}
+	else
+	{
+		printf("fopen %s, mode %c inefficient\n", pathname, mode);
+	}
 	return f;
 }
 
@@ -558,38 +646,113 @@ FILE *fdopen(ssize_t fd, const char *mode)
 	FILE *f = (FILE*)malloc(sizeof(FILE));
 	f->fh = fd;
 	f->at_eof = 0;
+	f->mode = *mode;
+	f->pos = 0;
+	if (*mode == 'r')
+	{
+		f->size = lseek(fd, 0, 2);
+		f->buffer = malloc(f->size + 1);
+		lseek(fd, 0, 0);
+		read(fd, f->buffer, f->size);
+		f->buffer[f->size] = '\0';
+	}
+	else if (*mode == 'w')
+	{
+		f->buffer = malloc(__FILE_WRITE_BUF_SIZE);
+	}
+	else
+	{
+		printf("fdopen %d, mode %s inefficient\n", fd, mode);
+	}
 	return f;
+}
+
+ssize_t write(size_t fd, char* buf, unsigned count);
+
+ssize_t fflush(FILE *stream)
+{
+	if (stream->mode == 'w')
+	{
+		if (stream->pos > 0)
+		{
+			write(stream->fh, stream->buffer, stream->pos);
+			stream->pos = 0;
+		}
+	}
+	return 0;
 }
 
 ssize_t fclose(FILE *stream)
 {
+	fflush(stream);
 	return SYSCALL_CLOSE(stream->fh);
-}
-
-ssize_t fflush(FILE *stream)
-{
-	// (No buffered output)
-	return 0;
 }
 
 size_t fseek(FILE *stream, size_t offset, size_t whence)
 {
+	if (stream->mode == 'r')
+	{
+		if (whence == SEEK_CUR)
+			stream->pos += offset;
+		else if (whence == SEEK_SET)
+			stream->pos = offset;
+		else if (whence == SEEK_END)
+			stream->pos = stream->size;
+		if (stream->pos < 0)
+			stream->pos = 0;
+		else if (stream->pos > stream->size)
+			stream->pos = stream->size;
+		return stream->pos;
+	}
+	printf("fseek on mode %c\n", stream->mode);
 	return lseek(stream->fh, offset, whence);
 }
 
 size_t ftell(FILE *stream)
 {
+	if (stream->mode == 'r')
+		return stream->pos;
+	if (stream->mode == 'w')
+		printf("ftell on mode w\n");
 	return lseek(stream->fh, 0, SEEK_CUR);
 }
 
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
+	if (stream->mode == 'r')
+	{
+		if (size == 1)
+		{
+			size_t left = stream->size - stream->pos;
+			if (nmemb > left)
+				nmemb = left;
+			memcpy(ptr, &stream->buffer[stream->pos], nmemb);
+			stream->pos += nmemb;
+			return nmemb;
+		}
+		if (nmemb == 1 && stream->pos + size < stream->size)
+		{
+			memcpy(ptr, &stream->buffer[stream->pos], size);
+			stream->pos += size;
+			return 1;
+		}
+	}
 	char *s = (char*)ptr;
 	for (size_t i = 0; i < nmemb; i++)
 	{
-		size_t r = read(stream->fh, s, size);
-		if (r < size)
-			return i;
+		if (stream->mode == 'r')
+		{
+			if (stream->pos + size > stream->size)
+				return i;
+			memcpy(s, &stream->buffer[stream->pos], size);
+			stream->pos += size;
+		}
+		else
+		{
+			size_t r = read(stream->fh, s, size);
+			if (r < size)
+				return i;
+		}
 		s += size;
 	}
 	return nmemb;
@@ -611,6 +774,15 @@ ssize_t feof(FILE *stream)
 
 ssize_t fgetc(FILE *stream)
 {
+	if (stream->mode == 'r')
+	{
+		if (stream->pos >= stream->size)
+		{
+			stream->at_eof = 1;
+			return -1;
+		}
+		return stream->buffer[stream->pos++];
+	}
 	if (stream->at_eof)
 		return -1;
 	unsigned char ch;
@@ -878,13 +1050,13 @@ ssize_t execve(char *program, char **argv, char **env)
 
 char *fgets(char *str, size_t len, FILE *f)
 {
+	ssize_t ch = fgetc(f);
 	if (feof(f))
 		return NULL;
 	
 	for (size_t i = 0; i < len - 1; i++)
 	{
-		ssize_t ch = fgetc(f);
-		if (ch < 0)
+		if (feof(f))
 		{
 			str[i] = '\0';
 			break;
@@ -895,6 +1067,7 @@ char *fgets(char *str, size_t len, FILE *f)
 			str[i+1] = '\0';
 			break;
 		}
+		ch = fgetc(f);
 	}
 	return str;
 }

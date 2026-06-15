@@ -4943,5 +4943,8 @@ int main(int argc, char *argv[])
 
 	gen_init_globals();
 
+	if (fcode != stdout)
+		fclose(fcode);
+
 	return 0;
 }

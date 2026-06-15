@@ -23,6 +23,7 @@ void *sys_malloc(size_t size);
 #define open(pathname, mode) SYSCALL_OPEN(pathname, mode, 0777)
 #define close(fd) SYSCALL_CLOSE(fd)
 #define chmod(fn, mode) SYSCALL_CHMOD(fn, mode)
+#define lseek(fd, offset, whence) SYSCALL_LSEEK(fd, offset, whence)
 
 void *malloc(size_t size) { return sys_malloc((size + 3) & ~3); }
 
@@ -105,6 +106,24 @@ int fhgets(char *buffer, int size, int fh)
     return 1;
 }
 
+int my_left = 0;
+char *my_mem = 0;
+#define ALLOC_SIZE 100000
+
+void* my_malloc(int size)
+{
+    if (my_left < size)
+    {
+        my_mem = (char*)malloc(ALLOC_SIZE);
+        my_left = ALLOC_SIZE;
+    }
+    void *result = my_mem;
+    my_mem += size;
+    my_left -= size;
+    return result;
+}
+
+
 int ip = 0;
 
 int is_hex(char ch)
@@ -121,9 +140,7 @@ struct label_s
 {
     char *name;
     int ip;
-    label_p next;
 };
-label_p labels[LABEL_BUCKETS];
 
 unsigned int hash(const char *name, int len)
 {
@@ -132,27 +149,129 @@ unsigned int hash(const char *name, int len)
     return h;
 }
 
-int pos_for_label(const char *name, int len)
+typedef struct hexa_hash_tree_t *hexa_hash_tree_p;
+struct hexa_hash_tree_t
+{	char has_children;
+	union
+	{	label_p label;
+		hexa_hash_tree_p *children;
+	} data;
+};
+
+static hexa_hash_tree_p hash_tree = 0;
+
+label_p find_label(const char* name, int len)
 {
-    unsigned int bucket = hash(name, len) % LABEL_BUCKETS;
-    for (label_p label = labels[bucket]; label != NULL; label = label->next)
-        if (strncmp(label->name, name, len) == 0 && label->name[len] == '\0')
-            return label->ip;
-    return 0;
+	hexa_hash_tree_p *r_node = &hash_tree;
+	const char *vs = name;
+	int depth;
+	int mode = 0;
+
+	for (depth = 0; ; depth++)
+	{
+        hexa_hash_tree_p node = *r_node;
+
+		if (node == 0)
+		{	node = (hexa_hash_tree_p)my_malloc(sizeof(struct hexa_hash_tree_t));
+			node->has_children = 0;
+            label_p label = (label_p)my_malloc(sizeof(struct label_s));
+            label->ip = 0;
+            label->name = (char*)my_malloc(len + 1);
+            strncpy(label->name, name, len);
+            label->name[len] = '\0';
+			node->data.label = label;
+			*r_node = node;
+			return label;
+		}
+
+		if (node->has_children == 0)
+		{	char *cs = node->data.label->name;
+			hexa_hash_tree_p *children;
+			unsigned short i, v = 0;
+
+            for (i = 0; i < len; i++)
+                if (cs[i] != name[i])
+                    break;
+			if (i == len && cs[len] == '\0')
+				return node->data.label;
+
+			children = (hexa_hash_tree_p*)my_malloc(16*sizeof(hexa_hash_tree_p*));
+			for (i = 0; i < 16; i++)
+				children[i] = 0;
+
+			i = strlen(cs);
+			if (depth <= i)
+				v = ((unsigned char)cs[depth]) & 15;
+			else if (depth <= i*2)
+				v = ((unsigned char)cs[depth-i-1]) >> 4;
+
+			children[v] = node;
+
+			node = (hexa_hash_tree_p)my_malloc(sizeof(struct hexa_hash_tree_t));
+			node->has_children = 1;
+			node->data.children = children;
+			*r_node = node;
+		}
+		{
+            unsigned short v = 0;
+            if (depth > 2 * len)
+                ;
+			else if (depth == len)
+			{
+                v = 0;
+				mode = 1;
+				vs = name;
+			}
+			else if (mode == 0)
+				v = ((unsigned short)*vs++) & 15;
+			else
+				v = ((unsigned short)*vs++) >> 4;
+
+			r_node = &node->data.children[v];
+		}
+	}
 }
 
-void process_file(const char *name, int add_labels, void (*output_byte)(unsigned char, int), void (*end_of_line)(const char *s))
+int pos_for_label(const char *name, int len)
 {
-    int f = open(name, O_RDONLY);
-    if (f < 0)
+    label_p v_label = find_label(name, len);
+    return v_label->ip;
+}
+
+struct file_t
+{
+    char *name;
+    int exists;
+    int size;
+    char *content;
+};
+
+void process_file(struct file_t *input_file, int add_labels, void (*output_byte)(unsigned char, int), void (*end_of_line)(const char *s))
+{
+    if (input_file->exists == -1)
+    {
+        input_file->exists = 0;
+        int f = open(input_file->name, O_RDONLY);
+        if (f >= 0)
+        {
+            input_file->exists = 1;
+            input_file->size = lseek(f, 0, 2);
+            input_file->content = malloc(input_file->size + 1);
+            lseek(f, 0, 0);
+            read(f, input_file->content, input_file->size);
+            input_file->content[input_file->size] = '\0';
+            close(f);
+        }
+    }
+    if (input_file->exists == 0)
         return;
-    static char line[1000];
+
     int line_nr = 0;
-    while (fhgets(line, 999, f))
+    char *s = input_file->content;
+    while (*s != '\0')
     {
         line_nr++;
         int space = 0;
-        char *s = line;
         while (*s != '\0' && *s != '#' && *s != '\r' && *s != '\n')
             if (*s <= ' ')
             {
@@ -168,14 +287,8 @@ void process_file(const char *name, int add_labels, void (*output_byte)(unsigned
                     label_len++;
                 if (label_len > 0 && add_labels)
                 {
-                    label_p new_label = (label_p)malloc(sizeof(struct label_s));
-                    new_label->name = (char*)malloc(label_len + 1);
-                    strncpy(new_label->name, label, label_len);
-                    new_label->name[label_len] = '\0';
+                    label_p new_label = find_label(label, label_len);
                     new_label->ip = ip;
-                    unsigned int bucket = hash(new_label->name, label_len) % LABEL_BUCKETS;
-                    new_label->next = labels[bucket];
-                    labels[bucket] = new_label;
                 }
             }
             else if (is_hex(*s) >= 0 && is_hex(s[1]) >= 0)
@@ -240,16 +353,17 @@ void process_file(const char *name, int add_labels, void (*output_byte)(unsigned
             else
             {
 #ifndef __TCC_CC__
-                fprintf(stderr, "%s:%d: Unknown '%c'(%d) '%s'\n", name, line_nr, *s, *s, line);
+                fprintf(stderr, "%s:%d: Unknown '%c'(%d)\n", input_file->name, line_nr, *s, *s);
 #endif
                 return;
             }
-        while (*s != '\0' && *s != '#' && *s != '\r' && *s != '\n')
-            s++;
         if (end_of_line != 0)
             end_of_line(s);
+        while (*s != '\0' && *s != '\n')
+            s++;
+        if (*s == '\n')
+            s++;
     }
-    close(f);
 }
 
 void output_hex(char ch, int fh)
@@ -282,17 +396,19 @@ void output_hex_end_of_line(const char *s)
     col = 1;
 }
 
+char *buf_pos;
+
 void output_byte(unsigned char byte, int space)
 {
     (void)space;
-    fhputc(byte, fout);
+    *buf_pos++ = byte;
 }
 
 int main(int argc, char *argv[])
 {
     fout = STDOUT_FILENO;
     int output_as_hex = 1;
-    char *input_files[10];
+    struct file_t input_files[10];
     int nr_input_files = 0;
     char *output_file = NULL;
     for (int i  = 1; i < argc; i++)
@@ -302,7 +418,10 @@ int main(int argc, char *argv[])
             output_file = argv[i]; 
         }
         else
-            input_files[nr_input_files++] = argv[i];
+        {
+            input_files[nr_input_files].exists = -1;
+            input_files[nr_input_files++].name = argv[i];
+        }
 
     if (output_file != NULL)
     {
@@ -320,14 +439,27 @@ int main(int argc, char *argv[])
 
     ip = 0x8048000;
     for (int i = 0; i < nr_input_files; i++)
-        process_file(input_files[i], 1, 0, 0);
+        process_file(&input_files[i], 1, 0, 0);
+
+    int bin_size = ip - 0x8048000;
 
     ip = 0x8048000;
+
+    char *output_buf;
+    if (!output_as_hex)
+    {
+        output_buf = (char *)malloc(bin_size);
+        buf_pos = output_buf;
+    }
+
     for (int i = 0; i < nr_input_files; i++)
         if (output_as_hex)
-            process_file(input_files[i], 0, output_hex_byte, output_hex_end_of_line);
+            process_file(&input_files[i], 0, output_hex_byte, output_hex_end_of_line);
         else
-            process_file(input_files[i], 0, output_byte, 0);
+            process_file(&input_files[i], 0, output_byte, 0);
+
+    if (!output_as_hex)
+        write(fout, output_buf, bin_size);
 
     if (output_file != NULL)
     {

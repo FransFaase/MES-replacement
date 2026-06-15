@@ -165,7 +165,7 @@ arm64 : tools stack_c_arm64 \
 	  equal.arm64
 
 # For building and running tests, use 'make arm64_tests'
-arm64_tests : arm64 unittest.arm64_OK stack_c_diff_arm64_OK tcc_cc_s tcc_cc_diff_arm64_OK diff3_arm64_OK diff5_arm64_OK diff4_arm64_OK
+arm64_tests : arm64 unittest.arm64_OK stack_c_diff_arm64_OK tcc_cc.arm64 tcc_cc_diff_arm64_OK diff3_arm64_OK diff5_arm64_OK diff4_arm64_OK
 
 # Self-contained tools (no stdlib.c); -D TCC_TARGET_ARM64=1 selects the aarch64 syscall
 # numbers in sys_syscall.h and the *at wrappers these tools define for arm64.
@@ -224,8 +224,85 @@ diff4_arm64_OK : stack_c.arm64.sl64 stack_c_tarm64.arm64.sl64
 diff5_arm64_OK : tcc_cc.arm64.sl64 tcc_cc_tarm64.arm64.sl64
 	./run.sh diff tcc_cc.arm64.sl64 tcc_cc_tarm64.arm64.sl64 diff5_arm64_OK
 
-.PRECIOUS: %.sl %.M1_x86 %.blood_elf_x86 %.macro_x86 \
-	%.sl64 \
-	%.M1_amd64 %.blood_elf_amd64 %.macro_amd64 \
-	%.M1_arm64 %.blood_elf_arm64 %.macro_arm64
-.PHONY: all tools x86 amd64 arm64 arm64_tests
+
+riscv64 : stack_c_riscv64 \
+	  hex0.riscv64 hex0.riscv64_hex0 hex2.riscv64_hex0 \
+	  blood-elf.macro_riscv64 blood-elf.blood_elf_riscv64 \
+	  M1.macro_riscv64 M1.blood_elf_riscv64 \
+	  stack_c_riscv64.M1_riscv64 tcc_cc.riscv64.sl64 \
+	  kaem-minimal.riscv64 kaem-minimal.riscv64_hex0 \
+	  kaem.riscv64 \
+	  catm.riscv64 \
+	  match.riscv64 \
+	  mkdir.riscv64 cp.riscv64 chmod.riscv64 rm.riscv64 \
+	  untar_s ungz.riscv64 unxz.riscv64 unbz2.riscv64 \
+	  configurator.riscv64 script-generator.riscv64 \
+      sha256sum.riscv64 \
+	  equal.riscv64
+
+# For building and running tests, use 'make riscv64_tests'
+riscv64_tests : riscv64 unittest.riscv64_OK stack_c_diff_riscv64_OK tcc_cc.risc64 tcc_cc_diff_riscv64_OK diff3_riscv64_OK diff5_riscv64_OK diff4_riscv64_OK
+
+# Self-contained tools (no stdlib.c); -D TCC_TARGET_RISCV64=1 selects the aarch64 syscall
+# numbers in sys_syscall.h and the *at wrappers these tools define for riscv64.
+hex0.riscv64.sl64 : hex0.c tcc_cc
+	./tcc_cc -a riscv64 -o $@ $<
+
+hex2.riscv64.sl64 : hex2.c tcc_cc
+	./tcc_cc -a riscv64 -o $@ $<
+
+kaem-minimal.riscv64.sl64 : kaem-minimal.c tcc_cc
+	./tcc_cc -a riscv64 -o $@ $<
+
+equal.riscv64.sl64 : equal.c tcc_cc
+	./tcc_cc -a riscv64 -o $@ $<
+
+%.riscv64.sl64 : %.c tcc_cc stdlib.c
+	./tcc_cc -a riscv64 -o $@ stdlib.c $<
+
+%_triscv64.riscv64.sl64 : %.c tcc_cc.riscv64 stdlib.c
+	./tcc_cc.riscv64 -a riscv64 -o $@ stdlib.c $< 
+
+%.M1_riscv64 : %.riscv64.sl64 stack_c_riscv64 stack_c_intro_riscv64.M1
+	./stack_c_riscv64 -i stack_c_intro_riscv64.M1 $< -o $@
+
+%.blood_elf_riscv64 : %.M1_riscv64 blood-elf
+	./blood-elf --64 --file $< --little-endian --output $@
+
+%.macro_riscv64 : %.blood_elf_riscv64 M1
+	./M1 $(basename $@).M1_riscv64 -o $@
+
+# No objdump: the host has no aarch64 objdump (and we don't require one).
+%.riscv64 : %.macro_riscv64 hex2
+	./hex2 -o $@ ../M2libc/aarch64/ELF-aarch64-debug.hex2 $(basename $@).macro_riscv64 $(basename $@).blood_elf_riscv64
+
+%.riscv64_hex0 : %.macro_riscv64 hex2
+	./hex2 -o $@ ../M2libc/aarch64/ELF-aarch64-debug.hex2 $(basename $@).macro_riscv64 $(basename $@).blood_elf_riscv64
+
+unittest.riscv64_OK : unittest.riscv64 stack_c_interpreter
+	./unittest.riscv64
+	#./stack_c_interpreter unittest.riscv64.sl64
+
+stack_c_diff_riscv64_OK : stack_c_riscv64.riscv64 stack_c_intro_riscv64.M1 stack_c.riscv64.sl64 stack_c.M1_riscv64
+	./stack_c_riscv64.riscv64 -i stack_c_intro_riscv64.M1 stack_c.riscv64.sl64 -o stack_c_s2.M1_riscv64
+	./run.sh diff stack_c.M1_riscv64 stack_c_s2.M1_riscv64 stack_c_diff_riscv64_OK
+
+tcc_cc_diff_riscv64_OK : stack_c_riscv64.riscv64 stack_c_intro_riscv64.M1 tcc_cc.riscv64.sl64 tcc_cc.M1_riscv64
+	./stack_c_riscv64.riscv64 -i stack_c_intro_riscv64.M1 tcc_cc.riscv64.sl64 -o tcc_cc_s2.M1_riscv64
+	./run.sh diff tcc_cc.M1_riscv64 tcc_cc_s2.M1_riscv64 tcc_cc_diff_riscv64_OK
+	
+diff3_riscv64_OK : unittest.riscv64.sl64 unittest_triscv64.riscv64.sl64
+	./run.sh diff unittest.riscv64.sl64 unittest_triscv64.riscv64.sl64 diff3_riscv64_OK
+
+diff4_riscv64_OK : stack_c.riscv64.sl64 stack_c_triscv64.riscv64.sl64
+	./run.sh diff stack_c.riscv64.sl64 stack_c_triscv64.riscv64.sl64 diff4_riscv64_OK
+
+diff5_riscv64_OK : tcc_cc.riscv64.sl64 tcc_cc_triscv64.riscv64.sl64
+	./run.sh diff tcc_cc.riscv64.sl64 tcc_cc_triscv64.riscv64.sl64 diff5_riscv64_OK
+
+.PRECIOUS: \
+	%.sl %.M1_x86 %.blood_elf_x86 %.macro_x86 \
+	%.amd64.sl64 %.M1_amd64 %.blood_elf_amd64 %.macro_amd64 \
+	%.arm64.sl64 %.M1_arm64 %.blood_elf_arm64 %.macro_arm64 \
+	%.riscv64.sl64 %.M1_riscv64 %.blood_elf_riscv64 %.macro_riscv64
+.PHONY: all tools x86 amd64 arm64 arm64_tests riscv64 riscv64_tests

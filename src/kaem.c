@@ -1447,10 +1447,10 @@ void if_cmd(FILE* script, char** argv)
 	/* Do not check for successful exit status */
 	int if_status = _execute(script, argv);
 	old_VERBOSE = VERBOSE;
-	VERBOSE = VERBOSE && !if_status;
 
 	do
 	{
+		VERBOSE = old_VERBOSE && !if_status;
 		index = collect_command(script, argv);
 		require(index != -1, "Unexpected EOF, improperly terminated if statement.\n");
 
