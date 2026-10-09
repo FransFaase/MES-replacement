@@ -1,0 +1,106 @@
+<html><head>
+<title>T-diagram task5_amd64.sh</title>
+</head><body bgcolor="#E0E0E0">
+
+<style>
+.window-container { display: flex; height: 1000pt; overflow: hidden; }
+.scroll-panel { background: #E8E8E8; padding: 10px; overflow-y: auto; box-sizing: border-box; }
+#left-panel { width: 50%; min-width: 100px; }
+#left-mid-panel { width: 33%; min-width: 100px; }
+#mid-panel { width: 33%; min-width: 100px; }
+#right-panel { flex: 1; min-width: 100px; }
+.resizer { width: 4px; margin-left: 9px; margin-right: 9px; background: #999; cursor: col-resize; transition: background 0.2s; }
+.resizer:hover { background: #444; }
+</style>
+
+<script>
+function initResize(e) {
+    window.addEventListener('mousemove', StartResize);
+    window.addEventListener('mouseup', StopResize);
+}
+function StartResize(e) {
+    const leftWindow = document.getElementById('left-panel')
+    leftWindow.style.width = (leftWindow.clientWidth + e.movementX) + "px"
+}
+function StopResize() {
+    window.removeEventListener('mousemove', StartResize);
+    window.removeEventListener('mouseup', StopResize);
+}
+
+function initResize1(e) {
+    window.addEventListener('mousemove', StartResize1);
+    window.addEventListener('mouseup', StopResize1);
+}
+function StartResize1(e) {
+    const leftMidWindow = document.getElementById('left-mid-panel')
+    const midWindow = document.getElementById('mid-panel')
+    leftMidWindow.style.width = (leftMidWindow.clientWidth + e.movementX) + "px"
+    midWindow.style.width = (midWindow.clientWidth - e.movementX) + "px"
+}
+function StopResize1() {
+    window.removeEventListener('mousemove', StartResize1);
+    window.removeEventListener('mouseup', StopResize1);
+}
+
+function initResize2(e) {
+    window.addEventListener('mousemove', StartResize2);
+    window.addEventListener('mouseup', StopResize2);
+}
+function StartResize2(e) {
+    const midWindow = document.getElementById('mid-panel')
+    midWindow.style.width = (midWindow.clientWidth + e.movementX) + "px"
+}
+function StopResize2() {
+    window.removeEventListener('mousemove', StartResize2);
+    window.removeEventListener('mouseup', StopResize2);
+}
+</script>
+
+
+<h1>T-diagram <tt>task5_amd64.sh</tt></h1>
+
+The <A HREF="https://en.wikipedia.org/wiki/Tombstone_diagram">T-diagram</A>
+below gives all the steps that are taken when executing the Bash script
+<a href="https://github.com/FransFaase/MES-replacement/blob/main/task5_amd64.sh"
+><tt>task5_amd64.sh</tt></a>.<p>
+This T-diageam is generated based on data that is generated with the
+<A HREF="https://github.com/FransFaase/MES-replacement/blob/main/gen_graph.cpp"
+><TT>gen_graph.cpp</TT></A>, which parses the <TT>trace.txt</TT> file that is produced by
+running the Bash script.
+<P>
+
+<FORM ID="categories">
+<INPUT TYPE="checkbox" ID="cat1">gcc<BR>
+<INPUT TYPE="checkbox" ID="cat2" checked>bash, make, and cp<BR>
+<INPUT TYPE="checkbox" ID="cat3" checked>C programs of MES replacement project<BR>
+<INPUT TYPE="checkbox" ID="cat4" checked>External sources: mes-0.27.1.tar.gz, tcc-0.9.26.tar.gz, and tcc-0.9.27.tar.bz2<P>
+<INPUT TYPE="button" ID="next" VALUE="Next source to review">
+</FORM>
+
+<canvas id="canvas" width="600" height="600">
+This text is displayed if your browser does not support HTML5 Canvas.
+</canvas>
+<DIV ID="details"></DIV>
+
+
+<SCRIPT LANGUAGE="JavaScript" SRC="TDiagram_amd64.js"></SCRIPT>
+<SCRIPT LANGUAGE="JavaScript" SRC="data_amd64.js"></SCRIPT>
+
+<script><!--
+var diagram = new TDiagram(document.getElementById("canvas"), data, true)
+diagram.dy = 600
+diagram.sf *= 0.5
+diagram.details = document.getElementById("details")
+diagram.diagram_name = "diagram"
+diagram.draw()
+
+window.addEventListener("resize", function(event) { diagram.resize(event); })
+categories.cat1.addEventListener("click", (e) => { diagram.setCatergory(1, e) })
+categories.cat2.addEventListener("click", (e) => { diagram.setCatergory(2, e) })
+categories.cat3.addEventListener("click", (e) => { diagram.setCatergory(3, e) })
+categories.cat4.addEventListener("click", (e) => { diagram.setCatergory(4, e) })
+categories.next.addEventListener("click", (e) => { diagram.showNextToReview() })
+
+
+//--></script>
+</body></html>

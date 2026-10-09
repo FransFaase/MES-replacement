@@ -14,7 +14,7 @@ x86 : tools stack_c unittest.x86_OK stack_c.x86 stack_c_diff_OK tcc_cc.x86 tcc_c
       sha256sum.x86 \
 	  equal.x86
 
-tools : tcc_cc M1 hex2 hex0 blood-elf
+tools : tcc_cc M1 hex2 blood-elf
 
 % : %.c
 	./run.sh gcc $(basename $@)
@@ -74,7 +74,7 @@ diff4_OK : stack_c.sl stack_c_t.sl
 diff5_OK : tcc_cc.sl tcc_cc_t.sl
 	./run.sh diff tcc_cc.sl tcc_cc_t.sl diff5_OK
 
-amd64 : stack_c_amd64 unittest.amd64_OK stack_c_diff_amd64_OK tcc_cc_diff_amd64_OK diff3_amd64_OK diff5_amd64_OK diff4_amd64_OK \
+amd64 : tools stack_c_amd64 unittest.amd64_OK stack_c_diff_amd64_OK tcc_cc_diff_amd64_OK diff3_amd64_OK diff5_amd64_OK diff4_amd64_OK \
       hex0.amd64 hex0.amd64_hex0 hex2.amd64_hex0 \
 	  blood-elf.macro_amd64 blood-elf.blood_elf_amd64 \
 	  M1.macro_amd64 M1.blood_elf_amd64 \
