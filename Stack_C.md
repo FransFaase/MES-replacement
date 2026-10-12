@@ -193,9 +193,9 @@ the goto statement.
 
 # Stack-C compiler
 
-The Stack-C compiler is implemented in [`stack_c.c`](stack_c.c).
+The Stack-C compiler is implemented in [`stack_c.c`](src/stack_c.c).
 It produces output for the M1 assembler for (32 bit) x64. The
-contents of the file [`stack_c_intro.M1`](stack_c_intro.M1) is copied
+contents of the file [`stack_c_intro.M1`](src/stack_c_intro.M1) is copied
 to the start of the output, which does introduce the labels `ELF_text`,
 `_start`, `f_sys_int80`, `f_sys_malloc`, and `SYS_MALLOC`. The
 compiler also does generate some new labels, such as `ELF_end`
