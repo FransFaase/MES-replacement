@@ -277,6 +277,13 @@ Write the necessary MarkDown/HTML files with the alternative git repository
 for stage0 and add comments to the source files where needed. Write or
 give a presentation about the achievements.
 
+* Presentation: [Fast Linux bootstrapping](https://www.youtube.com/watch?v=lPIF_nfqM_g):
+  Achieving 20 times speed-up of stage-0.
+* [Presentation notes](https://www.iwriteiam.nl/Hackfest_2026.html)
+* [T-diagram for task5_amd64.sh](https://fransfaase.github.io/MES-replacement/TdiagramAMD64.html)
+  which includes visualization of trust traceability and reviewing
+  the critical files for trusting result of stage-0.
+
 ## Older files
 
 For a first feasability study to analyzing what part of the C-grammar
